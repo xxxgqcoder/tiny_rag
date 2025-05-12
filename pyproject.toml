@@ -1,9 +1,9 @@
 [project]
-name = "ragflow"
-version = "0.18.0"
-description = "[RAGFlow](https://ragflow.io/) is an open-source RAG (Retrieval-Augmented Generation) engine based on deep document understanding. It offers a streamlined RAG workflow for businesses of any scale, combining LLM (Large Language Models) to provide truthful question-answering capabilities, backed by well-founded citations from various complex formatted data."
+name = "my_rag"
+version = "0.0.1"
+description = "my_rag is an super simplified LLM RAG tool which focus on core feature of an RAG system."
 authors = [
-    { name = "Zhichang Yu", email = "yuzhichang@gmail.com" }
+    { name = "Guoqing Xia", email = "xxxgqcoder@gmail.com" }
 ]
 license = { file = "LICENSE" }
 readme = "README.md"
@@ -140,7 +140,7 @@ full = [
 ]
 
 [tool.setuptools]
-packages = ['rag', 'api', 'sdk', 'helm','agent', 'deepdoc', 'graphrag', 'flask_session', 'intergrations', 'agentic_reasoning']
+packages = ['deepdoc']
 
 [[tool.uv.index]]
 url = "https://mirrors.aliyun.com/pypi/simple"
@@ -149,7 +149,6 @@ url = "https://mirrors.aliyun.com/pypi/simple"
 line-length = 200
 exclude = [
     ".venv",
-    "rag/svr/discord_svr.py",
 ]
 
 [tool.ruff.lint]
