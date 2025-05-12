@@ -57,13 +57,11 @@ ENV PATH=/root/.local/bin:$PATH
 
 # ============================================================================ #
 # builder stage
+# install dependencies from uv.lock file
 FROM base AS builder
 USER root
 WORKDIR /tiny_rag
 
-
-# ============================================================================ #
-# install dependencies from uv.lock file
 COPY pyproject.toml uv.lock ./
 
 # https://github.com/astral-sh/uv/issues/10462
@@ -77,8 +75,21 @@ RUN --mount=type=cache,id=tiny_rag_uv,target=/root/.cache/uv,sharing=locked \
     uv sync --python 3.10 --frozen --all-extras;
 
 
-COPY deepdoc /tiny_rag/deepdoc
+# ============================================================================ #
+# copy Python environment and packages
+FROM base AS production
+USER root
+WORKDIR /tiny_rag
 
+ENV VIRTUAL_ENV=/tiny_rag/.venv
+COPY --from=builder ${VIRTUAL_ENV} ${VIRTUAL_ENV}
+ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
+ENV PYTHONPATH=/tiny_rag/
+
+
+# ============================================================================ #
+# copy project files
+COPY deepdoc /tiny_rag/deepdoc
 COPY docker/entrypoint.sh .
 RUN chmod +x ./entrypoint*.sh
 
