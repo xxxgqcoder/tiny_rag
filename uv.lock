@@ -4776,7 +4776,7 @@ wheels = [
 ]
 
 [[package]]
-name = "my_rag"
+name = "tiny_rag"
 version = "0.0.1"
 source = { virtual = "." }
 dependencies = [

@@ -1,7 +1,7 @@
 [project]
-name = "my_rag"
+name = "tiny_rag"
 version = "0.0.1"
-description = "my_rag is an super simplified LLM RAG tool which focus on core feature of an RAG system."
+description = "tiny_rag is an super simplified LLM RAG tool which focus on core feature of an RAG system."
 authors = [
     { name = "Guoqing Xia", email = "xxxgqcoder@gmail.com" }
 ]
