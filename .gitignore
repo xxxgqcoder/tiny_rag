@@ -1,0 +1,13 @@
+/bazel-*
+*.out
+*.log
+
+.vscode/
+
+**/.logs/**
+
+**/.ipynb_checkpoints/**
+
+**/__pycache__/**
+
+**/.virtual_documents/**
