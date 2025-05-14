@@ -18,7 +18,7 @@ class Chunk:
         self,
         content_type: ChunkType,
         content: bytes,
-        extra_description: str,
+        extra_description: bytes,
     ):
         """
         Args:
@@ -31,3 +31,15 @@ class Chunk:
         self.content_type = content_type
         self.content = content
         self.extra_description = extra_description
+
+    def __str__(self, ):
+        if self.content_type == ChunkType.TEXT:
+            return self.content.decode('utf-8')
+        elif self.content_type == ChunkType.IMAGE:
+            return 'content is image, below is the image description:\n' \
+                + self.extra_description.decode('utf-8')
+        elif self.content_type == ChunkType.TABLE:
+            return self.extra_description.decode('utf-8') \
+                + self.content.decode('utf-8')
+        else:
+            return ""

@@ -1,5 +1,3 @@
-from typing import List
-
 from strenum import StrEnum
 
 from .chunk import Chunk
@@ -14,22 +12,17 @@ class Parser():
     Base parser class.
     """
 
-    def __init__(
-        self,
-        file_type: SupportedFileType = SupportedFileType.PDF,
-        **kwargs,
-    ):
+    def __init__(self, ):
         """
         Args:
         - file_type: file type, pdf, ppt, docx, etc.
         """
         super().__init__()
-        self.file_type = file_type
 
     def parse(
         self,
         file_path: str,
-    ) -> List[Chunk]:
+    ) -> list[Chunk]:
         """
         parse method.
 
