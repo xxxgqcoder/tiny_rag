@@ -73,6 +73,9 @@ class PDFParser(Parser):
         - A list of parsed content block dict.
         - A python TemporaryDirectory.
         """
+        # NOTE: magic_pdf package uses singleton design and the model isntance is
+        # initialized when the module is imported, so postpone the import statement
+        # until parse method is called.
         from magic_pdf.data.data_reader_writer import FileBasedDataWriter, FileBasedDataReader
         from magic_pdf.data.dataset import PymuDocDataset
         from magic_pdf.model.doc_analyze_by_custom_model import doc_analyze
