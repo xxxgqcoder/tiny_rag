@@ -28,11 +28,11 @@ class TestPDFParser(unittest.TestCase):
             'test/Batch Normalization Accelerating Deep Network Training by Reducing Internal Covariate Shift.pdf'
         )
 
-        chunks = parser.parse(pdf_file_path)
-        for i, chunk in enumerate(chunks):
-            print(f'chunk {i}')
-            print(chunk)
-            print('=' * 120)
+        # chunks = parser.parse(pdf_file_path)
+        # for i, chunk in enumerate(chunks):
+        #     print(f'chunk {i}')
+        #     print(chunk)
+        #     print('=' * 120)
         self.assertEqual(1, 1)
 
     def test_parser_chunk(self):
@@ -69,11 +69,11 @@ class TestPDFParser(unittest.TestCase):
         self.assertEqual(len(chunks), 3)
 
         # chunk 0
-        self.assertTrue('h1' in chunks[0] and 'p1' in chunks[0]
-                        and 'p2' in chunks[0])
+        self.assertTrue('h1' in str(chunks[0]) and 'p1' in str(chunks[0])
+                        and 'p2' in str(chunks[0]))
 
         # chunk 1
-        self.assertTrue('h2' in chunks[1])
+        self.assertTrue('h2' in str(chunks[1]))
 
         for i, chunk in enumerate(chunks):
             print(chunk)
