@@ -12,6 +12,7 @@ services:
       - ${SVR_HTTP_PORT}:9380
       - 80:80
       - 443:443
+      - 4000:4000
     volumes:
       - ./tiny_rag_logs:/tiny_rag/logs
       - ./data_folder:/tiny_rag/data_folder
