@@ -1,3 +1,4 @@
+import xxhash
 from strenum import StrEnum
 
 
@@ -31,6 +32,8 @@ class Chunk:
         self.content_type = content_type
         self.content = content
         self.extra_description = extra_description
+        self.uuid = xxhash.xxh64(
+            (content + extra_description).encode("utf-8")).hexdigest()
 
     def __str__(self, ):
         if self.content_type == ChunkType.TEXT:

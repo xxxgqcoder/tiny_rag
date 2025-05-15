@@ -80,7 +80,7 @@ class PDFParser(Parser):
         from magic_pdf.data.dataset import PymuDocDataset
         from magic_pdf.model.doc_analyze_by_custom_model import doc_analyze
         from magic_pdf.config.enums import SupportedPdfParseMethod
-        
+
         # prepare env
         name_without_suff = os.path.basename(file_path).split(".")[0]
         local_image_dir = os.path.join(asset_dir, "images")
