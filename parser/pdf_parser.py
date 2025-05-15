@@ -5,6 +5,7 @@ from typing import Tuple
 
 from .parser import Parser, Chunk, ChunkType
 from config import magic_pdf_config_path
+from utils import safe_strip
 
 
 class PDFParser(Parser):
@@ -207,7 +208,10 @@ class PDFParser(Parser):
     ) -> list[Chunk]:
         content = ""
         for block in text_blocks:
-            content += block['text']
+            striped = safe_strip(block['text'])
+            if len(striped) == 0 or striped == '[]':
+                continue
+            content += striped
             content += "\n\n"
 
         return [
@@ -231,12 +235,20 @@ class PDFParser(Parser):
 
         chunks = []
         for block in image_blocks:
+            extra_description = ""
+            texts = [block['img_caption'], str(block['img_footnote'])]
+            for text in texts:
+                striped = safe_strip(text)
+                if len(striped) == 0 or striped == '[]':
+                    continue
+                extra_description += striped
+                extra_description += "\n\n"
+
             chunk = Chunk(
                 content_type=ChunkType.IMAGE,
-                content=_load_image(os.path.join(asset_dir, block['img_path'])),
-                extra_description=("<img_caption>" + str(block['img_caption']) + '</img_caption>\n\n' \
-                                   + "<img_footnote>" + str(block['img_footnote']) + '</img_footnote>\n\n' \
-                                   ).encode('utf-8'),
+                content=_load_image(os.path.join(asset_dir,
+                                                 block['img_path'])),
+                extra_description=(extra_description).encode('utf-8'),
             )
             chunks.append(chunk)
 
@@ -249,12 +261,19 @@ class PDFParser(Parser):
     ) -> list[Chunk]:
         chunks = []
         for block in table_blocks:
+            extra_description = ""
+            texts = [block['table_caption'], str(block['table_footnote'])]
+            for text in texts:
+                striped = safe_strip(text)
+                if len(striped) == 0 or striped == '[]':
+                    continue
+                extra_description += striped
+                extra_description += "\n\n"
+
             chunk = Chunk(
                 content_type=ChunkType.TABLE,
                 content=block['table_body'].encode('utf-8'),
-                extra_description=("<table_caption>" + str(block['table_caption']) + "</table_caption>\n\n" + \
-                                   "<table_footnote>" + str(block['table_footnote']) + "</table_footnote>\n\n" \
-                                   ).encode('utf-8'),
+                extra_description=(extra_description).encode('utf-8'),
             )
             chunks.append(chunk)
 

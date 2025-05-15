@@ -1,5 +1,6 @@
 import logging
 import os
+from typing import Any
 from logging.handlers import RotatingFileHandler
 
 initialized_root_logger = False
@@ -66,6 +67,17 @@ def init_root_logger(
 
     msg = f"{logfile_basename} log path: {log_path}, log levels: {pkg_levels}"
     logger.info(msg)
+
+
+def safe_strip(d: Any) -> str:
+    """
+    Safely strip d.
+    """
+    if d is None:
+        return ''
+    if isinstance(d, str):
+        return d.strip()
+    return str(d).strip()
 
 
 if __name__ == '__main__':
