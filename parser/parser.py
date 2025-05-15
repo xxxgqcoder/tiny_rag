@@ -14,8 +14,6 @@ class Parser():
 
     def __init__(self, ):
         """
-        Args:
-        - file_type: file type, pdf, ppt, docx, etc.
         """
         super().__init__()
 
