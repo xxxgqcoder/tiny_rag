@@ -3,8 +3,7 @@ import tempfile
 import logging
 from typing import Tuple
 
-from .parser import Parser
-from .chunk import Chunk, ChunkType
+from .parser import Parser, Chunk, ChunkType
 from config import magic_pdf_config_path
 
 

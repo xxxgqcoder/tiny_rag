@@ -1,8 +1,7 @@
 import unittest
 import os
 
-from parser.chunk import Chunk, ChunkType
-from parser.parser import Parser, SupportedFileType
+from parser.parser import Parser, SupportedFileType, Chunk, ChunkType
 from parser.pdf_parser import PDFParser
 
 import config
