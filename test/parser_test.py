@@ -1,8 +1,8 @@
 import unittest
 import os
 
-from parser.parser import Parser, SupportedFileType, Chunk, ChunkType
-from parser.pdf_parser import PDFParser
+from parse.parser import Parser, SupportedFileType, Chunk, ChunkType
+from parse.pdf_parser import PDFParser
 
 import config
 from utils import get_project_base_directory
