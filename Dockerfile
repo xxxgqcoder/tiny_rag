@@ -89,7 +89,6 @@ ENV PYTHONPATH=/tiny_rag/
 
 # ============================================================================ #
 # copy project files
-COPY deepdoc /tiny_rag/deepdoc
 COPY docker/entrypoint.sh .
 RUN chmod +x ./entrypoint*.sh
 
