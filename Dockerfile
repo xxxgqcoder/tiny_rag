@@ -60,7 +60,6 @@ RUN chmod +x ./entrypoint*.sh
 
 
 # ============================================================================ #
-# set up entrypoint
-# NOTE: for debug only
+# set up container entrypoint
 ENTRYPOINT ["./entrypoint.sh"]
 

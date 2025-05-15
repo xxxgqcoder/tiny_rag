@@ -13,7 +13,7 @@
     },
     "models-dir": "<project_root_dir>/assets/MinerU/models",
     "layoutreader-model-dir": "<project_root_dir>/assets/MinerU/layout_reader_models",
-    "device-mode": "mps",
+    "device-mode": "cpu",
     "layout-config": {
         "model": "doclayout_yolo"
     },

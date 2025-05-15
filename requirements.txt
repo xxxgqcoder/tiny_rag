@@ -6,3 +6,16 @@ numpy==1.26.4
 pandas==1.5.3
 torch==2.6.0
 transformers==4.51.3
+xxhash==3.5.0
+
+
+
+StrEnum==0.4.15
+opencv-python==4.11.0.86
+ultralytics==8.3.131
+doclayout_yolo==0.0.2b1
+matplotlib==3.10.0
+cycler==0.12.1
+kiwisolver==1.4.8
+
+
