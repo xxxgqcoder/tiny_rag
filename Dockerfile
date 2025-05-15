@@ -55,7 +55,7 @@ COPY utils.py .
 COPY start_jupyter.sh .
 RUN chmod +x start_jupyter.sh
 
-COPY docker/entrypoint.sh .
+COPY entrypoint.sh .
 RUN chmod +x ./entrypoint*.sh
 
 
