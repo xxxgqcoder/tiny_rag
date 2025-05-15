@@ -4,7 +4,7 @@ include:
 services:
   tiny_rag:
     depends_on:
-      es:
+      redis:
         condition: service_healthy
     image: tiny_rag:dev
     container_name: tiny_rag_server
