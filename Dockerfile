@@ -48,7 +48,7 @@ RUN --mount=type=cache,id=tiny_rag_pip,target=/root/.cache/uv,sharing=locked \
 # ============================================================================ #
 # copy project files
 COPY assets assets
-COPY parser parser
+COPY parse parse
 COPY config.py .
 COPY utils.py .
 
