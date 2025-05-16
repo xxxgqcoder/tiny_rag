@@ -23,7 +23,7 @@ class TestPDFParser(unittest.TestCase):
         parser = PDFParser()
 
         pdf_file_path = os.path.join(
-            config.asset_folder,
+            config.project_asset_folder,
             'test/Batch Normalization Accelerating Deep Network Training by Reducing Internal Covariate Shift.pdf'
         )
 
