@@ -24,7 +24,7 @@ class Chunk:
         content_type: ChunkType,
         content: bytes,
         extra_description: bytes,
-        content_url: str='',
+        content_url: str = '',
     ):
         """
         Args:

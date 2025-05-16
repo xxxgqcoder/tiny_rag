@@ -10,19 +10,19 @@ from utils import get_project_base_directory, init_root_logger
 # init project level resouces
 init_root_logger("tiny_rag")
 
+PROJECT_ASSET_FOLDER = os.path.join(get_project_base_directory(), 'assets')
+logging.info(f'project assets folder: {PROJECT_ASSET_FOLDER}')
 
-project_asset_folder = os.path.join(get_project_base_directory(), 'assets')
-logging.info(f'project assets folder: {project_asset_folder}')
-
-# root_storage_dir = os.path.join()
+ROOT_STORAGE_DIR = os.environ.get('TINY_RAG_DATA_DIR',
+                                  '/var/share/tiny_rag_data')
+logging.info(f'root storage directory: {ROOT_STORAGE_DIR}')
 
 # ============================================================================ #
 # parser config
 ## MinerU
-magic_pdf_config_path = os.path.join(project_asset_folder, 'MinerU/magic-pdf.json')
-logging.info(f'magic pdf config file path: {magic_pdf_config_path}')
-
+MAGIC_PDF_CONFIG_PATH = os.path.join(PROJECT_ASSET_FOLDER,
+                                     'MinerU/magic-pdf.json')
+logging.info(f'magic pdf config file path: {MAGIC_PDF_CONFIG_PATH}')
 
 # ============================================================================ #
 # milvus config
-

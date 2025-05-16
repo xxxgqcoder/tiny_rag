@@ -4,7 +4,7 @@ import logging
 from typing import Tuple
 
 from .parser import Parser, Chunk, ChunkType
-from config import magic_pdf_config_path
+from config import MAGIC_PDF_CONFIG_PATH
 from utils import safe_strip
 
 
@@ -16,7 +16,7 @@ class PDFParser(Parser):
     def __init__(self, ):
         super().__init__()
         # set environment variable for magic_pdf to load config json file
-        os.environ["MINERU_TOOLS_CONFIG_JSON"] = magic_pdf_config_path
+        os.environ["MINERU_TOOLS_CONFIG_JSON"] = MAGIC_PDF_CONFIG_PATH
 
     def parse(self, file_path: str) -> list[Chunk]:
         logging.info(f'parsing file from {file_path}')
