@@ -15,7 +15,7 @@ services:
       - 4000:4000
     volumes:
       - ./tiny_rag_logs:/tiny_rag/logs
-      - ./data_folder:/tiny_rag/data_folder
+      - tiny_rag_data:${TINY_RAG_DATA_DIR:-/var/share/tiny_rag_data}
     env_file: .env
     environment:
       - TZ=${TIMEZONE}
@@ -28,3 +28,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
   
+
+volumes:
+  tiny_rag_data:
+    driver: local
