@@ -1,6 +1,7 @@
 import os
 import tempfile
 import logging
+import shutil
 from typing import Tuple
 
 from .parser import Parser, Chunk, ChunkType
@@ -18,19 +19,29 @@ class PDFParser(Parser):
         # set environment variable for magic_pdf to load config json file
         os.environ["MINERU_TOOLS_CONFIG_JSON"] = MAGIC_PDF_CONFIG_PATH
 
-    def parse(self, file_path: str) -> list[Chunk]:
+    def parse(
+        self,
+        file_path: str,
+        asset_save_dir: str,
+    ) -> list[Chunk]:
         logging.info(f'parsing file from {file_path}')
+
+        os.makedirs(asset_save_dir, exist_ok=True)
 
         # get content list
         temp_dir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
         logging.info(f'asset directory: {temp_dir.name}')
 
         content_list = self.parse_pdf_content(file_path=file_path,
-                                              asset_dir=temp_dir.name)
+                                              temp_asset_dir=temp_dir.name)
         self.content_list = content_list
 
         # get chunk list
-        chunks = self.chunk(content_list=content_list, asset_dir=temp_dir.name)
+        chunks = self.chunk(
+            content_list=content_list,
+            temp_asset_dir=temp_dir.name,
+            asset_save_dir=asset_save_dir,
+        )
         self.chunks = chunks
 
         temp_dir.cleanup()
@@ -40,7 +51,7 @@ class PDFParser(Parser):
     def parse_pdf_content(
         self,
         file_path: str,
-        asset_dir: str,
+        temp_asset_dir: str,
     ) -> list[dict]:
         """
         Parse PDF content and return content list. The result is a list of json 
@@ -83,8 +94,8 @@ class PDFParser(Parser):
 
         # prepare env
         name_without_suff = os.path.basename(file_path).split(".")[0]
-        local_image_dir = os.path.join(asset_dir, "images")
-        local_md_dir = asset_dir
+        local_image_dir = os.path.join(temp_asset_dir, "images")
+        local_md_dir = temp_asset_dir
         image_dir = os.path.basename(local_image_dir)
         os.makedirs(local_image_dir, exist_ok=True)
 
@@ -144,7 +155,8 @@ class PDFParser(Parser):
     def chunk(
         self,
         content_list: list[dict],
-        asset_dir: str,
+        temp_asset_dir: str,
+        asset_save_dir: str,
     ) -> Chunk:
         """
         Chunk parsed pdf contents.
@@ -178,7 +190,9 @@ class PDFParser(Parser):
                 if block['type'] in ['text', 'equation']
             ]
             if len(text_blocks) > 0:
-                chunks.extend(self.process_text_blocks(text_blocks, asset_dir))
+                chunks.extend(
+                    self.process_text_blocks(text_blocks, temp_asset_dir,
+                                             asset_save_dir))
 
             # image blocks
             image_blocks = [
@@ -186,7 +200,8 @@ class PDFParser(Parser):
             ]
             if len(image_blocks) > 0:
                 chunks.extend(
-                    self.process_image_blocks(image_blocks, asset_dir))
+                    self.process_image_blocks(image_blocks, temp_asset_dir,
+                                              asset_save_dir))
 
             # table blocks
             table_blocks = [
@@ -194,7 +209,8 @@ class PDFParser(Parser):
             ]
             if len(table_blocks) > 0:
                 chunks.extend(
-                    self.process_table_blocks(table_blocks, asset_dir))
+                    self.process_table_blocks(table_blocks, temp_asset_dir,
+                                              asset_save_dir))
 
             # start next iteration
             i = j
@@ -204,7 +220,8 @@ class PDFParser(Parser):
     def process_text_blocks(
         self,
         text_blocks: list[dict],
-        asset_dir: str,
+        temp_asset_dir: str,
+        asset_save_dir: str,
     ) -> list[Chunk]:
         content = ""
         for block in text_blocks:
@@ -225,13 +242,18 @@ class PDFParser(Parser):
     def process_image_blocks(
         self,
         image_blocks: list[dict],
-        asset_dir: str,
+        temp_asset_dir: str,
+        asset_save_dir: str,
     ) -> list[Chunk]:
 
         def _load_image(p: str) -> bytes:
             with open(p, 'rb') as f:
                 image_bytes = f.read()
             return image_bytes
+
+        def _save_image(src_path: str, dst_dir: str):
+            dst_path = os.path.join(dst_dir, os.path.basename(src_path))
+            shutil.copyfile(src_path, dst_path)
 
         chunks = []
         for block in image_blocks:
@@ -244,11 +266,15 @@ class PDFParser(Parser):
                 extra_description += striped
                 extra_description += "\n\n"
 
+            abs_img_path = os.path.join(temp_asset_dir, block['img_path'])
+            _save_image(abs_img_path, asset_save_dir)
+
             chunk = Chunk(
                 content_type=ChunkType.IMAGE,
-                content=_load_image(os.path.join(asset_dir,
-                                                 block['img_path'])),
+                content=_load_image(abs_img_path),
                 extra_description=(extra_description).encode('utf-8'),
+                content_url=os.path.join(asset_save_dir,
+                                         os.path.basename(block['img_path'])),
             )
             chunks.append(chunk)
 
@@ -257,7 +283,8 @@ class PDFParser(Parser):
     def process_table_blocks(
         self,
         table_blocks: list[dict],
-        asset_dir: str,
+        temp_asset_dir: str,
+        asset_save_dir: str,
     ) -> list[Chunk]:
         chunks = []
         for block in table_blocks:

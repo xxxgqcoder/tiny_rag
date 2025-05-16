@@ -47,7 +47,8 @@ class Chunk:
             return self.content.decode('utf-8')
         elif self.content_type == ChunkType.IMAGE:
             return 'content is image, below is the image description:\n' \
-                + self.extra_description.decode('utf-8')
+                + self.extra_description.decode('utf-8') \
+                + f"content url: {self.content_url}"
         elif self.content_type == ChunkType.TABLE:
             return self.extra_description.decode('utf-8') \
                 + self.content.decode('utf-8')
@@ -68,12 +69,14 @@ class Parser():
     def parse(
         self,
         file_path: str,
+        asset_save_dir: str,
     ) -> list[Chunk]:
         """
         parse method.
 
         Args:
         - file_path: path to the file.
+        - asset_save_dir: directory for saving parsed assets, for example images.
 
         Returns:
         - A list of parsed documents chunks.

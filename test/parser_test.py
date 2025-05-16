@@ -13,7 +13,7 @@ class TestBaseClass(unittest.TestCase):
     def test_base_class(self):
         chunk = Chunk(ChunkType.TEXT, content='test', extra_description='')
         parser = Parser()
-        chunks = parser.parse('fake_pdf_path.pdf')
+        chunks = parser.parse('fake_pdf_path.pdf', 'fake_path')
         self.assertEqual(1, 1)
 
 
@@ -27,7 +27,8 @@ class TestPDFParser(unittest.TestCase):
             'test/Batch Normalization Accelerating Deep Network Training by Reducing Internal Covariate Shift.pdf'
         )
 
-        # chunks = parser.parse(pdf_file_path)
+        chunks = parser.parse(pdf_file_path,
+                              "/Users/xcoder/projects/tiny_rag/test_parse")
         # for i, chunk in enumerate(chunks):
         #     print(f'chunk {i}')
         #     print(chunk)
@@ -62,7 +63,9 @@ class TestPDFParser(unittest.TestCase):
             },
         ]
         parser = PDFParser()
-        chunks = parser.chunk(content_list=content_list, asset_dir='')
+        chunks = parser.chunk(content_list=content_list,
+                              temp_asset_dir='',
+                              asset_save_dir='')
 
         # should have 3 chunks
         self.assertEqual(len(chunks), 3)
