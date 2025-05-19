@@ -27,8 +27,8 @@ class TestPDFParser(unittest.TestCase):
             'test/Batch Normalization Accelerating Deep Network Training by Reducing Internal Covariate Shift.pdf'
         )
 
-        chunks = parser.parse(pdf_file_path,
-                              "/Users/xcoder/projects/tiny_rag/test_parse")
+        # chunks = parser.parse(pdf_file_path,
+        #                       "/Users/xcoder/projects/tiny_rag/test_parse")
         # for i, chunk in enumerate(chunks):
         #     print(f'chunk {i}')
         #     print(chunk)

@@ -1,8 +1,7 @@
 # top level config
-
-import pathlib
 import logging
 import os
+from strenum import StrEnum
 
 from utils import get_project_base_directory, init_root_logger
 
@@ -37,3 +36,11 @@ logging.info(f"parsed image data directory: {PARSED_IMAGE_DATA_DIR}")
 
 PARSED_AUDIO_DATA_DIR = os.path.join(ROOT_STORAGE_DIR, 'tiny_rag_images')
 logging.info(f"parsed audio data directory: {PARSED_AUDIO_DATA_DIR}")
+
+
+# ============================================================================ #
+class ChunkType(StrEnum):
+    TEXT = "text"
+    AUDIO = "audio"
+    IMAGE = "image"
+    TABLE = "table"
