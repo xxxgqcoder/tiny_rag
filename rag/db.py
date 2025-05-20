@@ -33,7 +33,7 @@ class VectorDB(ABC):
         raise NotImplementedError("Not implemented")
 
     @abstractmethod
-    def search(self, query: Dict[str, Any], params: Dict[str, Any]):
+    def search(self, query: Dict[str, Any], params: Dict[str, Any]) -> Any:
         raise NotImplementedError("Not implemented")
 
 
