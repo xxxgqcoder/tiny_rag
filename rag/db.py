@@ -52,15 +52,36 @@ class MilvusLiteDB(VectorDB):
         if self.client.has_collection(collection_name=collection_name):
             logging.info('collection found in db, skip creation')
             return
-            
+
         # data schema
         schema = self.client.create_schema(enable_dynamic_field=True)
-        
-        schema.add_field(field_name="uuid", datatype=DataType.VARCHAR, is_primary=True, auto_id=False, max_length=128)
-        schema.add_field(field_name="content", datatype=DataType.VARCHAR, max_length=10240)
-        schema.add_field(field_name="meta", datatype=DataType.JSON, nullable=True)
-        schema.add_field(field_name="dense_vector", datatype=DataType.FLOAT_VECTOR, dim=dense_embed_dim)
-        schema.add_field(field_name="sparse_vector", datatype=DataType.SPARSE_FLOAT_VECTOR)
+
+        schema.add_field(
+            field_name="uuid",
+            datatype=DataType.VARCHAR,
+            is_primary=True,
+            auto_id=False,
+            max_length=128,
+        )
+        schema.add_field(
+            field_name="content",
+            datatype=DataType.VARCHAR,
+            max_length=10240,
+        )
+        schema.add_field(
+            field_name="meta",
+            datatype=DataType.JSON,
+            nullable=True,
+        )
+        schema.add_field(
+            field_name="dense_vector",
+            datatype=DataType.FLOAT_VECTOR,
+            dim=dense_embed_dim,
+        )
+        schema.add_field(
+            field_name="sparse_vector",
+            datatype=DataType.SPARSE_FLOAT_VECTOR,
+        )
 
         # index
         index_params = self.client.prepare_index_params()
@@ -70,7 +91,7 @@ class MilvusLiteDB(VectorDB):
             metric_type="IP",
         )
         index_params.add_index(
-            field_name="sparse_vector", 
+            field_name="sparse_vector",
             index_type="SPARSE_INVERTED_INDEX",
             metric_type="IP",
         )
@@ -82,10 +103,9 @@ class MilvusLiteDB(VectorDB):
             index_params=index_params,
             enable_dynamic_field=True,
         )
-        
+
         self.collection_name = collection_name
         logging.info(f'milvus collection created: {collection_name}')
-        
 
     def use_collection(self, collection_name: str):
         if not self.client.has_collection(collection_name=collection_name):
@@ -97,7 +117,6 @@ class MilvusLiteDB(VectorDB):
     def insert(self, data: Union[Dict, List[Dict]]):
         stats = self.client.upsert(self.collection_name, data)
         logging.info(f'insert stats: {stats}')
-
 
     def delete(self, ):
         pass
@@ -119,25 +138,28 @@ class MilvusLiteDB(VectorDB):
         limit = params.get('limit', 10)
         sparse_weight = params.get('sparse_weight', 0.7)
         dense_weight = params.get('dense_weight', 1.0)
-        
+
         query_dense_embedding = query['dense']
         dense_search_params = {"metric_type": "IP", "params": {}}
-        dense_req = AnnSearchRequest(
-            [query_dense_embedding], "dense_vector", dense_search_params, limit=limit
-        )
+        dense_req = AnnSearchRequest([query_dense_embedding],
+                                     "dense_vector",
+                                     dense_search_params,
+                                     limit=limit)
 
         query_sparse_embedding = query['sparse']
         sparse_search_params = {"metric_type": "IP", "params": {}}
-        sparse_req = AnnSearchRequest(
-            [query_sparse_embedding], "sparse_vector", sparse_search_params, limit=limit
-        )
-        
+        sparse_req = AnnSearchRequest([query_sparse_embedding],
+                                      "sparse_vector",
+                                      sparse_search_params,
+                                      limit=limit)
+
         rerank = WeightedRanker(sparse_weight, dense_weight)
         res = self.client.hybrid_search(
             collection_name=self.collection_name,
-            reqs=[sparse_req, dense_req], 
-            ranker=rerank, limit=limit, output_fields=output_fields,
+            reqs=[sparse_req, dense_req],
+            ranker=rerank,
+            limit=limit,
+            output_fields=output_fields,
         )[0]
-        
-        return res
 
+        return res
