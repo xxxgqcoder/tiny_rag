@@ -160,6 +160,8 @@ class MilvusLiteDB(VectorDB):
             ranker=rerank,
             limit=limit,
             output_fields=output_fields,
-        )[0]
+        )
+        if len(res) == 0:
+            return []
 
-        return res
+        return res[0]
