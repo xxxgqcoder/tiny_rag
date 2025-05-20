@@ -1,4 +1,4 @@
-FlagEmbedding==1.3.3
+FlagEmbedding
 StrEnum==0.4.15
 albucore==0.0.24
 albumentations==2.0.6
