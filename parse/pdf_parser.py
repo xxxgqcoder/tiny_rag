@@ -4,6 +4,7 @@ import logging
 import shutil
 from typing import Tuple
 
+import config
 from .parser import Parser, Chunk, ChunkType
 from config import MAGIC_PDF_CONFIG_PATH
 from utils import safe_strip
@@ -42,11 +43,13 @@ class PDFParser(Parser):
             temp_asset_dir=temp_dir.name,
             asset_save_dir=asset_save_dir,
         )
-        self.chunks = chunks
+
+        # filter chunks
+        filtered_chunks = self.filter_chunks(chunks)
 
         temp_dir.cleanup()
 
-        return chunks
+        return filtered_chunks
 
     def parse_pdf_content(
         self,
@@ -223,14 +226,8 @@ class PDFParser(Parser):
         temp_asset_dir: str,
         asset_save_dir: str,
     ) -> list[Chunk]:
-        content = ""
-        for block in text_blocks:
-            striped = safe_strip(block['text'])
-            if len(striped) == 0 or striped == '[]':
-                continue
-            content += striped
-            content += "\n\n"
-
+        texts = [block['text'] for block in text_blocks]
+        content = self.filter_text_content(texts)
         return [
             Chunk(
                 content_type=ChunkType.TEXT,
@@ -257,14 +254,10 @@ class PDFParser(Parser):
 
         chunks = []
         for block in image_blocks:
-            extra_description = ""
             texts = [block['img_caption'], str(block['img_footnote'])]
-            for text in texts:
-                striped = safe_strip(text)
-                if len(striped) == 0 or striped == '[]':
-                    continue
-                extra_description += striped
-                extra_description += "\n\n"
+            extra_description = self.filter_text_content(texts)
+            if len(extra_description) == 0:
+                extra_description = "no caption for this image"
 
             abs_img_path = os.path.join(temp_asset_dir, block['img_path'])
             _save_image(abs_img_path, asset_save_dir)
@@ -288,14 +281,10 @@ class PDFParser(Parser):
     ) -> list[Chunk]:
         chunks = []
         for block in table_blocks:
-            extra_description = ""
             texts = [block['table_caption'], str(block['table_footnote'])]
-            for text in texts:
-                striped = safe_strip(text)
-                if len(striped) == 0 or striped == '[]':
-                    continue
-                extra_description += striped
-                extra_description += "\n\n"
+            extra_description = self.filter_text_content(texts)
+            if len(extra_description) == 0:
+                extra_description = "no caption for this table"
 
             chunk = Chunk(
                 content_type=ChunkType.TABLE,
@@ -305,3 +294,36 @@ class PDFParser(Parser):
             chunks.append(chunk)
 
         return chunks
+
+    def filter_chunks(self, chunks: list[Chunk]) -> list[Chunk]:
+        """
+        Filter too short chunks
+        """
+        filtered_chunks = []
+        for chunk in chunks:
+            content = chunk.content
+            if chunk.content_type != config.ChunkType.TEXT:
+                content = chunk.extra_description
+            content = safe_strip(content.decode('utf-8'))
+            if len(content) < 8 or len(content.split()) < 3:
+                logging.info(f'remove chunk due to too short content')
+                logging.info('original content')
+                logging.info(str(chunk))
+                continue
+
+            filtered_chunks.append(chunk)
+
+        return filtered_chunks
+
+    def filter_text_content(self, texts: list[str]) -> str:
+        """
+        Filter and merge text content
+        """
+        content = ""
+        for text in texts:
+            striped = safe_strip(text)
+            if len(striped) == 0 or striped == '[]':
+                continue
+            content += striped
+            content += "\n\n"
+        return content.strip()
