@@ -120,10 +120,12 @@ class MilvusLiteDB(VectorDB):
         return stats
 
     def delete(self, key: str) -> Any:
-        stats = self.client.delete(collection_name=self.collection_name, ids=[key],)
+        stats = self.client.delete(
+            collection_name=self.collection_name,
+            ids=[key],
+        )
         logging.info(f'delete stats: {stats}')
         return stats
-
 
     def search(self, query: Dict[str, Any], params: Dict[str, Any]) -> Any:
         """
