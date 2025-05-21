@@ -8,6 +8,16 @@ from rag.nlp import EmbeddingModel
 
 
 def make_record(chunk: Chunk, embed: EmbeddingModel) -> Dict[str, Any]:
+    """
+    Make a record from chunk.
+
+    Args:
+    - chunk: parsed chunk.
+    - embed: embedding model.
+
+    Returns:
+    - A dict containing all columns of a record.
+    """
     content = chunk.content
     if chunk.content_type != config.ChunkType.TEXT:
         content = chunk.extra_description
@@ -19,12 +29,12 @@ def make_record(chunk: Chunk, embed: EmbeddingModel) -> Dict[str, Any]:
     if chunk.content_type == config.ChunkType.TABLE:
         meta['table_content'] = chunk.content.decode('utf-8')
 
-    embeddings = embed.encode(content)
+    embeddings = embed.encode([content])
 
     return {
         'uuid': chunk.uuid,
         'content': content,
         'meta': json.dumps(meta, indent=4),
-        'sparse_vector': embeddings['sparse'],
-        'dense_vector': embeddings['dense'],
+        'sparse_vector': embeddings['sparse'][0],
+        'dense_vector': embeddings['dense'][[0]],
     }
