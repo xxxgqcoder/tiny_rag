@@ -25,11 +25,11 @@ class VectorDB(ABC):
 
     # CRUD
     @abstractmethod
-    def insert(self, data: Union[Dict, List[Dict]]):
+    def insert(self, data: Union[Dict, List[Dict]]) -> Any:
         raise NotImplementedError("Not implemented")
 
     @abstractmethod
-    def delete(self, ):
+    def delete(self, key: str) -> Any:
         raise NotImplementedError("Not implemented")
 
     @abstractmethod
@@ -114,12 +114,16 @@ class MilvusLiteDB(VectorDB):
             )
         self.collection_name = collection_name
 
-    def insert(self, data: Union[Dict, List[Dict]]):
+    def insert(self, data: Union[Dict, List[Dict]]) -> Any:
         stats = self.client.upsert(self.collection_name, data)
         logging.info(f'insert stats: {stats}')
+        return stats
 
-    def delete(self, ):
-        pass
+    def delete(self, key: str) -> Any:
+        stats = self.client.delete(collection_name=self.collection_name, ids=[key],)
+        logging.info(f'delete stats: {stats}')
+        return stats
+
 
     def search(self, query: Dict[str, Any], params: Dict[str, Any]) -> Any:
         """
