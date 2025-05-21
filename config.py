@@ -24,6 +24,12 @@ MAGIC_PDF_CONFIG_PATH = os.path.join(PROJECT_ASSET_FOLDER,
 logging.info(f'magic pdf config file path: {MAGIC_PDF_CONFIG_PATH}')
 
 # ============================================================================ #
+# embedding model
+BGE_MODEL_CONFIG_PATH = os.path.join(PROJECT_ASSET_FOLDER,
+                                     'bge-m3/bge-m3.json')
+logging.info(f'bge-m3 model config file path: {BGE_MODEL_CONFIG_PATH}')
+
+# ============================================================================ #
 # db config
 ## milvus config
 MILVUS_ROOT_DATA_DIR = os.path.join(ROOT_STORAGE_DIR, 'milvus_data')
@@ -31,11 +37,9 @@ logging.info(f"milvus root data directory: {MILVUS_ROOT_DATA_DIR}")
 
 # ============================================================================ #
 # parsed resouces
-PARSED_IMAGE_DATA_DIR = os.path.join(ROOT_STORAGE_DIR, 'tiny_rag_images')
-logging.info(f"parsed image data directory: {PARSED_IMAGE_DATA_DIR}")
-
-PARSED_AUDIO_DATA_DIR = os.path.join(ROOT_STORAGE_DIR, 'tiny_rag_images')
-logging.info(f"parsed audio data directory: {PARSED_AUDIO_DATA_DIR}")
+PARSED_ASSET_DATA_DIR = os.path.join(ROOT_STORAGE_DIR,
+                                     'tiny_rag_parsed_assets')
+logging.info(f"parsed asset data directory: {PARSED_ASSET_DATA_DIR}")
 
 
 # ============================================================================ #

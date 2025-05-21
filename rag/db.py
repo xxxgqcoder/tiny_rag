@@ -46,10 +46,12 @@ class MilvusLiteDB(VectorDB):
         from pymilvus import MilvusClient
         self.client = MilvusClient(conn_url)
 
-    def create_collection(self, collection_name: str, dense_embed_dim) -> None:
-        from pymilvus import connections, utility, FieldSchema, CollectionSchema, DataType, Collection
+    def create_collection(self, collection_name: str,
+                          dense_embed_dim: int) -> None:
+        from pymilvus import DataType
 
         if self.client.has_collection(collection_name=collection_name):
+            self.collection_name = collection_name
             logging.info('collection found in db, skip creation')
             return
 
