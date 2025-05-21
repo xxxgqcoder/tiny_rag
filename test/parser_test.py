@@ -1,39 +1,66 @@
 import unittest
 import os
 
-from parser.chunk import Chunk, ChunkType
-from parser.parser import Parser, SupportedFileType
-from parser.pdf_parser import PDFParser
+from parse.parser import Parser, SupportedFileType, Chunk, ChunkType
+from parse.pdf_parser import PDFParser
 
 import config
 from utils import get_project_base_directory
 
 
-class TestBaseClass(unittest.TestCase):
-
-    def test_base_class(self):
-        chunk = Chunk(ChunkType.TEXT, content='test', extra_description='')
-        parser = Parser()
-        chunks = parser.parse('fake_pdf_path.pdf')
-        self.assertEqual(1, 1)
-
-
 class TestPDFParser(unittest.TestCase):
 
-    def test_pdf_parser(self):
+    def test_filter_chunks(self):
+        chunks = [
+            # keep
+            Chunk(content='text 1: should keep'.encode('utf-8'),
+                  extra_description=''.encode('utf-8'),
+                  content_type=config.ChunkType.TEXT),
+
+            # rm
+            Chunk(content='text 2'.encode('utf-8'),
+                  extra_description=''.encode('utf-8'),
+                  content_type=config.ChunkType.TEXT),
+
+            # keep
+            Chunk(content=''.encode('utf-8'),
+                  extra_description='image 1: should keep'.encode('utf-8'),
+                  content_type=config.ChunkType.IMAGE),
+
+            # rm
+            Chunk(content=''.encode('utf-8'),
+                  extra_description='image 2'.encode('utf-8'),
+                  content_type=config.ChunkType.TEXT),
+
+            # keep
+            Chunk(content=''.encode('utf-8'),
+                  extra_description='table 1: should keep'.encode('utf-8'),
+                  content_type=config.ChunkType.TABLE),
+
+            # rm
+            Chunk(content=''.encode('utf-8'),
+                  extra_description='table 2'.encode('utf-8'),
+                  content_type=config.ChunkType.TABLE),
+        ]
+
         parser = PDFParser()
+        ret = parser.filter_chunks(chunks)
+        for chunk in ret:
+            print(chunk)
+            print('=' * 80)
 
-        pdf_file_path = os.path.join(
-            config.asset_folder,
-            'test/Batch Normalization Accelerating Deep Network Training by Reducing Internal Covariate Shift.pdf'
-        )
+        self.assertEqual(len(ret), 3)
+        self.assertEqual(ret[0].content.decode('utf-8'), 'text 1: should keep')
+        self.assertEqual(ret[1].extra_description.decode('utf-8'),
+                         'image 1: should keep')
+        self.assertEqual(ret[2].extra_description.decode('utf-8'),
+                         'table 1: should keep')
 
-        # chunks = parser.parse(pdf_file_path)
-        # for i, chunk in enumerate(chunks):
-        #     print(f'chunk {i}')
-        #     print(chunk)
-        #     print('=' * 120)
-        self.assertEqual(1, 1)
+    def test_filter_text_content(self, ):
+        texts = ['', None, 'test ', 'block 1']
+        parser = PDFParser()
+        content = parser.filter_text_content(texts=texts)
+        self.assertEqual(content, 'test\n\nblock 1')
 
     def test_parser_chunk(self):
         content_list = [
@@ -63,7 +90,9 @@ class TestPDFParser(unittest.TestCase):
             },
         ]
         parser = PDFParser()
-        chunks = parser.chunk(content_list=content_list, asset_dir='')
+        chunks = parser.chunk(content_list=content_list,
+                              temp_asset_dir='',
+                              asset_save_dir='')
 
         # should have 3 chunks
         self.assertEqual(len(chunks), 3)
@@ -75,10 +104,7 @@ class TestPDFParser(unittest.TestCase):
         # chunk 1
         self.assertTrue('h2' in str(chunks[1]))
 
-        for i, chunk in enumerate(chunks):
-            print(chunk)
-            print('=' * 120)
-
 
 if __name__ == '__main__':
+
     unittest.main()

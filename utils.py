@@ -1,5 +1,6 @@
 import logging
 import os
+from typing import Any
 from logging.handlers import RotatingFileHandler
 
 initialized_root_logger = False
@@ -66,6 +67,52 @@ def init_root_logger(
 
     msg = f"{logfile_basename} log path: {log_path}, log levels: {pkg_levels}"
     logger.info(msg)
+
+
+def safe_strip(d: Any) -> str:
+    """
+    Safely strip d.
+    """
+    if d is None:
+        return ''
+    if isinstance(d, str):
+        return d.strip()
+    return str(d).strip()
+
+
+# def singleton(cls, *args, **kw):
+#     instances = {}
+
+#     def _singleton():
+#         key = str(cls) + str(os.getpid())
+#         if key not in instances:
+#             instances[key] = cls(*args, **kw)
+#         return instances[key]
+
+#     return _singleton
+
+
+def singleton(cls):
+    instances = {}
+
+    def getinstance(*args, **kwargs):
+        if cls not in instances:
+            instances[cls] = cls(*args, **kwargs)
+        return instances[cls]
+
+    return getinstance
+
+
+def run_once(func):
+    has_run = False
+
+    def wrapper(*args, **kwargs):
+        nonlocal has_run
+        if not has_run:
+            has_run = True
+            return func(*args, **kwargs)
+
+    return wrapper
 
 
 if __name__ == '__main__':
