@@ -29,7 +29,7 @@ class EmbeddingModel(ABC):
             type, i.e., `dense`, `sparse`. Value is the encoded vector value.
         """
         raise NotImplementedError("Not implemented")
-    
+
     @abstractmethod
     def dense_embed_dim(self, ) -> int:
         raise NotImplementedError("Not implemented")
