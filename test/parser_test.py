@@ -8,15 +8,6 @@ import config
 from utils import get_project_base_directory
 
 
-class TestBaseClass(unittest.TestCase):
-
-    def test_base_class(self):
-        chunk = Chunk(ChunkType.TEXT, content='test', extra_description='')
-        parser = Parser()
-        chunks = parser.parse('fake_pdf_path.pdf', 'fake_path')
-        self.assertEqual(1, 1)
-
-
 class TestPDFParser(unittest.TestCase):
 
     def test_filter_chunks(self):

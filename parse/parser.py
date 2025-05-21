@@ -1,6 +1,7 @@
 import xxhash
 from strenum import StrEnum
 from config import ChunkType
+from abc import ABC, abstractmethod
 
 
 class SupportedFileType(StrEnum):
@@ -50,16 +51,12 @@ class Chunk:
             return ""
 
 
-class Parser():
+class Parser(ABC):
     """
     Base parser class.
     """
 
-    def __init__(self, ):
-        """
-        """
-        super().__init__()
-
+    @abstractmethod
     def parse(
         self,
         file_path: str,
@@ -75,4 +72,4 @@ class Parser():
         Returns:
         - A list of parsed documents chunks.
         """
-        return []
+        raise NotImplementedError("Not implemented")
