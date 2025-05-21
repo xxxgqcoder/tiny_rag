@@ -35,6 +35,6 @@ def make_record(chunk: Chunk, embed: EmbeddingModel) -> Dict[str, Any]:
         'uuid': chunk.uuid,
         'content': content,
         'meta': json.dumps(meta, indent=4),
-        'sparse_vector': embeddings['sparse'][0],
-        'dense_vector': embeddings['dense'][[0]],
+        'sparse_vector': embeddings['sparse'][[0]],
+        'dense_vector': embeddings['dense'][0],
     }
