@@ -1,7 +1,8 @@
 import xxhash
 from strenum import StrEnum
-from config import ChunkType
 from abc import ABC, abstractmethod
+
+from config import ChunkType
 
 
 class SupportedFileType(StrEnum):
