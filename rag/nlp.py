@@ -106,3 +106,6 @@ class BGEM3EmbeddingModel(EmbeddingModel):
             "colbert_vecs": self.model.model.colbert_linear.out_features,
             "sparse": len(self.model.tokenizer),
         }
+
+
+embed_model = BGEM3EmbeddingModel()

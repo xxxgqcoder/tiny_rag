@@ -4,6 +4,7 @@ from typing import Union, Dict, List, Any
 from abc import ABC, abstractmethod
 from strenum import StrEnum
 
+import config
 from utils import singleton
 
 
@@ -173,3 +174,6 @@ class MilvusLiteDB(VectorDB):
             return []
 
         return res[0]
+
+
+vector_db = MilvusLiteDB(conn_url=config.MILVUS_DB_NAME)
