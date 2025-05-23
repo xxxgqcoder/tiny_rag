@@ -51,15 +51,14 @@ def process_file(file_path: str):
     - file_path: path to the file.
     """
     from parse.pdf_parser import PDFParser
-    from rag.db import vector_db
-    from rag.nlp import embed_model
+    from rag.db import get_vector_db
+    from rag.nlp import get_embed_model
 
     from config import PARSED_ASSET_DATA_DIR, MILVUS_COLLECTION_NAME, MILVUS_DB_NAME
     parser = PDFParser()
 
-    # prepare db
-    vector_db.create_collection(MILVUS_COLLECTION_NAME,
-                                embed_model.dense_embed_dim())
+    vector_db = get_vector_db()
+    embed_model = get_embed_model()
 
     # parse file
     chunks = parser.parse(file_path=file_path,
@@ -94,7 +93,7 @@ def process_file(file_path: str):
         formatted_traceback = traceback.format_exc()
         logging.info(formatted_traceback)
 
-    logging.info(f'successfully insert {len(success_records)}')
+    logging.info(f'successfully insert {len(success_records)} records')
 
     # update file - chunking state
     # TODO

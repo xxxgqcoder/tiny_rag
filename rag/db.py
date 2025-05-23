@@ -13,7 +13,7 @@ class VectorDB(ABC):
     Abstract class for vector db.
     """
 
-    def __init__(self, conn_url: str, token: str = None):
+    def __init__(self, conn_url: str, token: str = None, **kwargs):
         """
         Args:
         - conn_url: db connection url.
@@ -23,6 +23,12 @@ class VectorDB(ABC):
 
         self.conn_url = conn_url
         self.token = token
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+    @abstractmethod
+    def create_table(self, table_name: str, **kwargs) -> Any:
+        raise NotImplementedError("Not implemented")
 
     # CRUD
     @abstractmethod
@@ -41,18 +47,26 @@ class VectorDB(ABC):
 @singleton
 class MilvusLiteDB(VectorDB):
 
-    def __init__(self, conn_url: str, token: str = None):
+    def __init__(self, conn_url: str, token: str = None, **kwargs):
         logging.info(f"initialize milvus db: {conn_url}, token: {token}")
-        super().__init__(conn_url=conn_url, token=token)
+        super().__init__(conn_url=conn_url, token=token, **kwargs)
         from pymilvus import MilvusClient
         self.client = MilvusClient(conn_url)
 
-    def create_collection(self, collection_name: str,
-                          dense_embed_dim: int) -> None:
-        from pymilvus import DataType
+    def create_table(self, table_name: str, **kwargs) -> None:
+        """
+        Create milvus collection.
 
-        if self.client.has_collection(collection_name=collection_name):
-            self.collection_name = collection_name
+        Args:
+        - table_name: collection name
+        - kwargs: should pass dense mebedding dim as int.
+        """
+        from pymilvus import DataType
+        dense_embed_dim = kwargs['dense_embed_dim']
+        logging.info(f'dense embed dim: {dense_embed_dim}')
+
+        if self.client.has_collection(collection_name=table_name):
+            self.collection_name = table_name
             logging.info('collection found in db, skip creation')
             return
 
@@ -101,21 +115,14 @@ class MilvusLiteDB(VectorDB):
 
         # create collection
         self.client.create_collection(
-            collection_name=collection_name,
+            collection_name=table_name,
             schema=schema,
             index_params=index_params,
             enable_dynamic_field=True,
         )
 
-        self.collection_name = collection_name
-        logging.info(f'milvus collection created: {collection_name}')
-
-    def use_collection(self, collection_name: str):
-        if not self.client.has_collection(collection_name=collection_name):
-            raise Exception(
-                f'collection: {collection_name} not found in current db, please check'
-            )
-        self.collection_name = collection_name
+        self.collection_name = table_name
+        logging.info(f'milvus collection created: {table_name}')
 
     def insert(self, data: Union[Dict, List[Dict]]) -> Any:
         stats = self.client.upsert(self.collection_name, data)
@@ -176,4 +183,8 @@ class MilvusLiteDB(VectorDB):
         return res[0]
 
 
-vector_db = MilvusLiteDB(conn_url=config.MILVUS_DB_NAME)
+def get_vector_db():
+    return MilvusLiteDB(
+        conn_url=config.MILVUS_DB_NAME,
+        collection_name=config.MILVUS_COLLECTION_NAME,
+    )
