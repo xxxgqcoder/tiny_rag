@@ -66,10 +66,10 @@ class MilvusLiteDB(VectorDB):
         logging.info(f'insert stats: {stats}')
         return stats['upsert_count']
 
-    def delete(self, key: str) -> Any:
+    def delete(self, keys: list[str]) -> Any:
         stats = self.client.delete(
             collection_name=self.collection_name,
-            ids=[key],
+            ids=keys,
         )
         logging.info(f'delete stats: {stats}')
         return len(stats)
