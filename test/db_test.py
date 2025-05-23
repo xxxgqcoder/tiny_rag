@@ -110,6 +110,67 @@ class TestMilvusDB(unittest.TestCase):
         self.assertTrue(len(ret) == 0)
 
 
+class TestSQLiteDB(unittest.TestCase):
+
+    def test_base(self, ):
+        import os
+
+        from rag.db import SQLiteDB
+        from utils import now_in_utc
+
+        db_name = 'test_sql_lite.db'
+        document_table = 'document'
+
+        db = SQLiteDB(conn_url=db_name, document_table=document_table)
+        # create table
+        cur = db.conn.cursor()
+        sql_drop_table = """
+        DROP TABLE IF EXISTS document
+        """
+        sql_create_table = """
+        CREATE TABLE IF NOT EXISTS document (
+            id INTEGER PRIMARY KEY,
+            name TEXT NOT NULL,
+            chunks TEXT NOT NULL,
+            created_date TEXT NOT NULL
+        )
+        """
+        cur.execute(sql_drop_table)
+        cur.execute(sql_create_table)
+        db.conn.commit()
+
+        # insert
+        file_path = '/var/share/tiny_rag_files/test_file.pdf'
+        file_name = os.path.basename(file_path)
+
+        chunks = """
+        4e03170d52fd201a
+        57e68f3d1e1ebcfb
+        """.strip().split()
+        chunks = "\x07".join(chunks)
+
+        data = {
+            'name': file_name,
+            'chunks': chunks,
+            'created_date': now_in_utc(),
+        }
+
+        insert_cnt = db.insert_document(data=data)
+        self.assertEqual(insert_cnt, 1)
+
+        # get
+        ret = db.get_document(name=file_name)
+        self.assertEqual(ret['chunks'], chunks.split('\x07'))
+
+        # delete
+        delete_cnt = db.delete_document(name=file_name)
+        self.assertEqual(delete_cnt, 1)
+        ret = db.get_document(name=file_name)
+        self.assertTrue(len(ret) == 0)
+
+        pass
+
+
 if __name__ == '__main__':
 
     unittest.main()

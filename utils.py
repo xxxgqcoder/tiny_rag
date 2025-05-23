@@ -115,5 +115,11 @@ def run_once(func):
     return wrapper
 
 
+def now_in_utc():
+    from datetime import datetime, timezone
+    now_utc = datetime.now(timezone.utc)
+    return now_utc.strftime('%Y-%m-%d %H:%M:%S.%f')
+
+
 if __name__ == '__main__':
     print(get_project_base_directory())
