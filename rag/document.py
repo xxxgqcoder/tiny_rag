@@ -70,28 +70,28 @@ def process_file(file_path: str):
 
     failed_records = []
     success_records = {}
-    try:
-        for record in records:
+    for record in records:
+        try:
             vector_db.insert(record)
             success_records[record['uuid']] = True
-    except Exception as e:
-        logging.info(f"Exception: {type(e).__name__} - {e}")
+        except Exception as e:
+            logging.info(f"Exception: {type(e).__name__} - {e}")
 
-        formatted_traceback = traceback.format_exc()
-        logging.info(formatted_traceback)
+            formatted_traceback = traceback.format_exc()
+            logging.info(formatted_traceback)
 
-        failed_records.append(record)
+            failed_records.append(record)
 
     # second try if any failure
-    try:
-        for record in failed_records:
+    for record in failed_records:
+        try:
             vector_db.insert(record)
             success_records[record['uuid']] = True
-    except Exception as e:
-        logging.info(f"Exception: {type(e).__name__} - {e}")
+        except Exception as e:
+            logging.info(f"Exception: {type(e).__name__} - {e}")
 
-        formatted_traceback = traceback.format_exc()
-        logging.info(formatted_traceback)
+            formatted_traceback = traceback.format_exc()
+            logging.info(formatted_traceback)
 
     logging.info(f'successfully insert {len(success_records)} records')
 
