@@ -6,7 +6,7 @@ from typing import Tuple
 
 import config
 from utils import singleton, safe_strip
-from .parser import Parser, Chunk, ChunkType
+from parse.parser import Parser, Chunk, ChunkType
 from config import MAGIC_PDF_CONFIG_PATH
 
 
@@ -35,13 +35,18 @@ class PDFParser(Parser):
         logging.info(f'asset directory: {temp_dir.name}')
 
         content_list = self.parse_pdf_content(file_path=file_path,
-                                              temp_asset_dir=temp_dir.name)
+                                              temp_asset_dir='/tiny_rag/tmp')
+
+        with open('/tiny_rag/debug_parse/content_list.pickle', 'wb') as f:
+            pickle.dump(content_list, f)
+
+        
         self.content_list = content_list
 
         # get chunk list
         chunks = self.chunk(
             content_list=content_list,
-            temp_asset_dir=temp_dir.name,
+            temp_asset_dir='/tiny_rag/tmp',
             asset_save_dir=asset_save_dir,
         )
 
@@ -259,10 +264,15 @@ class PDFParser(Parser):
             extra_description = self.filter_text_content(texts)
             if len(extra_description) == 0:
                 extra_description = "no caption for this image"
-
+            # NOTE: corner case
+            if len(block['img_path']) == 0:
+                logging.info(f'empty image path, ignore')
+                logging.info(block)
+                continue
+                
             abs_img_path = os.path.join(temp_asset_dir, block['img_path'])
             _save_image(abs_img_path, asset_save_dir)
-
+            
             chunk = Chunk(
                 content_type=ChunkType.IMAGE,
                 content=_load_image(abs_img_path),
