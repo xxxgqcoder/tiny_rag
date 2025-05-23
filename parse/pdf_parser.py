@@ -35,10 +35,7 @@ class PDFParser(Parser):
         logging.info(f'asset directory: {temp_dir.name}')
 
         content_list = self.parse_pdf_content(file_path=file_path,
-                                              temp_asset_dir='/tiny_rag/tmp')
-
-        with open('/tiny_rag/debug_parse/content_list.pickle', 'wb') as f:
-            pickle.dump(content_list, f)
+                                              temp_asset_dir=temp_dir.name)
 
         
         self.content_list = content_list
@@ -46,7 +43,7 @@ class PDFParser(Parser):
         # get chunk list
         chunks = self.chunk(
             content_list=content_list,
-            temp_asset_dir='/tiny_rag/tmp',
+            temp_asset_dir=temp_dir.name,
             asset_save_dir=asset_save_dir,
         )
 
