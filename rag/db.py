@@ -1,4 +1,5 @@
 import logging
+import traceback
 
 from typing import Union, Dict, List, Any
 from abc import ABC, abstractmethod
@@ -26,17 +27,24 @@ class VectorDB(ABC):
         for k, v in kwargs.items():
             setattr(self, k, v)
 
-    @abstractmethod
-    def create_table(self, table_name: str, **kwargs) -> Any:
-        raise NotImplementedError("Not implemented")
-
     # CRUD
     @abstractmethod
-    def insert(self, data: Union[Dict, List[Dict]]) -> Any:
+    def insert(self, data: Union[Dict, List[Dict]]) -> int:
+        """
+        Insert or update records.
+        Returns:
+        - An int of how many records are successfully insert.
+        """
         raise NotImplementedError("Not implemented")
 
     @abstractmethod
-    def delete(self, key: str) -> Any:
+    def delete(self, key: str) -> int:
+        """
+        Delete record.
+
+        Returns:
+        - An int of how many records are successfully deleted.
+        """
         raise NotImplementedError("Not implemented")
 
     @abstractmethod
@@ -48,86 +56,15 @@ class VectorDB(ABC):
 class MilvusLiteDB(VectorDB):
 
     def __init__(self, conn_url: str, token: str = None, **kwargs):
-        logging.info(f"initialize milvus db: {conn_url}, token: {token}")
         super().__init__(conn_url=conn_url, token=token, **kwargs)
         from pymilvus import MilvusClient
+        logging.info(f"initialize milvus db: {conn_url}, token: {token}")
         self.client = MilvusClient(conn_url)
 
-    def create_table(self, table_name: str, **kwargs) -> None:
-        """
-        Create milvus collection.
-
-        Args:
-        - table_name: collection name
-        - kwargs: should pass dense mebedding dim as int.
-        """
-        from pymilvus import DataType
-        dense_embed_dim = kwargs['dense_embed_dim']
-        logging.info(f'dense embed dim: {dense_embed_dim}')
-
-        if self.client.has_collection(collection_name=table_name):
-            self.collection_name = table_name
-            logging.info('collection found in db, skip creation')
-            return
-
-        # data schema
-        schema = self.client.create_schema(enable_dynamic_field=True)
-
-        schema.add_field(
-            field_name="uuid",
-            datatype=DataType.VARCHAR,
-            is_primary=True,
-            auto_id=False,
-            max_length=128,
-        )
-        schema.add_field(
-            field_name="content",
-            datatype=DataType.VARCHAR,
-            max_length=10240,
-        )
-        schema.add_field(
-            field_name="meta",
-            datatype=DataType.JSON,
-            nullable=True,
-        )
-        schema.add_field(
-            field_name="dense_vector",
-            datatype=DataType.FLOAT_VECTOR,
-            dim=dense_embed_dim,
-        )
-        schema.add_field(
-            field_name="sparse_vector",
-            datatype=DataType.SPARSE_FLOAT_VECTOR,
-        )
-
-        # index
-        index_params = self.client.prepare_index_params()
-        index_params.add_index(
-            field_name="dense_vector",
-            index_type="AUTOINDEX",
-            metric_type="IP",
-        )
-        index_params.add_index(
-            field_name="sparse_vector",
-            index_type="SPARSE_INVERTED_INDEX",
-            metric_type="IP",
-        )
-
-        # create collection
-        self.client.create_collection(
-            collection_name=table_name,
-            schema=schema,
-            index_params=index_params,
-            enable_dynamic_field=True,
-        )
-
-        self.collection_name = table_name
-        logging.info(f'milvus collection created: {table_name}')
-
-    def insert(self, data: Union[Dict, List[Dict]]) -> Any:
+    def insert(self, data: Union[Dict, List[Dict]]) -> int:
         stats = self.client.upsert(self.collection_name, data)
         logging.info(f'insert stats: {stats}')
-        return stats
+        return stats['upsert_count']
 
     def delete(self, key: str) -> Any:
         stats = self.client.delete(
@@ -135,7 +72,7 @@ class MilvusLiteDB(VectorDB):
             ids=[key],
         )
         logging.info(f'delete stats: {stats}')
-        return stats
+        return len(stats)
 
     def search(self, query: Dict[str, Any], params: Dict[str, Any]) -> Any:
         """
@@ -188,3 +125,137 @@ def get_vector_db():
         conn_url=config.MILVUS_DB_NAME,
         collection_name=config.MILVUS_COLLECTION_NAME,
     )
+
+
+class RationalDB(ABC):
+    """
+    Abstract class of rational db.
+    """
+
+    @abstractmethod
+    def insert_document(self, data: Dict[str, Any]) -> int:
+        """
+        Insert document.
+
+        Returns:
+        - An int counting how many records are inserted.
+        """
+        raise NotImplementedError("Not implemented")
+
+    @abstractmethod
+    def get_document(self, name: str):
+        raise NotImplementedError("Not implemented")
+
+    @abstractmethod
+    def delete_document(self, name: str):
+        """
+        Delete document.
+
+        Returns:
+        - An int counting how many records are deleted.
+        """
+        raise NotImplementedError("Not implemented")
+
+
+@singleton
+class SQLiteDB(RationalDB):
+
+    def __init__(self, conn_url: str, token: str = None, **kwargs):
+        """
+        SQLite DB:
+        Args:
+        - kwargs: should contain `document_table`.
+        """
+        super().__init__()
+        import sqlite3
+        self.conn = sqlite3.connect(conn_url)
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+    def insert_document(self, data: Dict[str, Any]) -> int:
+        import sqlite3
+        cur = self.conn.cursor()
+        key_col = 'name'
+
+        cur.execute(f"SELECT id FROM {self.document_table} WHERE name = ?",
+                    (data[key_col], ))
+        record_exists = cur.fetchone() is not None
+
+        try:
+            if record_exists:
+                # update
+                update_query = f"UPDATE {self.document_table} SET "
+                update_query_values = []
+                for column, value in data.items():
+                    update_query += f"{column} = ?, "
+                    update_query_values.append(value)
+                update_query = update_query.rstrip(', ')
+                update_query += f" WHERE {key_col} = ?"
+                update_query_values.append(data[key_col])
+                cur.execute(update_query, update_query_values)
+            else:
+                # insert
+                columns = []
+                values = []
+                for column, value in data.items():
+                    columns.append(column)
+                    values.append(value)
+
+                columns = ', '.join(columns)
+                placeholders = ', '.join(['?'] * len(data))
+                insert_query = f"INSERT INTO {self.document_table} ({columns}) VALUES ({placeholders})"
+                cur.execute(insert_query, tuple(values))
+            self.conn.commit()
+        except sqlite3.Error as e:
+            if self.conn:
+                self.conn.rollback()
+
+            logging.info(f"Exception: {type(e).__name__} - {e}")
+
+            formatted_traceback = traceback.format_exc()
+            logging.info(formatted_traceback)
+            return 0
+        finally:
+            return 1
+
+    def get_document(self, name: str):
+        cur = self.conn.cursor()
+        query = f"SELECT * FROM {self.document_table} WHERE name = ?"
+
+        ret = cur.execute(query, (name, ))
+        res = ret.fetchall()
+        if len(res) < 1:
+            return {}
+        res = res[0]
+        return {
+            'name': res[1],
+            'chunks': res[2].split('\x07'),
+            'created_date': res[3],
+        }
+
+    def delete_document(self, name: str) -> int:
+        import sqlite3
+
+        cur = self.conn
+        query = f"DELETE FROM {self.document_table} WHERE name = ?"
+        delete_fail = False
+        logging.info(f'delete document: {name}')
+
+        try:
+            res = cur.execute(query, (name, ))
+            self.conn.commit()
+        except sqlite3.Error as e:
+            if self.conn:
+                self.conn.rollback()
+
+            delete_fail = True
+            logging.info(
+                f"Initial delete fail, exception: {type(e).__name__} - {e}")
+
+            formatted_traceback = traceback.format_exc()
+            logging.info(formatted_traceback)
+
+            return 0
+
+        finally:
+            return 1
