@@ -160,7 +160,7 @@ class TestSQLiteDB(unittest.TestCase):
 
         # get
         ret = db.get_document(name=file_name)
-        self.assertEqual(ret['chunks'], chunks.split('\x07'))
+        self.assertEqual(ret['chunks'], chunks)
 
         # delete
         delete_cnt = db.delete_document(name=file_name)

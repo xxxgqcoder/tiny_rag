@@ -229,7 +229,7 @@ class SQLiteDB(RationalDB):
         res = res[0]
         return {
             'name': res[1],
-            'chunks': res[2].split('\x07'),
+            'chunks': res[2],
             'created_date': res[3],
         }
 
@@ -238,7 +238,6 @@ class SQLiteDB(RationalDB):
 
         cur = self.conn
         query = f"DELETE FROM {self.document_table} WHERE name = ?"
-        delete_fail = False
         logging.info(f'delete document: {name}')
 
         try:
@@ -248,7 +247,6 @@ class SQLiteDB(RationalDB):
             if self.conn:
                 self.conn.rollback()
 
-            delete_fail = True
             logging.info(
                 f"Initial delete fail, exception: {type(e).__name__} - {e}")
 
