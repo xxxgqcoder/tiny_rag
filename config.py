@@ -41,11 +41,20 @@ logging.info(f'bge-m3 model config file path: {BGE_MODEL_CONFIG_PATH}')
 # db config
 ## milvus config
 MILVUS_ROOT_DATA_DIR = os.path.join(RAG_DATA_DIR, 'milvus_data')
-MILVUS_DB_NAME = 'tiny_rag.db'
+MILVUS_DB_NAME = os.path.join(MILVUS_ROOT_DATA_DIR, 'tiny_rag.db')
 MILVUS_COLLECTION_NAME = 'knowledge_collection'
 logging.info(f"""milvus root data directory: {MILVUS_ROOT_DATA_DIR}
 milvus db name: {MILVUS_DB_NAME}
 milvus collection name: {MILVUS_COLLECTION_NAME}
+""")
+
+# SQLite config
+SQLITE_ROOT_DATA_DIR = os.path.join(RAG_DATA_DIR, 'sqlte_data')
+SQLITE_DB_NAME = os.path.join(SQLITE_ROOT_DATA_DIR, 'tiny_rag_documents.db')
+SQLITE_DOCUMENT_TABLE_NAME = 'document'
+logging.info(f"""sqlite root data directory: {SQLITE_ROOT_DATA_DIR}
+sqlite db name: {SQLITE_DB_NAME}
+sqlite table name: {SQLITE_DOCUMENT_TABLE_NAME}
 """)
 
 

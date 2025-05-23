@@ -43,12 +43,16 @@ def make_record(chunk: Chunk, embed: EmbeddingModel) -> Dict[str, Any]:
     }
 
 
-def process_file(file_path: str):
+def process_file(file_path: str) -> Dict[str, bool]:
     """
     Process a file, parse and save chunks into db.
 
     Args:
     - file_path: path to the file.
+
+    Returns:
+    - A list containing all successfuly inserted chunks' uuid, the order is aligned
+        with the order of chunks in original file.
     """
     from parse.pdf_parser import PDFParser
     from rag.db import get_vector_db
@@ -64,7 +68,7 @@ def process_file(file_path: str):
     chunks = parser.parse(file_path=file_path,
                           asset_save_dir=PARSED_ASSET_DATA_DIR)
 
-    # insert into db
+    # insert into vector db
     records = [make_record(chunk, embed_model) for chunk in chunks]
     logging.info(f'total {len(records)} records')
 
@@ -97,3 +101,8 @@ def process_file(file_path: str):
 
     # update file - chunking state
     # TODO
+
+    return [
+        record['uuid'] for record in records
+        if record['uuid'] in success_records
+    ]

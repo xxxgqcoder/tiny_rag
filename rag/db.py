@@ -259,3 +259,10 @@ class SQLiteDB(RationalDB):
 
         finally:
             return 1
+
+
+def get_rational_db():
+    return SQLiteDB(
+        conn_url=config.SQLITE_DB_NAME,
+        document_table=config.SQLITE_DOCUMENT_TABLE_NAME,
+    )

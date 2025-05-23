@@ -1,6 +1,7 @@
 import logging
 import sqlite3
 import traceback
+import os
 
 import config
 from utils import run_once
@@ -24,6 +25,10 @@ def create_milvus_collection(
     from pymilvus import DataType
 
     logging.info(f"initialize milvus db: {conn_url}, token: {token}")
+
+    # NOTE: assume local file path
+    os.makedirs(os.path.dirname(conn_url), exist_ok=True)
+
     client = MilvusClient(conn_url)
 
     if client.has_collection(collection_name=collection_name):
@@ -95,9 +100,9 @@ def create_milvus_collection(
 
 @run_once
 def create_sqlite_table(
-    conn_url: str,
-    token: str,
-    table_name: str,
+    conn_url: str = config.SQLITE_DB_NAME,
+    token: str = None,
+    table_name: str = config.SQLITE_DOCUMENT_TABLE_NAME,
     **kwargs,
 ):
     sql_create_table = """
@@ -108,6 +113,8 @@ def create_sqlite_table(
         created_date TEXT NOT NULL
     )
     """
+    # NOTE: assume local file path
+    os.makedirs(os.path.dirname(conn_url), exist_ok=True)
 
     with sqlite3.connect(conn_url) as conn:
         cur = conn.cursor()
@@ -128,4 +135,5 @@ def create_sqlite_table(
             logging.info(f"Exception: {type(e).__name__} - {e}")
             formatted_traceback = traceback.format_exc()
             logging.info(formatted_traceback)
-        logging.info(f'table created {table_name}')
+
+    logging.info(f'table created {table_name}')
