@@ -5,10 +5,9 @@ import shutil
 from typing import Tuple
 
 import config
-from utils import singleton
+from utils import singleton, safe_strip
 from .parser import Parser, Chunk, ChunkType
 from config import MAGIC_PDF_CONFIG_PATH
-from utils import safe_strip
 
 
 @singleton

@@ -29,7 +29,7 @@ class EmbeddingModel(ABC):
             type, i.e., `dense`, `sparse`. Value is the encoded vector value.
         """
         raise NotImplementedError("Not implemented")
-    
+
     @abstractmethod
     def dense_embed_dim(self, ) -> int:
         raise NotImplementedError("Not implemented")
@@ -106,3 +106,7 @@ class BGEM3EmbeddingModel(EmbeddingModel):
             "colbert_vecs": self.model.model.colbert_linear.out_features,
             "sparse": len(self.model.tokenizer),
         }
+
+
+def get_embed_model():
+    return BGEM3EmbeddingModel()
