@@ -53,6 +53,8 @@ class PDFParser(Parser):
 
         temp_dir.cleanup()
 
+        logging.info(f'got {len(filtered_chunks)} chunks after filtering')
+
         return filtered_chunks
 
     def parse_pdf_content(

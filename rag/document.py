@@ -2,8 +2,10 @@ import json
 import traceback
 import logging
 import os
+import pickle
 from typing import Dict, Any
-from concurrent.futures import ThreadPoolExecutor
+
+import sequential_executor
 
 from watchdog.events import (
     FileSystemEvent,
@@ -43,6 +45,9 @@ def make_chunk_record(
     Returns:
     - A dict containing all columns of a record.
     """
+    logging.info('embed chunks')
+    logging.info(str(chunk))
+
     content = chunk.content
     if chunk.content_type != config.ChunkType.TEXT:
         content = chunk.extra_description
@@ -96,7 +101,7 @@ def process_new_file(file_path: str) -> Dict[str, bool]:
     sql_db = get_rational_db()
     embed_model = get_embed_model()
 
-    logging.info('begin to process')
+    logging.info(f'{file_path}: begin processing')
 
     # check if file content is changed
     file_name = os.path.basename(file_path)
@@ -139,10 +144,14 @@ def process_new_file(file_path: str) -> Dict[str, bool]:
         file_path=file_path,
         asset_save_dir=PARSED_ASSET_DATA_DIR,
     )
+    logging.info(f'{file_path}: total {len(chunks)} chunks')
 
     # save parsed chunks into vector db
-    records = [make_chunk_record(chunk, embed_model) for chunk in chunks]
-    logging.info(f'total {len(records)} records')
+    records = [
+        make_chunk_record(file_path=file_path, chunk=chunk, embed=embed_model)
+        for chunk in chunks
+    ]
+    logging.info(f'{file_path}: total {len(records)} records')
 
     failed_records = []
     success_records = {}
@@ -215,7 +224,7 @@ def process_delete_file(file_path: str):
     # get document record
     document_record = sql_db.get_document(file_name)
     if document_record is None or len(document_record) == 0:
-        logging.info(f'document record {file_name} not found, ignore')
+        logging.info(f'{file_name}: document record not found, ignore')
         return
 
     # delete document record
@@ -261,7 +270,7 @@ def get_job_executor():
     global _job_executor
     if _job_executor is None:
         # NOTE: set only 1 thread to force sequencial job schedule.
-        _job_executor = ThreadPoolExecutor(max_workers=1)
+        _job_executor = sequential_executor.SequentialExecutor()
 
     return _job_executor
 
