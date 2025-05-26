@@ -2,9 +2,14 @@ import logging
 import sqlite3
 import traceback
 import os
+import time
+
+from watchdog.observers import Observer
 
 import config
 from utils import run_once
+from rag.document import FileHandler
+from rag.document import get_job_executor, process_new_file
 
 
 @run_once
@@ -149,3 +154,45 @@ def create_sqlite_table(
             logging.info(formatted_traceback)
 
     logging.info(f'table created {table_name}')
+
+
+@run_once
+def initial_file_process(file_dir: str):
+    """
+    Submit initial file content check.
+    """
+    files = os.listdir(file_dir)
+    file_paths = [os.path.join(file_dir, f) for f in files]
+    job_executor = get_job_executor()
+    for file_path in file_paths:
+        job_executor.submit(process_new_file, file_path=file_path)
+
+
+if __name__ == '__main__':
+    # set up db
+    create_milvus_collection(
+        conn_url=config.MILVUS_DB_NAME,
+        collection_name=config.MILVUS_COLLECTION_NAME,
+    )
+    create_sqlite_table(
+        conn_url=config.SQLITE_DB_NAME,
+        table_name=config.SQLITE_DOCUMENT_TABLE_NAME,
+    )
+
+    # start file monitor
+    event_handler = FileHandler()
+    observer = Observer()
+    observer.schedule(event_handler, config.RAG_FILE_DIR, recursive=False)
+    observer.start()
+
+    # initial file direcory process
+    initial_file_process(config.RAG_FILE_DIR)
+
+    # event loop
+    try:
+        print('start file monitor')
+        while True:
+            time.sleep(1)
+    finally:
+        observer.stop()
+        observer.join()
