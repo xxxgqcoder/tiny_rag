@@ -88,6 +88,8 @@ def process_new_file(file_path: str) -> Dict[str, bool]:
         logging.info(f'{file_path}: ignore')
         return
 
+    logging.info(f'{file_path}: process new file')
+
     parser = PDFParser()
 
     vector_db = get_vector_db()
@@ -196,6 +198,7 @@ def process_delete_file(file_path: str):
     if ignore_file(file_path):
         logging.info(f'{file_path}: ignore')
         return
+    logging.info(f'{file_path}: process delete file')
 
     vector_db = get_vector_db()
     sql_db = get_rational_db()
