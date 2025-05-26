@@ -1,5 +1,6 @@
 import logging
 import os
+import traceback
 from typing import Any
 from logging.handlers import RotatingFileHandler
 
@@ -113,6 +114,12 @@ def now_in_utc():
 
 def get_hash64(content: bytes) -> str:
     return xxhash.xxh64(content).hexdigest()
+
+
+def logging_exception(e: Exception):
+    logging.info(f"Exception: {type(e).__name__} - {e}")
+    formatted_traceback = traceback.format_exc()
+    logging.info(formatted_traceback)
 
 
 if __name__ == '__main__':

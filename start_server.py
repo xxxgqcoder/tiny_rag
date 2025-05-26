@@ -130,6 +130,7 @@ def create_sqlite_table(
         content_hash TEXT NOT NULL
     )
     """
+    sql_create_index = "CREATE INDEX idx_name ON document (name)"
     # NOTE: assume local file path
     os.makedirs(os.path.dirname(conn_url), exist_ok=True)
 
@@ -145,6 +146,7 @@ def create_sqlite_table(
                 )
                 return
             cur.execute(sql_create_table)
+            cur.execute(sql_create_index)
             conn.commit()
         except sqlite3.Error as e:
             if conn:

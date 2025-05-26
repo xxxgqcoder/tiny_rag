@@ -5,7 +5,7 @@ import shutil
 from typing import Tuple
 
 import config
-from utils import singleton, safe_strip
+from utils import singleton, safe_strip, logging_exception
 from parse.parser import Parser, Chunk, ChunkType
 from config import MAGIC_PDF_CONFIG_PATH
 
@@ -41,11 +41,14 @@ class PDFParser(Parser):
         self.content_list = content_list
 
         # get chunk list
-        chunks = self.chunk(
-            content_list=content_list,
-            temp_asset_dir=temp_dir.name,
-            asset_save_dir=asset_save_dir,
-        )
+        try:
+            chunks = self.chunk(
+                content_list=content_list,
+                temp_asset_dir=temp_dir.name,
+                asset_save_dir=asset_save_dir,
+            )
+        except Exception as e:
+            logging_exception(e)
 
         # filter chunks
         filtered_chunks = self.filter_chunks(chunks)
@@ -339,3 +342,6 @@ class PDFParser(Parser):
             content += striped
             content += "\n\n"
         return content.strip()
+
+    def is_valid_block(self, ):
+        pass
