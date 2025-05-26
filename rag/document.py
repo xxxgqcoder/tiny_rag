@@ -84,6 +84,10 @@ def process_new_file(file_path: str) -> Dict[str, bool]:
     from parse.pdf_parser import PDFParser
     from config import PARSED_ASSET_DATA_DIR
 
+    if ignore_file(file_path):
+        logging.info(f'{file_path}: ignore')
+        return
+
     parser = PDFParser()
 
     vector_db = get_vector_db()
@@ -189,6 +193,10 @@ def process_delete_file(file_path: str):
     Args:
     - file_path: path to the file.
     """
+    if ignore_file(file_path):
+        logging.info(f'{file_path}: ignore')
+        return
+
     vector_db = get_vector_db()
     sql_db = get_rational_db()
 
@@ -214,15 +222,6 @@ def process_delete_file(file_path: str):
         delete_cnt = vector_db.delete(key=uuid)
         total_delete_cnt += delete_cnt
     logging.info(f'delete {total_delete_cnt} chunks from vector db')
-
-
-@run_once
-def on_server_start_up():
-    """
-    Submit jobs for all files under root file directories.
-    """
-
-    pass
 
 
 def ignore_file(file_path: str):
