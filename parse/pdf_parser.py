@@ -27,6 +27,7 @@ class PDFParser(Parser):
         asset_save_dir: str,
     ) -> list[Chunk]:
         os.makedirs(asset_save_dir, exist_ok=True)
+        self.file_name = os.path.basename(file_path)
 
         # get content list
         temp_dir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
@@ -234,6 +235,7 @@ class PDFParser(Parser):
         return [
             Chunk(
                 content_type=ChunkType.TEXT,
+                file_name=self.file_name,
                 content=content.encode('utf-8'),
                 extra_description=''.encode('utf-8'),
             )
@@ -272,6 +274,7 @@ class PDFParser(Parser):
 
             chunk = Chunk(
                 content_type=ChunkType.IMAGE,
+                file_name=self.file_name,
                 content=_load_image(abs_img_path),
                 extra_description=(extra_description).encode('utf-8'),
                 content_url=os.path.join(asset_save_dir,
@@ -296,6 +299,7 @@ class PDFParser(Parser):
 
             chunk = Chunk(
                 content_type=ChunkType.TABLE,
+                file_name=self.file_name,
                 content=block['table_body'].encode('utf-8'),
                 extra_description=(extra_description).encode('utf-8'),
             )
