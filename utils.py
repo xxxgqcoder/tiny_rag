@@ -3,6 +3,8 @@ import os
 from typing import Any
 from logging.handlers import RotatingFileHandler
 
+import xxhash
+
 initialized_root_logger = False
 
 
@@ -107,6 +109,10 @@ def now_in_utc():
     from datetime import datetime, timezone
     now_utc = datetime.now(timezone.utc)
     return now_utc.strftime('%Y-%m-%d %H:%M:%S.%f')
+
+
+def get_hash64(content: bytes) -> str:
+    return xxhash.xxh64(content).hexdigest()
 
 
 if __name__ == '__main__':

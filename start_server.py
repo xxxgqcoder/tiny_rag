@@ -13,9 +13,10 @@ def create_milvus_collection(
     token: str = None,
     collection_name: str = config.MILVUS_COLLECTION_NAME,
     **kwargs,
-):
+) -> None:
     """
     Create milvus collection.
+
     Args:
     - conn_url: the milvus connection url, or db_name if deployed as lite.
     - token: connection token if any.
@@ -105,13 +106,23 @@ def create_sqlite_table(
     token: str = None,
     table_name: str = config.SQLITE_DOCUMENT_TABLE_NAME,
     **kwargs,
-):
+) -> None:
+    """
+    Create SQLite table.
+
+    Args:
+    - conn_url: sqlite connection url. Currently only support local file path.
+    - token: not used.
+    - table_name: document table name.
+    """
+
     sql_create_table = """
     CREATE TABLE IF NOT EXISTS document (
         id INTEGER PRIMARY KEY,
         name TEXT NOT NULL,
         chunks TEXT NOT NULL,
-        created_date TEXT NOT NULL
+        created_date TEXT NOT NULL,
+        content_hash TEXT NOT NULL
     )
     """
     # NOTE: assume local file path

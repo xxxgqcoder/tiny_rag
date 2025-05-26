@@ -231,6 +231,7 @@ class SQLiteDB(RationalDB):
             'name': res[1],
             'chunks': res[2],
             'created_date': res[3],
+            'content_hash': res[4],
         }
 
     def delete_document(self, name: str) -> int:
