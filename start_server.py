@@ -180,18 +180,18 @@ if __name__ == '__main__':
         table_name=config.SQLITE_DOCUMENT_TABLE_NAME,
     )
 
+    # initial file direcory process
+    initial_file_process(config.RAG_FILE_DIR)
+
     # start file monitor
     event_handler = FileHandler()
     observer = Observer()
     observer.schedule(event_handler, config.RAG_FILE_DIR, recursive=False)
     observer.start()
 
-    # initial file direcory process
-    initial_file_process(config.RAG_FILE_DIR)
-
     # event loop
     try:
-        print('start file monitor')
+        logging.info('start file monitor')
         while True:
             time.sleep(1)
     finally:

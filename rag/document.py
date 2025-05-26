@@ -7,18 +7,8 @@ from typing import Dict, Any
 
 import sequential_executor
 
-from watchdog.events import (
-    FileSystemEvent,
-    FileSystemEventHandler,
-    DirCreatedEvent,
-    DirModifiedEvent,
-    DirMovedEvent,
-    DirDeletedEvent,
-    FileCreatedEvent,
-    FileMovedEvent,
-    FileModifiedEvent,
-    FileDeletedEvent,
-)
+import watchdog.events as events
+from watchdog.events import FileSystemEventHandler, FileSystemEvent
 from watchdog.observers import Observer
 
 import config
@@ -195,7 +185,7 @@ def process_new_file(file_path: str) -> Dict[str, bool]:
     }
     insert_cnt = sql_db.insert_document(document_record)
     if insert_cnt < 1:
-        logging.info(f'fail to insert document: {file_path}, retrying...')
+        logging.info(f'{file_path}: fail to insert document, retrying...')
         sql_db.insert_document(document_record)
 
     return saved_chunks
@@ -253,7 +243,7 @@ def ignore_file(file_path: str):
 
     # ignore non-supported file postfix
     postifx = file_name.split('.')[-1]
-    if postifx not in ['pdf', 'docx', 'ppt', 'md']:
+    if postifx not in ['pdf', 'docx', 'ppt', 'md', 'txt']:
         return True
 
     return False
@@ -287,38 +277,34 @@ def test_process_delete_file(file_path: str):
 
 class FileHandler(FileSystemEventHandler):
 
-    def on_moved(self, event: DirMovedEvent | FileMovedEvent) -> None:
+    def on_any_event(self, event: FileSystemEvent) -> None:
 
         job_executor = get_job_executor()
         src_path = event.src_path
         dest_path = event.dest_path
 
-        if not os.path.isdir(src_path):
-            job_executor.submit(process_delete_file, file_path=src_path)
+        if event.event_type == events.EVENT_TYPE_MOVED:
+            logging.info(f'{event}')
+            if not os.path.isdir(src_path):
+                job_executor.submit(process_delete_file, file_path=src_path)
 
-        if not os.path.isdir(dest_path):
-            job_executor.submit(process_new_file, file_path=dest_path)
+            if not os.path.isdir(dest_path):
+                job_executor.submit(process_new_file, file_path=dest_path)
 
-    def on_created(self, event: DirCreatedEvent | FileCreatedEvent) -> None:
+        elif event.event_type == events.EVENT_TYPE_DELETED:
+            logging.info(f'{event}')
+            if not os.path.isdir(src_path):
+                job_executor.submit(process_delete_file, file_path=src_path)
 
-        job_executor = get_job_executor()
-        src_path = event.src_path
-        if os.path.isdir(src_path):
-            return
-        job_executor.submit(process_new_file, file_path=src_path)
+        elif event.event_type == events.EVENT_TYPE_CREATED:
+            logging.info(f'{event}')
+            if not os.path.isdir(src_path):
+                job_executor.submit(process_new_file, file_path=src_path)
 
-    def on_deleted(self, event: DirDeletedEvent | FileDeletedEvent) -> None:
+        elif event.event_type == events.EVENT_TYPE_MODIFIED:
+            logging.info(f'{event}')
+            if not os.path.isdir(src_path):
+                job_executor.submit(process_new_file, file_path=src_path)
 
-        job_executor = get_job_executor()
-        src_path = event.src_path
-        if os.path.isdir(src_path):
-            return
-        job_executor.submit(process_delete_file, file_path=src_path)
-
-    def on_modified(self, event: DirModifiedEvent | FileModifiedEvent) -> None:
-
-        job_executor = get_job_executor()
-        src_path = event.src_path
-        if os.path.isdir(src_path):
-            return
-        job_executor.submit(process_new_file, file_path=src_path)
+        else:
+            pass
