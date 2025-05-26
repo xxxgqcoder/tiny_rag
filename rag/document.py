@@ -5,7 +5,7 @@ import os
 import pickle
 from typing import Dict, Any
 
-import sequential_executor
+from concurrent.futures import ThreadPoolExecutor
 
 import watchdog.events as events
 from watchdog.events import FileSystemEventHandler, FileSystemEvent
@@ -256,7 +256,7 @@ def get_job_executor():
     global _job_executor
     if _job_executor is None:
         # NOTE: set only 1 thread to force sequencial job schedule.
-        _job_executor = sequential_executor.SequentialExecutor()
+        _job_executor = ThreadPoolExecutor(max_workers=1)
 
     return _job_executor
 
