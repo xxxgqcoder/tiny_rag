@@ -122,7 +122,7 @@ class TestSQLiteDB(unittest.TestCase):
         delete_cnt = db.delete_document(name=file_name)
         self.assertEqual(delete_cnt, 1)
         ret = db.get_document(name=file_name)
-        self.assertTrue(len(ret) == 0)
+        self.assertTrue(ret is None)
 
 
 if __name__ == '__main__':

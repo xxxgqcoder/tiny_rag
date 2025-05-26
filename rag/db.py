@@ -225,7 +225,7 @@ class SQLiteDB(RationalDB):
         ret = cur.execute(query, (name, ))
         res = ret.fetchall()
         if len(res) < 1:
-            return {}
+            return None
         res = res[0]
         return {
             'name': res[1],
