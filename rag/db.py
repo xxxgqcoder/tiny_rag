@@ -58,7 +58,6 @@ class MilvusLiteDB(VectorDB):
     def __init__(self, conn_url: str, token: str = None, **kwargs):
         super().__init__(conn_url=conn_url, token=token, **kwargs)
         from pymilvus import MilvusClient
-        logging.info(f"initialize milvus db: {conn_url}, token: {token}")
         self.client = MilvusClient(conn_url)
 
     def insert(self, data: Union[Dict, List[Dict]]) -> int:

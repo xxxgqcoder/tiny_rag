@@ -253,7 +253,6 @@ def get_job_executor():
         # NOTE: set only 1 thread to force sequencial job schedule.
         _job_executor = ThreadPoolExecutor(max_workers=1)
 
-    logging.info(id(_job_executor))
     return _job_executor
 
 
