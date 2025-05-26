@@ -101,17 +101,18 @@ class TestMilvusDB(unittest.TestCase):
         record['uuid'] = '654321'
         insert_cnt = db.insert(record)
         self.assertEqual(insert_cnt, 1)
-        
 
         ret = db.client.get(collection_name='test_milvus_collection',
                             ids=['123456'])
         self.assertTrue(ret is not None)
 
         # test delete
-        delete_cnt = db.delete(keys=['123456', '654321'],)
+        delete_cnt = db.delete(keys=['123456', '654321'], )
         self.assertEqual(delete_cnt, 2)
-        ret = db.client.get(collection_name='test_milvus_collection',
-                            ids=['123456'])
+        ret = db.client.get(
+            collection_name='test_milvus_collection',
+            ids=['123456'],
+        )
         self.assertTrue(len(ret) == 0)
 
 

@@ -9,10 +9,11 @@ from utils import run_once
 
 @run_once
 def create_milvus_collection(
-        conn_url: str = config.MILVUS_DB_NAME,
-        token: str = None,
-        collection_name: str = config.MILVUS_COLLECTION_NAME,
-        **kwargs):
+    conn_url: str = config.MILVUS_DB_NAME,
+    token: str = None,
+    collection_name: str = config.MILVUS_COLLECTION_NAME,
+    **kwargs,
+):
     """
     Create milvus collection.
     Args:

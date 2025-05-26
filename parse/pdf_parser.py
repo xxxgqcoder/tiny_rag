@@ -34,10 +34,11 @@ class PDFParser(Parser):
         temp_dir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
         logging.info(f'asset directory: {temp_dir.name}')
 
-        content_list = self.parse_pdf_content(file_path=file_path,
-                                              temp_asset_dir=temp_dir.name)
+        content_list = self.parse_pdf_content(
+            file_path=file_path,
+            temp_asset_dir=temp_dir.name,
+        )
 
-        
         self.content_list = content_list
 
         # get chunk list
@@ -88,7 +89,6 @@ class PDFParser(Parser):
 
         Returns:
         - A list of parsed content block dict.
-        - A python TemporaryDirectory.
         """
         # NOTE: magic_pdf package uses singleton design and the model isntance is
         # initialized when the module is imported, so postpone the import statement
@@ -266,10 +266,10 @@ class PDFParser(Parser):
                 logging.info(f'empty image path, ignore')
                 logging.info(block)
                 continue
-                
+
             abs_img_path = os.path.join(temp_asset_dir, block['img_path'])
             _save_image(abs_img_path, asset_save_dir)
-            
+
             chunk = Chunk(
                 content_type=ChunkType.IMAGE,
                 content=_load_image(abs_img_path),
