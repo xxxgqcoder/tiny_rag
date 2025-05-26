@@ -26,8 +26,6 @@ class PDFParser(Parser):
         file_path: str,
         asset_save_dir: str,
     ) -> list[Chunk]:
-        logging.info(f'parsing file from {file_path}')
-
         os.makedirs(asset_save_dir, exist_ok=True)
 
         # get content list
