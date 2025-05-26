@@ -3,6 +3,7 @@ import traceback
 import logging
 import os
 from typing import Dict, Any
+from concurrent.futures import ThreadPoolExecutor
 
 from watchdog.events import (
     FileSystemEvent,
@@ -11,11 +12,9 @@ from watchdog.events import (
     DirModifiedEvent,
     DirMovedEvent,
     DirDeletedEvent,
-    FileClosedEvent,
     FileCreatedEvent,
     FileMovedEvent,
     FileModifiedEvent,
-    FileClosedNoWriteEvent,
     FileDeletedEvent,
 )
 from watchdog.observers import Observer
@@ -98,11 +97,13 @@ def process_new_file(file_path: str) -> Dict[str, bool]:
         with open(file_path, 'rb') as f:
             file_bytes = f.read()
     except Exception as e:
-        logging.info(
-            f"""Exception when calculating contnet hash for file {file_path}:
-                      {type(e).__name__} - {e}""")
+        logging.info(f"""{file_path} Exception: {type(e).__name__} - {e}""")
         formatted_traceback = traceback.format_exc()
         logging.info(formatted_traceback)
+        return
+
+    if len(file_bytes) == 0:
+        logging.info(f'{file_path}: empty content, skip')
         return
     file_content_hash = get_hash64(file_bytes)
 
@@ -228,8 +229,8 @@ def ignore_file(file_path: str):
     """
     Rules on igore file.
 
-    Args:
-    - 
+    Returns:
+    - bool, true if file_path should be ignored.
     """
     file_name = os.path.basename(file_path)
     # ignore hidden file
@@ -238,9 +239,73 @@ def ignore_file(file_path: str):
 
     # ignore non-supported file postfix
     postifx = file_name.split('.')[-1]
-    if postifx not in ['pdf', 'docx', 'ppt']:
+    if postifx not in ['pdf', 'docx', 'ppt', 'md']:
         return True
 
     return False
 
 
+_job_executor = None
+
+
+def get_job_executor():
+    global _job_executor
+    if _job_executor is None:
+        # NOTE: set only 1 thread to force sequencial job schedule.
+        _job_executor = ThreadPoolExecutor(max_workers=1)
+
+    logging.info(id(_job_executor))
+    return _job_executor
+
+
+def test_process_new_file(file_path: str):
+    if ignore_file(file_path):
+        logging.info(f'{file_path}: ignore')
+        return
+    logging.info(f'{file_path}: on process new file')
+
+
+def test_process_delete_file(file_path: str):
+    if ignore_file(file_path):
+        logging.info(f'{file_path}: ignore')
+        return
+    logging.info(f'{file_path}: on process delete file')
+
+
+class FileHandler(FileSystemEventHandler):
+
+    def on_moved(self, event: DirMovedEvent | FileMovedEvent) -> None:
+
+        job_executor = get_job_executor()
+        src_path = event.src_path
+        dest_path = event.dest_path
+
+        if not os.path.isdir(src_path):
+            job_executor.submit(process_delete_file, file_path=src_path)
+
+        if not os.path.isdir(dest_path):
+            job_executor.submit(process_new_file, file_path=dest_path)
+
+    def on_created(self, event: DirCreatedEvent | FileCreatedEvent) -> None:
+
+        job_executor = get_job_executor()
+        src_path = event.src_path
+        if os.path.isdir(src_path):
+            return
+        job_executor.submit(process_new_file, file_path=src_path)
+
+    def on_deleted(self, event: DirDeletedEvent | FileDeletedEvent) -> None:
+
+        job_executor = get_job_executor()
+        src_path = event.src_path
+        if os.path.isdir(src_path):
+            return
+        job_executor.submit(process_new_file, file_path=src_path)
+
+    def on_modified(self, event: DirModifiedEvent | FileModifiedEvent) -> None:
+
+        job_executor = get_job_executor()
+        src_path = event.src_path
+        if os.path.isdir(src_path):
+            return
+        job_executor.submit(process_new_file, file_path=src_path)
