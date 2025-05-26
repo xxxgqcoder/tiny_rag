@@ -132,6 +132,8 @@ def process_new_file(file_path: str) -> Dict[str, bool]:
         asset_save_dir=PARSED_ASSET_DATA_DIR,
     )
     logging.info(f'{file_path}: total {len(chunks)} chunks')
+    if len(chunks) == 0:
+        return
 
     # save parsed chunks into vector db
     records = [
