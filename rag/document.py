@@ -96,6 +96,8 @@ def process_new_file(file_path: str) -> Dict[str, bool]:
     sql_db = get_rational_db()
     embed_model = get_embed_model()
 
+    logging.info('begin to process')
+
     # check if file content is changed
     file_name = os.path.basename(file_path)
     file_bytes = None
@@ -111,10 +113,14 @@ def process_new_file(file_path: str) -> Dict[str, bool]:
     if len(file_bytes) == 0:
         logging.info(f'{file_path}: empty content, skip')
         return
+
     file_content_hash = get_hash64(file_bytes)
+    logging.info(
+        f'{file_path}: total {len(file_bytes)} bytes loaded, content hash: {file_content_hash}'
+    )
 
     # get document record
-    document_record = sql_db.get_document(file_name=file_name)
+    document_record = sql_db.get_document(name=file_name)
     stored_content_hash = None
     if document_record is not None:
         stored_content_hash = document_record['content_hash']
@@ -123,6 +129,7 @@ def process_new_file(file_path: str) -> Dict[str, bool]:
             f'{file_path}: content hash ({file_content_hash}) unchanged, ignore'
         )
         return
+    logging.info(f'{file_path}: file content chnaged or new file')
 
     # delete document record if any
     process_delete_file(file_path=file_path)
