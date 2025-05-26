@@ -49,6 +49,7 @@ class PDFParser(Parser):
             )
         except Exception as e:
             logging_exception(e)
+            return []
 
         # filter chunks
         filtered_chunks = self.filter_chunks(chunks)
