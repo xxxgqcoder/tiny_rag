@@ -35,6 +35,7 @@ logging.info(f'magic pdf config file path: {MAGIC_PDF_CONFIG_PATH}')
 # embedding model
 BGE_MODEL_CONFIG_PATH = os.path.join(PROJECT_ASSET_FOLDER,
                                      'bge-m3/bge-m3.json')
+BGE_DENSE_EMBED_DIM = 1024
 logging.info(f'bge-m3 model config file path: {BGE_MODEL_CONFIG_PATH}')
 
 # ============================================================================ #
