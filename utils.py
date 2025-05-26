@@ -74,22 +74,10 @@ def safe_strip(d: Any) -> str:
     Safely strip d.
     """
     if d is None:
-        return ''
+        return None
     if isinstance(d, str):
         return d.strip()
     return str(d).strip()
-
-
-# def singleton(cls, *args, **kw):
-#     instances = {}
-
-#     def _singleton():
-#         key = str(cls) + str(os.getpid())
-#         if key not in instances:
-#             instances[key] = cls(*args, **kw)
-#         return instances[key]
-
-#     return _singleton
 
 
 def singleton(cls):
