@@ -49,7 +49,7 @@ milvus collection name: {MILVUS_COLLECTION_NAME}
 """)
 
 # SQLite config
-SQLITE_ROOT_DATA_DIR = os.path.join(RAG_DATA_DIR, 'sqlte_data')
+SQLITE_ROOT_DATA_DIR = os.path.join(RAG_DATA_DIR, 'sqlite_data')
 SQLITE_DB_NAME = os.path.join(SQLITE_ROOT_DATA_DIR, 'tiny_rag_documents.db')
 SQLITE_DOCUMENT_TABLE_NAME = 'document'
 logging.info(f"""sqlite root data directory: {SQLITE_ROOT_DATA_DIR}
