@@ -45,9 +45,6 @@ def make_chunk_record(
     Returns:
     - A dict containing all columns of a record.
     """
-    logging.info('embed chunks')
-    logging.info(str(chunk))
-
     content = chunk.content
     if chunk.content_type != config.ChunkType.TEXT:
         content = chunk.extra_description
@@ -222,25 +219,24 @@ def process_delete_file(file_path: str):
     file_name = os.path.basename(file_path)
 
     # get document record
-    document_record = sql_db.get_document(file_name)
-    if document_record is None or len(document_record) == 0:
-        logging.info(f'{file_name}: document record not found, ignore')
+    document_record = sql_db.get_document(name=file_name)
+    if document_record is None:
+        logging.info(f'{file_path}: document record not found, ignore')
         return
+    logging.info(f'{file_path}: document record: {document_record}')
 
     # delete document record
-    sql_db.delete_document(name=file_name)
+    delete_cnt = sql_db.delete_document(name=file_name)
+    logging.info(f'delete document record from db, delete cnt: {delete_cnt}')
 
     # delete chunks
     uuids = []
     if 'chunks' in document_record and len(document_record['chunks']) > 0:
         uuids = document_record['chunks'].split('\x07')
-    logging.info(f'total {len(uuids)} chunks')
+    logging.info(f'{file_path}: total {len(uuids)} chunks')
 
-    total_delete_cnt = 0
-    for uuid in uuids:
-        delete_cnt = vector_db.delete(key=uuid)
-        total_delete_cnt += delete_cnt
-    logging.info(f'delete {total_delete_cnt} chunks from vector db')
+    delete_cnt = vector_db.delete(keys=uuids)
+    logging.info(f'delete {delete_cnt} chunks from vector db')
 
 
 def ignore_file(file_path: str):
@@ -317,7 +313,7 @@ class FileHandler(FileSystemEventHandler):
         src_path = event.src_path
         if os.path.isdir(src_path):
             return
-        job_executor.submit(process_new_file, file_path=src_path)
+        job_executor.submit(process_delete_file, file_path=src_path)
 
     def on_modified(self, event: DirModifiedEvent | FileModifiedEvent) -> None:
 
