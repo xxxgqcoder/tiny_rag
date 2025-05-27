@@ -34,16 +34,10 @@ class PDFParser(Parser):
         temp_dir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
         logging.info(f'asset directory: {temp_dir.name}')
 
-        # content_list = self.parse_pdf_content(
-        #     file_path=file_path,
-        #     temp_asset_dir='./tmp',
-        # )
-
-        # with open('/var/share/tiny_rag_data/content_list.pickle', 'wb') as f:
-        #     pickle.dump(content_list, f)
-
-        with open('/var/share/tiny_rag_data/content_list.pickle', 'rb') as f:
-            content_list = pickle.load(f)
+        content_list = self.parse_pdf_content(
+            file_path=file_path,
+            temp_asset_dir=temp_dir.name,
+        )
 
         filtered_content_list = []
         for block in content_list:
@@ -62,7 +56,7 @@ class PDFParser(Parser):
         try:
             chunks = self.chunk(
                 content_list=self.content_list,
-                temp_asset_dir='./tmp',
+                temp_asset_dir=temp_dir.name,
                 asset_save_dir=asset_save_dir,
             )
         except Exception as e:

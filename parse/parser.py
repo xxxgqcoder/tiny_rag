@@ -3,6 +3,7 @@ from strenum import StrEnum
 from abc import ABC, abstractmethod
 
 from config import ChunkType
+from utils import get_hash64
 
 
 class SupportedFileType(StrEnum):
@@ -38,9 +39,8 @@ class Chunk:
         self.content = content
         self.extra_description = extra_description
         self.content_url = content_url
-        self.uuid = xxhash.xxh64(
-            file_name.encode('utf-8') + content +
-            extra_description).hexdigest()
+        self.uuid = get_hash64(
+            file_name.encode('utf-8') + content + extra_description)
 
     def __str__(self, ):
         if self.content_type == ChunkType.TEXT:
