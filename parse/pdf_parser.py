@@ -43,7 +43,7 @@ class PDFParser(Parser):
         for block in content_list:
             if not self.is_valid_block(block):
                 logging.info(
-                    f'{self.file_name}: invalid block, ignore\n {block}')
+                    f'{self.file_name}: invalid block, ignore {block}')
                 continue
             filtered_content_list.append(block)
 
@@ -341,7 +341,7 @@ class PDFParser(Parser):
             content = safe_strip(content.decode('utf-8'))
             if len(content) < 8 or len(content.split()) < 3:
                 logging.info(
-                    f'{self.file_name}: remove chunk due to too short content:\n {str(chunk)}'
+                    f'{self.file_name}: remove chunk due to too short content: {str(chunk)}'
                 )
                 continue
 
