@@ -2,11 +2,12 @@ import os
 import tempfile
 import logging
 import shutil
-from typing import Tuple
+import pickle
+from typing import Tuple, Dict, Any
 
 import config
-from utils import singleton, safe_strip
-from .parser import Parser, Chunk, ChunkType
+from utils import singleton, safe_strip, logging_exception
+from parse.parser import Parser, Chunk, ChunkType
 from config import MAGIC_PDF_CONFIG_PATH
 
 
@@ -26,29 +27,49 @@ class PDFParser(Parser):
         file_path: str,
         asset_save_dir: str,
     ) -> list[Chunk]:
-        logging.info(f'parsing file from {file_path}')
-
         os.makedirs(asset_save_dir, exist_ok=True)
+        self.file_name = os.path.basename(file_path)
 
         # get content list
         temp_dir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
         logging.info(f'asset directory: {temp_dir.name}')
 
-        content_list = self.parse_pdf_content(file_path=file_path,
-                                              temp_asset_dir=temp_dir.name)
-        self.content_list = content_list
+        content_list = self.parse_pdf_content(
+            file_path=file_path,
+            temp_asset_dir=temp_dir.name,
+        )
+
+        filtered_content_list = []
+        for block in content_list:
+            if not self.is_valid_block(block):
+                logging.info(
+                    f'{self.file_name}: invalid block, ignore {block}')
+                continue
+            filtered_content_list.append(block)
+
+        self.content_list = filtered_content_list
+        all_types = sorted(
+            list(set([block['type'] for block in self.content_list])))
+        logging.info(f"all parsed block types: {all_types}")
 
         # get chunk list
-        chunks = self.chunk(
-            content_list=content_list,
-            temp_asset_dir=temp_dir.name,
-            asset_save_dir=asset_save_dir,
-        )
+        try:
+            chunks = self.chunk(
+                content_list=self.content_list,
+                temp_asset_dir=temp_dir.name,
+                asset_save_dir=asset_save_dir,
+            )
+        except Exception as e:
+            logging_exception(e)
+            return []
 
         # filter chunks
         filtered_chunks = self.filter_chunks(chunks)
 
         temp_dir.cleanup()
+
+        logging.info(
+            f'{self.file_name}: {len(filtered_chunks)} chunks after filtering')
 
         return filtered_chunks
 
@@ -86,7 +107,6 @@ class PDFParser(Parser):
 
         Returns:
         - A list of parsed content block dict.
-        - A python TemporaryDirectory.
         """
         # NOTE: magic_pdf package uses singleton design and the model isntance is
         # initialized when the module is imported, so postpone the import statement
@@ -185,36 +205,40 @@ class PDFParser(Parser):
 
             # find headline block or reach end of list
             blocks = content_list[i:j]
-            all_types = sorted(list(set([block['type'] for block in blocks])))
-            logging.info(f"all parsed block types: {all_types}")
 
             # filter and merge blocks
             text_blocks = [
                 block for block in blocks
                 if block['type'] in ['text', 'equation']
             ]
-            if len(text_blocks) > 0:
-                chunks.extend(
-                    self.process_text_blocks(text_blocks, temp_asset_dir,
-                                             asset_save_dir))
+            chunks.extend(
+                self.process_text_blocks(
+                    text_blocks,
+                    temp_asset_dir,
+                    asset_save_dir,
+                ))
 
             # image blocks
             image_blocks = [
                 block for block in blocks if block['type'] == 'image'
             ]
-            if len(image_blocks) > 0:
-                chunks.extend(
-                    self.process_image_blocks(image_blocks, temp_asset_dir,
-                                              asset_save_dir))
+            chunks.extend(
+                self.process_image_blocks(
+                    image_blocks,
+                    temp_asset_dir,
+                    asset_save_dir,
+                ))
 
             # table blocks
             table_blocks = [
                 block for block in blocks if block['type'] == 'table'
             ]
-            if len(table_blocks) > 0:
-                chunks.extend(
-                    self.process_table_blocks(table_blocks, temp_asset_dir,
-                                              asset_save_dir))
+            chunks.extend(
+                self.process_table_blocks(
+                    table_blocks,
+                    temp_asset_dir,
+                    asset_save_dir,
+                ))
 
             # start next iteration
             i = j
@@ -227,11 +251,12 @@ class PDFParser(Parser):
         temp_asset_dir: str,
         asset_save_dir: str,
     ) -> list[Chunk]:
-        texts = [block['text'] for block in text_blocks]
-        content = self.filter_text_content(texts)
+        texts = [str(block['text']) for block in text_blocks]
+        content = self.strip_text_content(texts)
         return [
             Chunk(
                 content_type=ChunkType.TEXT,
+                file_name=self.file_name,
                 content=content.encode('utf-8'),
                 extra_description=''.encode('utf-8'),
             )
@@ -255,8 +280,11 @@ class PDFParser(Parser):
 
         chunks = []
         for block in image_blocks:
-            texts = [block['img_caption'], str(block['img_footnote'])]
-            extra_description = self.filter_text_content(texts)
+            texts = [
+                str(block.get('img_caption', '')),
+                str(block.get('img_footnote', '')),
+            ]
+            extra_description = self.strip_text_content(texts)
             if len(extra_description) == 0:
                 extra_description = "no caption for this image"
 
@@ -265,6 +293,7 @@ class PDFParser(Parser):
 
             chunk = Chunk(
                 content_type=ChunkType.IMAGE,
+                file_name=self.file_name,
                 content=_load_image(abs_img_path),
                 extra_description=(extra_description).encode('utf-8'),
                 content_url=os.path.join(asset_save_dir,
@@ -282,13 +311,17 @@ class PDFParser(Parser):
     ) -> list[Chunk]:
         chunks = []
         for block in table_blocks:
-            texts = [block['table_caption'], str(block['table_footnote'])]
-            extra_description = self.filter_text_content(texts)
+            texts = [
+                str(block.get('table_caption', '')),
+                str(block.get('table_footnote', '')),
+            ]
+            extra_description = self.strip_text_content(texts)
             if len(extra_description) == 0:
                 extra_description = "no caption for this table"
 
             chunk = Chunk(
                 content_type=ChunkType.TABLE,
+                file_name=self.file_name,
                 content=block['table_body'].encode('utf-8'),
                 extra_description=(extra_description).encode('utf-8'),
             )
@@ -307,16 +340,16 @@ class PDFParser(Parser):
                 content = chunk.extra_description
             content = safe_strip(content.decode('utf-8'))
             if len(content) < 8 or len(content.split()) < 3:
-                logging.info(f'remove chunk due to too short content')
-                logging.info('original content')
-                logging.info(str(chunk))
+                logging.info(
+                    f'{self.file_name}: remove chunk due to too short content: {str(chunk)}'
+                )
                 continue
 
             filtered_chunks.append(chunk)
 
         return filtered_chunks
 
-    def filter_text_content(self, texts: list[str]) -> str:
+    def strip_text_content(self, texts: list[str]) -> str:
         """
         Filter and merge text content
         """
@@ -328,3 +361,29 @@ class PDFParser(Parser):
             content += striped
             content += "\n\n"
         return content.strip()
+
+    def is_valid_block(self, block: Dict[str, Any]) -> bool:
+        """
+        There are corner cases where returned blocks dont contain expected keys 
+        or values are empty.
+
+        Returns:
+        - bool, true if block is valid.
+        """
+        # missing key
+        if 'type' not in block:
+            return False
+
+        # text / equation
+        if block['type'] in ['text', 'equation']:
+            return 'text' in block
+
+        # image
+        if block['type'] == 'image':
+            return 'img_path' in block and len(block['img_path']) > 0
+
+        # table
+        if block['type'] == 'table':
+            return 'table_body' in block
+
+        return True

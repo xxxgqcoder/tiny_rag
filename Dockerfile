@@ -52,6 +52,7 @@ COPY parse parse
 COPY rag rag
 COPY config.py .
 COPY utils.py .
+COPY start_server.py .
 
 COPY start_jupyter.sh .
 RUN chmod +x start_jupyter.sh

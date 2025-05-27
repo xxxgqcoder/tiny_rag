@@ -7,7 +7,8 @@ from parse.parser import Parser, SupportedFileType, Chunk, ChunkType
 from parse.pdf_parser import PDFParser
 
 import config
-from utils import get_project_base_directory
+from utils import get_project_base_directory, get_hash64
+from start_server import create_milvus_collection, create_sqlite_table
 
 
 class TestMilvusDB(unittest.TestCase):
@@ -15,68 +16,22 @@ class TestMilvusDB(unittest.TestCase):
     def test_base(self):
         from scipy.sparse import csr_array
         from pymilvus import DataType
-        from rag.db import MilvusLiteDB
+        from rag.db import MilvusLiteDB, get_vector_db
 
-        collection_name = 'test_milvus_collection'
-        db = MilvusLiteDB(conn_url='./test_milvus.db',
-                          collection_name=collection_name)
-        self.assertEqual(db.collection_name, collection_name)
-
-        if db.client.has_collection(collection_name):
-            db.client.drop_collection(collection_name)
-
-        # create collection
-        # data schema
-        schema = db.client.create_schema(enable_dynamic_field=True)
         dense_embed_dim = 10
-
-        schema.add_field(
-            field_name="uuid",
-            datatype=DataType.VARCHAR,
-            is_primary=True,
-            auto_id=False,
-            max_length=128,
-        )
-        schema.add_field(
-            field_name="content",
-            datatype=DataType.VARCHAR,
-            max_length=10240,
-        )
-        schema.add_field(
-            field_name="meta",
-            datatype=DataType.JSON,
-            nullable=True,
-        )
-        schema.add_field(
-            field_name="dense_vector",
-            datatype=DataType.FLOAT_VECTOR,
-            dim=dense_embed_dim,
-        )
-        schema.add_field(
-            field_name="sparse_vector",
-            datatype=DataType.SPARSE_FLOAT_VECTOR,
-        )
-
-        # index
-        index_params = db.client.prepare_index_params()
-        index_params.add_index(
-            field_name="dense_vector",
-            index_type="AUTOINDEX",
-            metric_type="IP",
-        )
-        index_params.add_index(
-            field_name="sparse_vector",
-            index_type="SPARSE_INVERTED_INDEX",
-            metric_type="IP",
-        )
+        collection_name = 'test_milvus_collection'
 
         # create collection
-        db.client.create_collection(
-            collection_name=collection_name,
-            schema=schema,
-            index_params=index_params,
-            enable_dynamic_field=True,
+        config.MILVUS_DB_NAME = './test_milvus.db'
+        config.MILVUS_COLLECTION_NAME = collection_name
+        create_milvus_collection(
+            conn_url=config.MILVUS_DB_NAME,
+            collection_name=config.MILVUS_COLLECTION_NAME,
+            dense_embed_dim=dense_embed_dim,
         )
+
+        db = get_vector_db()
+        self.assertEqual(db.collection_name, collection_name)
 
         self.assertEqual(db.collection_name, 'test_milvus_collection')
         self.assertTrue(db.client.has_collection('test_milvus_collection'))
@@ -98,15 +53,21 @@ class TestMilvusDB(unittest.TestCase):
         insert_cnt = db.insert(record)
         self.assertEqual(insert_cnt, 1)
 
+        record['uuid'] = '654321'
+        insert_cnt = db.insert(record)
+        self.assertEqual(insert_cnt, 1)
+
         ret = db.client.get(collection_name='test_milvus_collection',
                             ids=['123456'])
         self.assertTrue(ret is not None)
 
         # test delete
-        delete_cnt = db.delete(key='123456')
-        self.assertEqual(delete_cnt, 1)
-        ret = db.client.get(collection_name='test_milvus_collection',
-                            ids=['123456'])
+        delete_cnt = db.delete(keys=['123456', '654321'], )
+        self.assertEqual(delete_cnt, 2)
+        ret = db.client.get(
+            collection_name='test_milvus_collection',
+            ids=['123456'],
+        )
         self.assertTrue(len(ret) == 0)
 
 
@@ -115,29 +76,20 @@ class TestSQLiteDB(unittest.TestCase):
     def test_base(self, ):
         import os
 
-        from rag.db import SQLiteDB
+        from rag.db import get_rational_db
         from utils import now_in_utc
 
-        db_name = 'test_sql_lite.db'
-        document_table = 'document'
-
-        db = SQLiteDB(conn_url=db_name, document_table=document_table)
         # create table
-        cur = db.conn.cursor()
-        sql_drop_table = """
-        DROP TABLE IF EXISTS document
-        """
-        sql_create_table = """
-        CREATE TABLE IF NOT EXISTS document (
-            id INTEGER PRIMARY KEY,
-            name TEXT NOT NULL,
-            chunks TEXT NOT NULL,
-            created_date TEXT NOT NULL
+        db_name = './test_sql_lite.db'
+        document_table = 'document'
+        config.SQLITE_DB_NAME = db_name
+        config.SQLITE_DOCUMENT_TABLE_NAME = document_table
+        create_sqlite_table(
+            conn_url=config.SQLITE_DB_NAME,
+            table_name=config.SQLITE_DOCUMENT_TABLE_NAME,
         )
-        """
-        cur.execute(sql_drop_table)
-        cur.execute(sql_create_table)
-        db.conn.commit()
+
+        db = get_rational_db()
 
         # insert
         file_path = '/var/share/tiny_rag_files/test_file.pdf'
@@ -153,6 +105,7 @@ class TestSQLiteDB(unittest.TestCase):
             'name': file_name,
             'chunks': chunks,
             'created_date': now_in_utc(),
+            'content_hash': get_hash64('test'.encode('utf-8')),
         }
 
         insert_cnt = db.insert_document(data=data)
@@ -160,15 +113,16 @@ class TestSQLiteDB(unittest.TestCase):
 
         # get
         ret = db.get_document(name=file_name)
-        self.assertEqual(ret['chunks'], chunks.split('\x07'))
+        print(ret)
+        self.assertEqual(ret['chunks'], chunks)
+        self.assertEqual(ret['content_hash'],
+                         get_hash64('test'.encode('utf-8')))
 
         # delete
         delete_cnt = db.delete_document(name=file_name)
         self.assertEqual(delete_cnt, 1)
         ret = db.get_document(name=file_name)
-        self.assertTrue(len(ret) == 0)
-
-        pass
+        self.assertTrue(ret is None)
 
 
 if __name__ == '__main__':

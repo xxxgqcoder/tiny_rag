@@ -14,36 +14,43 @@ class TestPDFParser(unittest.TestCase):
         chunks = [
             # keep
             Chunk(content='text 1: should keep'.encode('utf-8'),
+                  file_name='/fake/path',
                   extra_description=''.encode('utf-8'),
                   content_type=config.ChunkType.TEXT),
 
             # rm
             Chunk(content='text 2'.encode('utf-8'),
+                  file_name='/fake/path',
                   extra_description=''.encode('utf-8'),
                   content_type=config.ChunkType.TEXT),
 
             # keep
             Chunk(content=''.encode('utf-8'),
+                  file_name='/fake/path',
                   extra_description='image 1: should keep'.encode('utf-8'),
                   content_type=config.ChunkType.IMAGE),
 
             # rm
             Chunk(content=''.encode('utf-8'),
+                  file_name='/fake/path',
                   extra_description='image 2'.encode('utf-8'),
                   content_type=config.ChunkType.TEXT),
 
             # keep
             Chunk(content=''.encode('utf-8'),
+                  file_name='/fake/path',
                   extra_description='table 1: should keep'.encode('utf-8'),
                   content_type=config.ChunkType.TABLE),
 
             # rm
             Chunk(content=''.encode('utf-8'),
+                  file_name='/fake/path',
                   extra_description='table 2'.encode('utf-8'),
                   content_type=config.ChunkType.TABLE),
         ]
 
         parser = PDFParser()
+        parser.file_name = '/fake/path'
         ret = parser.filter_chunks(chunks)
         for chunk in ret:
             print(chunk)
@@ -56,10 +63,10 @@ class TestPDFParser(unittest.TestCase):
         self.assertEqual(ret[2].extra_description.decode('utf-8'),
                          'table 1: should keep')
 
-    def test_filter_text_content(self, ):
+    def test_strip_text_content(self, ):
         texts = ['', None, 'test ', 'block 1']
         parser = PDFParser()
-        content = parser.filter_text_content(texts=texts)
+        content = parser.strip_text_content(texts=texts)
         self.assertEqual(content, 'test\n\nblock 1')
 
     def test_parser_chunk(self):
@@ -90,6 +97,7 @@ class TestPDFParser(unittest.TestCase):
             },
         ]
         parser = PDFParser()
+        parser.file_name = '/fake/path'
         chunks = parser.chunk(content_list=content_list,
                               temp_asset_dir='',
                               asset_save_dir='')
@@ -103,6 +111,22 @@ class TestPDFParser(unittest.TestCase):
 
         # chunk 1
         self.assertTrue('h2' in str(chunks[1]))
+
+    def test_is_valid_block(self):
+        parser = PDFParser()
+
+        block = {}
+        self.assertFalse(parser.is_valid_block(block))
+
+        block = {'type': 'image', 'img_path': ''}
+        self.assertFalse(parser.is_valid_block(block))
+
+        block = {
+            'type': 'table',
+        }
+        self.assertFalse(parser.is_valid_block(block))
+
+        pass
 
 
 if __name__ == '__main__':

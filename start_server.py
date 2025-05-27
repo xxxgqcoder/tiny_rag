@@ -2,19 +2,27 @@ import logging
 import sqlite3
 import traceback
 import os
+import time
+
+from watchdog.observers import Observer
 
 import config
 from utils import run_once
+from rag.document import FileHandler
+from rag.db import get_rational_db
+from rag.document import get_job_executor, on_process_new_file, on_process_delete_file
 
 
 @run_once
 def create_milvus_collection(
-        conn_url: str = config.MILVUS_DB_NAME,
-        token: str = None,
-        collection_name: str = config.MILVUS_COLLECTION_NAME,
-        **kwargs):
+    conn_url: str = config.MILVUS_DB_NAME,
+    token: str = None,
+    collection_name: str = config.MILVUS_COLLECTION_NAME,
+    **kwargs,
+) -> None:
     """
     Create milvus collection.
+
     Args:
     - conn_url: the milvus connection url, or db_name if deployed as lite.
     - token: connection token if any.
@@ -104,15 +112,26 @@ def create_sqlite_table(
     token: str = None,
     table_name: str = config.SQLITE_DOCUMENT_TABLE_NAME,
     **kwargs,
-):
+) -> None:
+    """
+    Create SQLite table.
+
+    Args:
+    - conn_url: sqlite connection url. Currently only support local file path.
+    - token: not used.
+    - table_name: document table name.
+    """
+
     sql_create_table = """
     CREATE TABLE IF NOT EXISTS document (
         id INTEGER PRIMARY KEY,
         name TEXT NOT NULL,
         chunks TEXT NOT NULL,
-        created_date TEXT NOT NULL
+        created_date TEXT NOT NULL,
+        content_hash TEXT NOT NULL
     )
     """
+    sql_create_index = "CREATE INDEX idx_name ON document (name)"
     # NOTE: assume local file path
     os.makedirs(os.path.dirname(conn_url), exist_ok=True)
 
@@ -128,6 +147,7 @@ def create_sqlite_table(
                 )
                 return
             cur.execute(sql_create_table)
+            cur.execute(sql_create_index)
             conn.commit()
         except sqlite3.Error as e:
             if conn:
@@ -137,3 +157,60 @@ def create_sqlite_table(
             logging.info(formatted_traceback)
 
     logging.info(f'table created {table_name}')
+
+
+@run_once
+def initial_file_process(file_dir: str):
+    """
+    Submit initial file content check.
+    """
+    job_executor = get_job_executor()
+    sql_db = get_rational_db()
+
+    # get all documents
+    all_documents = sql_db.get_all_documents()
+    file_names = os.listdir(file_dir)
+
+    # delete documents that are not found in file_dir
+    to_delete = list(set(all_documents) - set(file_names))
+    logging.info(
+        f"Below files are founded in db but not in file folder, delete: {to_delete}"
+    )
+    for file_name in to_delete:
+        job_executor.submit(on_process_delete_file,
+                            file_path=os.path.join(file_dir, file_name))
+
+    for file_name in file_names:
+        job_executor.submit(on_process_new_file,
+                            file_path=os.path.join(file_dir, file_name))
+
+
+if __name__ == '__main__':
+    # set up db
+    create_milvus_collection(
+        conn_url=config.MILVUS_DB_NAME,
+        collection_name=config.MILVUS_COLLECTION_NAME,
+        dense_embed_dim=config.BGE_DENSE_EMBED_DIM,
+    )
+    create_sqlite_table(
+        conn_url=config.SQLITE_DB_NAME,
+        table_name=config.SQLITE_DOCUMENT_TABLE_NAME,
+    )
+
+    # initial file direcory process
+    initial_file_process(config.RAG_FILE_DIR)
+
+    # start file monitor
+    event_handler = FileHandler()
+    observer = Observer()
+    observer.schedule(event_handler, config.RAG_FILE_DIR, recursive=False)
+    observer.start()
+
+    # event loop
+    try:
+        logging.info('start file monitor')
+        while True:
+            time.sleep(1)
+    finally:
+        observer.stop()
+        observer.join()

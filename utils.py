@@ -1,7 +1,10 @@
 import logging
 import os
+import traceback
 from typing import Any
 from logging.handlers import RotatingFileHandler
+
+import xxhash
 
 initialized_root_logger = False
 
@@ -80,18 +83,6 @@ def safe_strip(d: Any) -> str:
     return str(d).strip()
 
 
-# def singleton(cls, *args, **kw):
-#     instances = {}
-
-#     def _singleton():
-#         key = str(cls) + str(os.getpid())
-#         if key not in instances:
-#             instances[key] = cls(*args, **kw)
-#         return instances[key]
-
-#     return _singleton
-
-
 def singleton(cls):
     instances = {}
 
@@ -119,6 +110,16 @@ def now_in_utc():
     from datetime import datetime, timezone
     now_utc = datetime.now(timezone.utc)
     return now_utc.strftime('%Y-%m-%d %H:%M:%S.%f')
+
+
+def get_hash64(content: bytes) -> str:
+    return xxhash.xxh64(content).hexdigest()
+
+
+def logging_exception(e: Exception):
+    logging.info(f"Exception: {type(e).__name__} - {e}")
+    formatted_traceback = traceback.format_exc()
+    logging.info(formatted_traceback)
 
 
 if __name__ == '__main__':

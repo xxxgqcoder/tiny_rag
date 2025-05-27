@@ -58,7 +58,6 @@ class MilvusLiteDB(VectorDB):
     def __init__(self, conn_url: str, token: str = None, **kwargs):
         super().__init__(conn_url=conn_url, token=token, **kwargs)
         from pymilvus import MilvusClient
-        logging.info(f"initialize milvus db: {conn_url}, token: {token}")
         self.client = MilvusClient(conn_url)
 
     def insert(self, data: Union[Dict, List[Dict]]) -> int:
@@ -66,10 +65,10 @@ class MilvusLiteDB(VectorDB):
         logging.info(f'insert stats: {stats}')
         return stats['upsert_count']
 
-    def delete(self, key: str) -> Any:
+    def delete(self, keys: list[str]) -> Any:
         stats = self.client.delete(
             collection_name=self.collection_name,
-            ids=[key],
+            ids=keys,
         )
         logging.info(f'delete stats: {stats}')
         return len(stats)
@@ -168,7 +167,7 @@ class SQLiteDB(RationalDB):
         """
         super().__init__()
         import sqlite3
-        self.conn = sqlite3.connect(conn_url)
+        self.conn = sqlite3.connect(conn_url, check_same_thread=False)
         for k, v in kwargs.items():
             setattr(self, k, v)
 
@@ -225,20 +224,20 @@ class SQLiteDB(RationalDB):
         ret = cur.execute(query, (name, ))
         res = ret.fetchall()
         if len(res) < 1:
-            return {}
+            return None
         res = res[0]
         return {
             'name': res[1],
-            'chunks': res[2].split('\x07'),
+            'chunks': res[2],
             'created_date': res[3],
+            'content_hash': res[4],
         }
 
     def delete_document(self, name: str) -> int:
         import sqlite3
 
-        cur = self.conn
+        cur = self.conn.cursor()
         query = f"DELETE FROM {self.document_table} WHERE name = ?"
-        delete_fail = False
         logging.info(f'delete document: {name}')
 
         try:
@@ -248,7 +247,6 @@ class SQLiteDB(RationalDB):
             if self.conn:
                 self.conn.rollback()
 
-            delete_fail = True
             logging.info(
                 f"Initial delete fail, exception: {type(e).__name__} - {e}")
 
@@ -259,6 +257,18 @@ class SQLiteDB(RationalDB):
 
         finally:
             return 1
+
+    def get_all_documents(self, ) -> list[str]:
+        query = f"SELECT name FROM {self.document_table}"
+        cur = self.conn.cursor()
+
+        ret = cur.execute(query, ())
+        res = ret.fetchall()
+        if len(res) < 1:
+            return []
+
+        names = [r[0] for r in res]
+        return names
 
 
 def get_rational_db():
