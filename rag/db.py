@@ -167,7 +167,7 @@ class SQLiteDB(RationalDB):
         """
         super().__init__()
         import sqlite3
-        self.conn = sqlite3.connect(conn_url)
+        self.conn = sqlite3.connect(conn_url, check_same_thread=False)
         for k, v in kwargs.items():
             setattr(self, k, v)
 
