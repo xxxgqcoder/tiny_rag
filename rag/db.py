@@ -236,7 +236,7 @@ class SQLiteDB(RationalDB):
     def delete_document(self, name: str) -> int:
         import sqlite3
 
-        cur = self.conn
+        cur = self.conn.cursor()
         query = f"DELETE FROM {self.document_table} WHERE name = ?"
         logging.info(f'delete document: {name}')
 
@@ -257,6 +257,18 @@ class SQLiteDB(RationalDB):
 
         finally:
             return 1
+
+    def get_all_documents(self, ) -> list[str]:
+        query = f"SELECT name FROM {self.document_table}"
+        cur = self.conn.cursor()
+
+        ret = cur.execute(query, ())
+        res = ret.fetchall()
+        if len(res) < 1:
+            return []
+
+        names = [r[0] for r in res]
+        return names
 
 
 def get_rational_db():
