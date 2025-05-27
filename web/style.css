@@ -72,6 +72,10 @@ input {
 }
 
 #bot {
+	margin-right: auto;
+}
+
+#user {
 	margin-left: auto;
 }
 
