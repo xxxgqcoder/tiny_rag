@@ -4,23 +4,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
   submitButton.addEventListener("click", (e) => {
     let input = inputField.value;
+    if (input === null || input === undefined || input.trim() === ''){
+      return
+    }
+
     inputField.value = "";
-    
+
     output(input);
 
     autoResize(inputField)
   });
-
-
-
-  // const inputField = document.getElementById("input");
-  // inputField.addEventListener("keydown", (e) => {
-  //   if (e.code === "Enter") {
-  //     let input = inputField.value;
-  //     inputField.value = "";
-  //     output(input);
-  //   }
-  // });
 
 });
 
@@ -82,35 +75,36 @@ function compare(promptsArray, repliesArray, string) {
 function addChat(input, product) {
   const messagesContainer = document.getElementById("messages");
 
+  // user message
   let userDiv = document.createElement("div");
   userDiv.id = "user";
-  userDiv.className = "user response";
-  userDiv.innerHTML = `<span>${input}</span><img src="user.png" class="avatar">`;
+  userDiv.className = "user message-container";
+  userDiv.innerHTML = `<div class="user-message-body">${input}</div>
+  <div><img src="user.png" class="avatar"></div>`;
   messagesContainer.appendChild(userDiv);
 
+  // bot message
   let botDiv = document.createElement("div");
-  let botImg = document.createElement("img");
-  let botText = document.createElement("span");
   botDiv.id = "bot";
-  botImg.src = "bot-mini.png";
-  botImg.className = "avatar";
-  botDiv.className = "bot response";
-  botText.innerText = "Typing...";
-  botDiv.appendChild(botImg);
-  botDiv.appendChild(botText);
+  botDiv.className = "bot message-container";
+  botDiv.innerHTML = `<div><img src="bot-mini.png" class="avatar"></div>
+  <div class="bot-message-body">Thinking...</div>`;
   messagesContainer.appendChild(botDiv);
+
   // Keep messages at most recent
   messagesContainer.scrollTop = messagesContainer.scrollHeight - messagesContainer.clientHeight;
 
-  // Fake delay to seem "real"
   setTimeout(() => {
-    botText.innerText = `${product}`;
-  }, 2000
-  )
+    const messageBody = botDiv.getElementsByClassName("bot-message-body");
+    console.log(messageBody);
+    // messageBody[0].innerText = `${product}`;
+    messageBody[0].innerText = `An response from bot`;
+  }, 2000);
+
 
 }
 
 function autoResize(textarea) {
-  textarea.style.height = 'auto'; // 先重置高度
-  textarea.style.height = textarea.scrollHeight + 'px'; // 根据内容高度重新设置
+  textarea.style.height = 'auto'; // reset height
+  textarea.style.height = textarea.scrollHeight + 'px'; // reset height according to content
 }

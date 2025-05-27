@@ -83,6 +83,32 @@ textarea {
 	padding: 15px;
 	margin: 15px;
 	border-radius: 10px;
+	scrollbar-width: none;
+  	-ms-overflow-style: none;
+}
+
+.message-container {
+	display: flex;
+	height: 100%;
+	width: 100%;
+	justify-content: space-between; 
+	align-items: flex-start
+}
+
+.user-message-body {
+	display: flex;
+	margin-left: auto;
+	padding: 2px;
+	margin: 4px;
+	width: 100%;
+}
+
+.bot-message-body {
+	display: flex;
+	margin-right: auto;
+	padding: 2px;
+	margin: 4px;
+	width: 80%;
 }
 
 #bot {
