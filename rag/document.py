@@ -14,7 +14,7 @@ from watchdog.observers import Observer
 import config
 from .nlp import EmbeddingModel
 from parse.parser import Chunk
-from utils import now_in_utc, get_hash64, run_once
+from utils import now_in_utc, get_hash64, run_once, logging_exception
 from .db import get_vector_db, get_rational_db
 from .nlp import get_embed_model
 
@@ -97,9 +97,7 @@ def process_new_file(file_path: str) -> Dict[str, bool]:
         with open(file_path, 'rb') as f:
             file_bytes = f.read()
     except Exception as e:
-        logging.info(f"""{file_path} Exception: {type(e).__name__} - {e}""")
-        formatted_traceback = traceback.format_exc()
-        logging.info(formatted_traceback)
+        logging_exception(e)
         return
 
     if len(file_bytes) == 0:
@@ -263,18 +261,18 @@ def get_job_executor():
     return _job_executor
 
 
-def test_process_new_file(file_path: str):
-    if ignore_file(file_path):
-        logging.info(f'{file_path}: ignore')
-        return
-    logging.info(f'{file_path}: on process new file')
+def on_process_new_file(file_path: str):
+    try:
+        process_new_file(file_path=file_path)
+    except Exception as e:
+        logging_exception(e)
 
 
-def test_process_delete_file(file_path: str):
-    if ignore_file(file_path):
-        logging.info(f'{file_path}: ignore')
-        return
-    logging.info(f'{file_path}: on process delete file')
+def on_process_delete_file(file_path: str):
+    try:
+        process_delete_file(file_path=file_path)
+    except Exception as e:
+        logging_exception(e)
 
 
 class FileHandler(FileSystemEventHandler):
@@ -286,27 +284,25 @@ class FileHandler(FileSystemEventHandler):
         dest_path = event.dest_path
 
         if event.event_type == events.EVENT_TYPE_MOVED:
-            logging.info(f'{event}')
             if not os.path.isdir(src_path):
-                job_executor.submit(process_delete_file, file_path=src_path)
+                job_executor.submit(on_process_delete_file,
+                                    file_path=src_path)
 
             if not os.path.isdir(dest_path):
-                job_executor.submit(process_new_file, file_path=dest_path)
+                job_executor.submit(on_process_new_file, file_path=src_path)
 
         elif event.event_type == events.EVENT_TYPE_DELETED:
-            logging.info(f'{event}')
             if not os.path.isdir(src_path):
-                job_executor.submit(process_delete_file, file_path=src_path)
+                job_executor.submit(on_process_delete_file,
+                                    file_path=src_path)
 
         elif event.event_type == events.EVENT_TYPE_CREATED:
-            logging.info(f'{event}')
             if not os.path.isdir(src_path):
-                job_executor.submit(process_new_file, file_path=src_path)
+                job_executor.submit(on_process_new_file, file_path=src_path)
 
         elif event.event_type == events.EVENT_TYPE_MODIFIED:
-            logging.info(f'{event}')
             if not os.path.isdir(src_path):
-                job_executor.submit(process_new_file, file_path=src_path)
+                job_executor.submit(on_process_new_file, file_path=src_path)
 
         else:
             pass

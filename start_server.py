@@ -9,7 +9,8 @@ from watchdog.observers import Observer
 import config
 from utils import run_once
 from rag.document import FileHandler
-from rag.document import get_job_executor, process_new_file
+from rag.db import get_rational_db
+from rag.document import get_job_executor, on_process_new_file, on_process_delete_file
 
 
 @run_once
@@ -163,11 +164,25 @@ def initial_file_process(file_dir: str):
     """
     Submit initial file content check.
     """
-    files = os.listdir(file_dir)
-    file_paths = [os.path.join(file_dir, f) for f in files]
     job_executor = get_job_executor()
-    for file_path in file_paths:
-        job_executor.submit(process_new_file, file_path=file_path)
+    sql_db = get_rational_db()
+
+    # get all documents
+    all_documents = sql_db.get_all_documents()
+    file_names = os.listdir(file_dir)
+
+    # delete documents that are not found in file_dir
+    to_delete = list(set(all_documents) - set(file_names))
+    logging.info(
+        f"Below files are founded in db but not in file folder, delete: {to_delete}"
+    )
+    for file_name in to_delete:
+        job_executor.submit(on_process_delete_file,
+                            file_path=os.path.join(file_dir, file_name))
+
+    for file_name in file_names:
+        job_executor.submit(on_process_new_file,
+                            file_path=os.path.join(file_dir, file_name))
 
 
 if __name__ == '__main__':
