@@ -31,13 +31,13 @@ span {
 }
 
 .chat {
-	height: 300px;
-	width: 50vw;
+	height: 90%;
+	width: 95vw;
 	display: flex;
 	flex-direction: column;
   	justify-content: center;
 	align-items: center;
-} 
+}
 
 ::-webkit-input-placeholder { 
 	color: .711 
@@ -46,8 +46,17 @@ span {
 input { 
 	border: 0; 
 	padding: 15px; 
+	margin-right: auto;
+	border-radius: 10px;
+	width: 95vw;
+}
+
+.submit { 
+	border: 4px; 
+	padding: 10px; 
 	margin-left: auto;
-	border-radius: 10px; 
+	border-radius: 10px;
+	background-color:rgba(31, 187, 14, 0.5);
 }
 
 .messages {
