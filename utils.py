@@ -77,7 +77,7 @@ def safe_strip(d: Any) -> str:
     Safely strip d.
     """
     if d is None:
-        return None
+        return ''
     if isinstance(d, str):
         return d.strip()
     return str(d).strip()
