@@ -51,6 +51,14 @@ input {
 	width: 95vw;
 }
 
+textarea {
+	border: 0; 
+	padding: 15px; 
+	margin-right: auto;
+	border-radius: 10px;
+	width: 95vw;
+}
+
 .submit { 
 	border: 4px; 
 	padding: 10px; 

@@ -1,12 +1,27 @@
 document.addEventListener("DOMContentLoaded", () => {
+  const submitButton = document.getElementById("submit");
   const inputField = document.getElementById("input");
-  inputField.addEventListener("keydown", (e) => {
-    if (e.code === "Enter") {
-      let input = inputField.value;
-      inputField.value = "";
-      output(input);
-    }
+
+  submitButton.addEventListener("click", (e) => {
+    let input = inputField.value;
+    inputField.value = "";
+    
+    output(input);
+
+    autoResize(inputField)
   });
+
+
+
+  // const inputField = document.getElementById("input");
+  // inputField.addEventListener("keydown", (e) => {
+  //   if (e.code === "Enter") {
+  //     let input = inputField.value;
+  //     inputField.value = "";
+  //     output(input);
+  //   }
+  // });
+
 });
 
 function output(input) {
@@ -93,4 +108,9 @@ function addChat(input, product) {
   }, 2000
   )
 
+}
+
+function autoResize(textarea) {
+  textarea.style.height = 'auto'; // 先重置高度
+  textarea.style.height = textarea.scrollHeight + 'px'; // 根据内容高度重新设置
 }
