@@ -5,6 +5,9 @@ from rag.llm import get_chat_model
 from utils import logging_exception
 
 
+# current ongoing conversation
+conversation = []
+
 def generate_response(user_input: str) -> str:
     model = get_chat_model()
 
