@@ -1,33 +1,11 @@
 # base stage
-FROM ubuntu:22.04 AS base
+FROM tiny_rag:dep AS base
 USER root
 SHELL ["/bin/bash", "-c"]
 
 ARG NEED_MIRROR=0
 WORKDIR /tiny_rag
 ENV DEBIAN_FRONTEND=noninteractive
-
-
-# ============================================================================ #
-# setup apt & install packages
-RUN --mount=type=cache,id=tiny_rag_apt,target=/var/cache/apt,sharing=locked \
-    if [ "$NEED_MIRROR" == "1" ]; then \
-        sed -i 's|http://ports.ubuntu.com|http://mirrors.tuna.tsinghua.edu.cn|g' /etc/apt/sources.list; \
-        sed -i 's|http://archive.ubuntu.com|http://mirrors.tuna.tsinghua.edu.cn|g' /etc/apt/sources.list; \
-    fi; \
-    rm -f /etc/apt/apt.conf.d/docker-clean && \
-    echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache && \
-    chmod 1777 /tmp && \
-    apt update && \
-    apt --no-install-recommends install -y ca-certificates && \
-    apt update && \
-    apt install -y default-jdk && \
-    apt install -y build-essential && \
-    apt install -y python3-pip pipx nginx unzip curl wget git vim less
-
-# setup vim
-RUN echo "set number" >> /etc/vim/vimrc
-
 
 # ============================================================================ #
 # builder stage
@@ -64,4 +42,3 @@ RUN chmod +x ./entrypoint*.sh
 # ============================================================================ #
 # set up container entrypoint
 ENTRYPOINT ["./entrypoint.sh"]
-
