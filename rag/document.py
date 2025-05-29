@@ -40,7 +40,7 @@ def make_chunk_record(
         content = chunk.extra_description
     content = content.decode('utf-8')
 
-    meta = {'file_path': os.path.basename(file_path)}
+    meta = {'file_name': os.path.basename(file_path)}
     if chunk.content_type == config.ChunkType.IMAGE:
         meta['content_url'] = chunk.content_url
     if chunk.content_type == config.ChunkType.TABLE:
@@ -285,16 +285,14 @@ class FileHandler(FileSystemEventHandler):
 
         if event.event_type == events.EVENT_TYPE_MOVED:
             if not os.path.isdir(src_path):
-                job_executor.submit(on_process_delete_file,
-                                    file_path=src_path)
+                job_executor.submit(on_process_delete_file, file_path=src_path)
 
             if not os.path.isdir(dest_path):
                 job_executor.submit(on_process_new_file, file_path=src_path)
 
         elif event.event_type == events.EVENT_TYPE_DELETED:
             if not os.path.isdir(src_path):
-                job_executor.submit(on_process_delete_file,
-                                    file_path=src_path)
+                job_executor.submit(on_process_delete_file, file_path=src_path)
 
         elif event.event_type == events.EVENT_TYPE_CREATED:
             if not os.path.isdir(src_path):

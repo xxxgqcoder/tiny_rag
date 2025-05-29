@@ -38,12 +38,22 @@ class VectorDB(ABC):
         raise NotImplementedError("Not implemented")
 
     @abstractmethod
-    def delete(self, key: str) -> int:
+    def delete(self, keys: list[str]) -> int:
         """
-        Delete record.
+        Delete records.
 
         Returns:
         - An int of how many records are successfully deleted.
+        """
+        raise NotImplementedError("Not implemented")
+
+    @abstractmethod
+    def get(self, keys: list[str]) -> list[Any]:
+        """
+        Get records.
+
+        Returns:
+        - A list of records
         """
         raise NotImplementedError("Not implemented")
 
@@ -117,6 +127,14 @@ class MilvusLiteDB(VectorDB):
             return []
 
         return res[0]
+
+    def get(self, keys: list[str]) -> list[Any]:
+        res = self.client.get(
+            collection_name=self.collection_name,
+            ids=keys,
+            output_fields=['uuid', 'content', 'meta'],
+        )
+        return res
 
 
 def get_vector_db():
