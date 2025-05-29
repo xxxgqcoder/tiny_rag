@@ -1,4 +1,5 @@
 FlagEmbedding
+Flask==3.0.3
 StrEnum==0.4.15
 albucore==0.0.24
 albumentations==2.0.6
