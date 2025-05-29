@@ -27,3 +27,5 @@ RUN --mount=type=cache,id=tiny_rag_apt,target=/var/cache/apt,sharing=locked \
 # setup vim
 RUN echo "set number" >> /etc/vim/vimrc
 
+# python cmd
+RUN ln -s /usr/bin/python3 /usr/bin/python
