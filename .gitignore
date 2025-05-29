@@ -12,6 +12,4 @@
 
 **/.virtual_documents/**
 
-**/models/**
-
-**/*models*/**
+**/*model*/**
