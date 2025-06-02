@@ -109,18 +109,25 @@ class OllamaModel(LLMModel):
         if "frequency_penalty" in gen_conf:
             options["frequency_penalty"] = gen_conf["frequency_penalty"]
 
+        ans = ""
         try:
-            response = self.client.chat(model=self.model_name,
-                                        messages=history,
-                                        options=options,
-                                        keep_alive=10)
-
-            ans = response["message"]["content"].strip()
-            token_count = response.get("eval_count", 0) \
-                + response.get("prompt_eval_count", 0)
-            return ans, token_count
+            response = self.client.chat(
+                model=self.model_name,
+                messages=history,
+                stream=True,
+                options=options,
+                keep_alive=10,
+            )
+            for resp in response:
+                if resp["done"]:
+                    token_count = resp.get("prompt_eval_count", 0) + resp.get(
+                        "eval_count", 0)
+                    yield token_count
+                ans = resp["message"]["content"]
+                yield ans
         except Exception as e:
-            return "**ERROR**: " + str(e), 0
+            yield ans + "\n**ERROR**: " + str(e)
+        yield 0
 
 
 def get_chat_model(name: str = 'Ollama') -> LLMModel:
