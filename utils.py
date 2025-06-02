@@ -95,12 +95,14 @@ def singleton(cls):
 
 def run_once(func):
     has_run = False
+    ret = None
 
     def wrapper(*args, **kwargs):
-        nonlocal has_run
+        nonlocal has_run, ret
         if not has_run:
             has_run = True
-            return func(*args, **kwargs)
+            ret = func(*args, **kwargs)
+        return ret
 
     return wrapper
 
