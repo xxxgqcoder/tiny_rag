@@ -82,7 +82,7 @@ def run_chat():
             last_ans = ""
             json_buffer = ""
             for chunk in response.iter_content(
-                    chunk_size=1024,
+                    chunk_size=8192,
                     decode_unicode=True,
             ):
                 if not chunk:
