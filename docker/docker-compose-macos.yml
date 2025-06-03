@@ -3,9 +3,9 @@ include:
 
 services:
   tiny_rag:
-    depends_on:
-      redis:
-        condition: service_healthy
+    # depends_on:
+    #   redis:
+    #     condition: service_healthy
     image: tiny_rag:dev
     container_name: tiny_rag_server
     ports:
