@@ -13,6 +13,7 @@ services:
       # - 80:80
       # - 443:443
       - 4000:4000
+      - 4567:4567
     volumes:
       - ./tiny_rag_logs:/tiny_rag/logs
       - ${HOST_RAG_FILE_DIR:-./files}:${RAG_FILE_DIR:-/var/share/tiny_rag_files} 
