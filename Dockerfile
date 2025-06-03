@@ -25,7 +25,7 @@ RUN --mount=type=cache,id=tiny_rag_pip,target=/root/.cache/pip,sharing=locked \
 
 # ============================================================================ #
 # additional pip package
-RUN --mount=type=cache,id=tiny_rag_pip,target=/root/.cache/pip,sharing=locked \
+RUN --mount=type=cache,id=tiny_rag_pip_additional,target=/root/.cache/pip,sharing=locked \
     pip install Flask==3.0.3
 
 
