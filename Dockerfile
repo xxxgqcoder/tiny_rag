@@ -26,7 +26,7 @@ RUN --mount=type=cache,id=tiny_rag_pip,target=/root/.cache/pip,sharing=locked \
 # ============================================================================ #
 # additional pip package
 RUN --mount=type=cache,id=tiny_rag_pip_additional,target=/root/.cache/pip,sharing=locked \
-    pip install Flask==3.0.3
+    pip install Flask==3.0.3 ollama==0.4.9 prompt_toolkit==3.0.51
 
 
 # ============================================================================ #
