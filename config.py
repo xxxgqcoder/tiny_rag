@@ -72,7 +72,7 @@ OLLAMA_GEN_CONF = {
 # ============================================================================ #
 # where to save conversation data.
 CHAT_CONVERSATION_SAVE_PATH = os.path.join(RAG_FILE_DIR,
-                                           'coversation/conversation.json')
+                                           'conversation/conversation.json')
 
 
 # ============================================================================ #
