@@ -10,7 +10,7 @@ import config
 from utils import singleton
 
 
-class LLMModel(ABC):
+class ChatModel(ABC):
 
     def __init__(self, **kwargs):
         for k, v in kwargs.items():
@@ -78,7 +78,7 @@ class LLMModel(ABC):
 
 
 @singleton
-class OllamaModel(LLMModel):
+class OllamaChat(ChatModel):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -132,8 +132,8 @@ class OllamaModel(LLMModel):
         yield 0
 
 
-def get_chat_model(name: str = 'Ollama') -> LLMModel:
-    return OllamaModel(
+def get_chat_model(name: str = 'Ollama') -> ChatModel:
+    return OllamaChat(
         ollama_host=config.OLLAMA_URL,
         ollama_model_name=config.OLLAMA_MODEL_NAME,
     )
