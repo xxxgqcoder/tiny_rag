@@ -58,6 +58,17 @@ sqlite db name: {SQLITE_DB_NAME}
 sqlite table name: {SQLITE_DOCUMENT_TABLE_NAME}
 """)
 
+# ============================================================================ #
+# model config
+OLLAMA_URL = 'http://host.docker.internal:11434'
+OLLAMA_MODEL_NAME = 'qwen3:30b-a3b'
+OLLAMA_GEN_CONF = {
+    'temperature': 0.1,
+    'top_p': 0.3,
+    'presence_penalty': 0.4,
+    'frequency_penalty': 0.7,
+}
+
 
 # ============================================================================ #
 class ChunkType(StrEnum):

@@ -4,6 +4,7 @@ import traceback
 import os
 import time
 
+from flask import Flask
 from watchdog.observers import Observer
 
 import config
@@ -206,11 +207,15 @@ if __name__ == '__main__':
     observer.schedule(event_handler, config.RAG_FILE_DIR, recursive=False)
     observer.start()
 
-    # event loop
-    try:
-        logging.info('start file monitor')
-        while True:
-            time.sleep(1)
-    finally:
-        observer.stop()
-        observer.join()
+    # http server
+    # NOTE: debug=True cause milvus start failure, no idea why.
+    app = Flask(__name__)
+    from rag import rag_server
+    app.register_blueprint(rag_server.bp)
+    app.run(
+        debug=False,
+        host='0.0.0.0',
+        port=4567,
+    )
+
+    logging.info('server shutdown')

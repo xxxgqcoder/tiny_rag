@@ -10,14 +10,13 @@ initialized_root_logger = False
 
 
 def get_project_base_directory():
-    project_base = os.path.abspath(
-        os.path.join(os.path.dirname(os.path.realpath(__file__)), ))
+    project_base = os.path.abspath(os.path.dirname(os.path.realpath(__file__)))
     return project_base
 
 
 def init_root_logger(
     logfile_basename: str,
-    log_format: str = "%(asctime)-15s %(levelname)-8s %(process)d %(message)s"
+    log_format: str = "%(asctime)-15s %(levelname)-8s %(process)d %(message)s",
 ):
     global initialized_root_logger
     if initialized_root_logger:
@@ -96,12 +95,14 @@ def singleton(cls):
 
 def run_once(func):
     has_run = False
+    ret = None
 
     def wrapper(*args, **kwargs):
-        nonlocal has_run
+        nonlocal has_run, ret
         if not has_run:
             has_run = True
-            return func(*args, **kwargs)
+            ret = func(*args, **kwargs)
+        return ret
 
     return wrapper
 

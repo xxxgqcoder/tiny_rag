@@ -1,0 +1,72 @@
+import time
+import logging
+import json
+
+from flask import (
+    jsonify,
+    request,
+    Blueprint,
+    Response,
+)
+
+import config
+from rag.llm import get_chat_model
+
+bp = Blueprint('rag', __name__, url_prefix='/')
+
+
+@bp.route('/chat_completion', methods=['POST'])
+def chat_completion():
+    logging.info(f'chat_completion: request={request}')
+    logging.info(f'chat_completion: request.json={request.json}')
+
+    req = request.json
+
+    history = req["history"]
+    logging.info(f"request {history}")
+
+    model = get_chat_model()
+
+    def stream():
+        nonlocal model
+        try:
+            for ans in model.chat(
+                    history=history,
+                    gen_conf=config.OLLAMA_GEN_CONF,
+            ):
+                logging.info(f'chat_completion: ans = {ans}')
+
+                if isinstance(ans, int):
+                    break
+
+                yield json.dumps({
+                    "code": 0,
+                    "message": "",
+                    "data": ans,
+                },
+                                 ensure_ascii=False) + "\n\n"
+
+        except Exception as e:
+            yield json.dumps(
+                {
+                    "code": 500,
+                    "message": str(e),
+                    "data": {
+                        "answer": "**ERROR**: " + str(e),
+                        "reference": []
+                    }
+                },
+                ensure_ascii=False) + "\n\n"
+        yield json.dumps({
+            "code": 0,
+            "message": "",
+            "data": True
+        },
+                         ensure_ascii=False) + "\n\n"
+
+    resp = Response(stream(), mimetype="text/event-stream")
+    resp.headers.add_header("Cache-control", "no-cache")
+    resp.headers.add_header("Connection", "keep-alive")
+    resp.headers.add_header("X-Accel-Buffering", "no")
+    resp.headers.add_header("Content-Type", "text/event-stream; charset=utf-8")
+    return resp
