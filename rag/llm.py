@@ -21,7 +21,7 @@ class ChatModel(ABC):
         self,
         history: list[Dict[str, Any]],
         gen_conf: Dict[str, Any],
-    ) -> Generator[Union[str, int], Any, Union[str, int]]:
+    ) -> Generator[Union[str, int], Any, Any]:
         """
         Chat API.
 
@@ -92,7 +92,7 @@ class OllamaChat(ChatModel):
         self,
         history: list[Dict[str, Any]],
         gen_conf: Dict[str, Any],
-    ) -> Generator[Union[str, int], Any, Union[str, int]]:
+    ) -> Generator[Union[str, int], Any, Any]:
         ctx_size = self._calculate_dynamic_ctx(history)
         if "max_tokens" in gen_conf:
             del gen_conf["max_tokens"]
@@ -118,7 +118,6 @@ class OllamaChat(ChatModel):
                 keep_alive=10,
             )
             for resp in response:
-                logging.info(f'chat: resp={resp}')
                 # ollama generates one token per response
                 if resp["done"]:
                     token_count = resp.get("prompt_eval_count", 0) + resp.get(
