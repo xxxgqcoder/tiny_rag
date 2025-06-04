@@ -17,6 +17,14 @@ bp = Blueprint('rag', __name__, url_prefix='/')
 
 @bp.route('/chat_completion', methods=['POST'])
 def chat_completion():
+    """
+    Return json object:
+    - `code`: 0 for success.
+    - `message`: error message if any.
+    - `data`: data load. Empty data payload indicates end of generation.
+        - `answer`: str, LLM generated answer.
+        - `reference`: list, reference used for generating this answer.
+    """
     logging.info(f'chat_completion: request={request}')
     logging.info(f'chat_completion: request.json={request.json}')
 
@@ -44,7 +52,10 @@ def chat_completion():
                     {
                         "code": 0,
                         "message": "",
-                        "data": final_ans,
+                        "data": {
+                            "answer": final_ans,
+                            "reference": [],
+                        }
                     },
                     ensure_ascii=False) + "\n\n"
 
@@ -62,7 +73,7 @@ def chat_completion():
         yield json.dumps({
             "code": 0,
             "message": "",
-            "data": True,
+            "data": {},
         },
                          ensure_ascii=False) + "\n\n"
 
