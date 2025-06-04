@@ -39,7 +39,7 @@ COPY utils.py .
 COPY start_server.py .
 COPY chat.py .
 
-COPY start_jupyter.sh .
+COPY notebooks/start_jupyter.sh .
 RUN chmod +x start_jupyter.sh
 
 COPY entrypoint.sh .
