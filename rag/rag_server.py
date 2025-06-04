@@ -27,6 +27,7 @@ def chat_completion():
 
     model = get_chat_model()
     final_ans = ''
+
     def stream():
         nonlocal model, final_ans
         try:
@@ -39,12 +40,13 @@ def chat_completion():
                     break
                 final_ans += ans
 
-                yield json.dumps({
-                    "code": 0,
-                    "message": "",
-                    "data": final_ans,
-                },
-                                 ensure_ascii=False) + "\n\n"
+                yield json.dumps(
+                    {
+                        "code": 0,
+                        "message": "",
+                        "data": final_ans,
+                    },
+                    ensure_ascii=False) + "\n\n"
 
         except Exception as e:
             yield json.dumps(
