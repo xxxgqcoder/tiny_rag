@@ -80,7 +80,6 @@ class Parser(ABC):
         raise NotImplementedError("Not implemented")
 
 
-
 def get_parser() -> Parser:
     from .pdf_parser import PDFParser
     return PDFParser()
