@@ -26,23 +26,23 @@ def chat_completion():
     logging.info(f"request {history}")
 
     model = get_chat_model()
-
+    final_ans = ''
     def stream():
-        nonlocal model
+        nonlocal model, final_ans
         try:
             for ans in model.chat(
                     history=history,
                     gen_conf=config.OLLAMA_GEN_CONF,
             ):
                 logging.info(f'chat_completion: ans = {ans}')
-
                 if isinstance(ans, int):
                     break
+                final_ans += ans
 
                 yield json.dumps({
                     "code": 0,
                     "message": "",
-                    "data": ans,
+                    "data": final_ans,
                 },
                                  ensure_ascii=False) + "\n\n"
 

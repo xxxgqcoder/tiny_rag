@@ -109,7 +109,6 @@ class OllamaChat(ChatModel):
         if "frequency_penalty" in gen_conf:
             options["frequency_penalty"] = gen_conf["frequency_penalty"]
 
-        ans = ""
         try:
             response = self.client.chat(
                 model=self.model_name,
@@ -125,10 +124,9 @@ class OllamaChat(ChatModel):
                     token_count = resp.get("prompt_eval_count", 0) + resp.get(
                         "eval_count", 0)
                     yield token_count
-                ans += resp["message"]["content"]
-                yield ans
+                yield resp["message"]["content"]
         except Exception as e:
-            yield ans + "\n**ERROR**: " + str(e)
+            yield "\n**ERROR**: " + str(e)
         yield 0
 
 
