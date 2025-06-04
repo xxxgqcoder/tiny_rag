@@ -8,9 +8,28 @@ from concurrent.futures import ThreadPoolExecutor
 
 import config
 from utils import logging_exception
+from utils import singleton
 
 # current ongoing conversation
-conversation = []
+
+
+@singleton
+class Conversation():
+    """
+    Conversation class.
+    """
+
+    def __init__(
+        self,
+        created_at,
+    ):
+
+        pass
+
+    @property
+    def chat_history(self, ):
+        pass
+
 
 chat_server_url = 'http://127.0.0.1:4567/chat_completion'
 input_placeholder = '<type <esc> then <enter> to finish input>'
@@ -45,6 +64,8 @@ def generate_response(user_input: str) -> requests.models.Response:
 
 
 def print_response(response: requests.models.Response) -> None:
+    print('', end='\r', flush=True)
+
     last_ans = ""
     json_buffer = ""
     for chunk in response.iter_content(
@@ -71,8 +92,6 @@ def print_response(response: requests.models.Response) -> None:
         except json.JSONDecodeError:
             continue
     print()
-
-
 
 
 def print_loading_mark():
@@ -106,11 +125,9 @@ def run_chat():
 
             is_generating = True
             response = generate_response(user_input=user_input)
-            response.raise_for_status()
-
             is_generating = False
-            print('', end='\r', flush=True)
 
+            response.raise_for_status()
             print_response(response=response)
 
         except Exception as e:
