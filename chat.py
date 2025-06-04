@@ -1,35 +1,28 @@
 import sys
 import json
 import time
+import datetime
+import os
+from typing import Dict, Any
+from concurrent.futures import ThreadPoolExecutor
 
 import requests
 from prompt_toolkit import prompt
-from concurrent.futures import ThreadPoolExecutor
+from strenum import StrEnum
 
 import config
 from utils import logging_exception
 from utils import singleton
 
+
+class Role(StrEnum):
+    SYSTEM = "system"
+    USER = "user"
+    ASSISTANT = "assistant"
+
+
 # current ongoing conversation
-
-
-@singleton
-class Conversation():
-    """
-    Conversation class.
-    """
-
-    def __init__(
-        self,
-        created_at,
-    ):
-
-        pass
-
-    @property
-    def chat_history(self, ):
-        pass
-
+conversation = {}
 
 chat_server_url = 'http://127.0.0.1:4567/chat_completion'
 input_placeholder = '<type <esc> then <enter> to finish input>'
@@ -47,50 +40,62 @@ def get_job_executor():
     return job_executor
 
 
-def generate_response(user_input: str) -> requests.models.Response:
-    user_input = user_input.strip()
-    history = []
-    history.append({
-        'role': 'user',
-        'content': user_input,
-    })
+def generate_response() -> requests.models.Response:
+    global conversation, is_generating
 
+    reduced_conv = {}
+    reduced_conv['history'] = [{
+        'role': history['role'],
+        'content': history['content'],
+    } for history in conversation['history']]
+
+    is_generating = True
     response = requests.post(
         url=chat_server_url,
-        json={'history': history},
+        json=reduced_conv,
         stream=True,
     )
-    return response
+    is_generating = False
 
+    response.raise_for_status()
 
-def print_response(response: requests.models.Response) -> None:
+    # print response
     print('', end='\r', flush=True)
 
     last_ans = ""
     json_buffer = ""
-    for chunk in response.iter_content(
-            chunk_size=8192,
-            decode_unicode=True,
-    ):
-        if not chunk:
-            continue
-        json_buffer += chunk
-        try:
-            ret = json.loads(json_buffer)
-            cur_ans = ret['data']
-            if not isinstance(ret['data'], str):
-                break
+    try:
+        for chunk in response.iter_content(
+                chunk_size=8192,
+                decode_unicode=True,
+        ):
+            if not chunk:
+                continue
+            json_buffer += chunk
+            try:
+                ret = json.loads(json_buffer)
+                data = ret.get('data', {})
+                if len(data) == 0:
+                    break
 
-            print(
-                cur_ans[len(last_ans):],
-                end='',
-                flush=True,
-            )
+                print(
+                    data['answer'][len(last_ans):],
+                    end='',
+                    flush=True,
+                )
 
-            json_buffer = ""
-            last_ans = cur_ans
-        except json.JSONDecodeError:
-            continue
+                json_buffer = ""
+                last_ans = data['answer']
+            except json.JSONDecodeError:
+                continue
+    except Exception as e:
+        logging_exception(e)
+        return
+
+    conversation['history'].append({
+        'role': 'assistant',
+        'content': last_ans,
+    })
     print()
 
 
@@ -108,30 +113,49 @@ def print_loading_mark():
         time.sleep(0.05)
 
 
+def parse_user_input(user_input: str):
+    user_input = user_input.strip()
+    if len(user_input) == 0:
+        return
+    print(f'user_input = {user_input}')
+
+    if user_input in ['?', '/help']:
+        print("""Help info:
+/help: show help info.
+/exit: exit and save conversation as json.
+""")
+    elif user_input == '/exit':
+        os.makedirs(os.path.dirname(config.CHAT_CONVERSATION_SAVE_PATH),
+                    exist_ok=True)
+        print(f'save conversation to {config.CHAT_CONVERSATION_SAVE_PATH}')
+        with open(config.CHAT_CONVERSATION_SAVE_PATH, 'w+') as f:
+            json.dump(conversation, f, ensure_ascii=False, indent=4)
+            print(f'byte:)')
+        sys.exit(0)
+
+    else:
+        # talk to LLM
+        conversation['history'].append({
+            'role': 'user',
+            'content': user_input,
+        })
+
+        generate_response()
+
+
 def run_chat():
     global is_generating
 
     while True:
         try:
+            # get user input
             is_generating = False
-            user_input = prompt(
-                ">>",
-                multiline=True,
-                placeholder=input_placeholder,
-            )
-            user_input = user_input.strip()
-            if len(user_input) == 0:
-                continue
+            user_input = prompt(">>",
+                                multiline=True,
+                                placeholder=input_placeholder)
+            parse_user_input(user_input=user_input)
 
-            is_generating = True
-            response = generate_response(user_input=user_input)
-            is_generating = False
-
-            response.raise_for_status()
-            print_response(response=response)
-
-        except Exception as e:
-            logging_exception(e)
+        except KeyboardInterrupt:
             pass
 
 
@@ -141,7 +165,11 @@ if __name__ == '__main__':
     job_executor = get_job_executor()
     job_executor.submit(print_loading_mark)
 
+    if 'history' not in conversation:
+        conversation['history'] = []
+
     try:
         run_chat()
     except Exception as e:
+        logging_exception(e)
         sys.exit(0)

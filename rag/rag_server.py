@@ -18,20 +18,37 @@ bp = Blueprint('rag', __name__, url_prefix='/')
 @bp.route('/chat_completion', methods=['POST'])
 def chat_completion():
     """
-    Return json object:
+    Input json:
+    - `history`: chat history json ojbect:
+        - `role`: one of `user` / `assistant` / `system`. `user` represents user input,
+            `assistant` represents LLM response, `system` represents system context
+            setting.
+        - `content`: the chat message.
+        - `prompt`: prompt used to generate the answer.
+        - `reference`: reference when generating this response.
+
+
+    Output json:
     - `code`: 0 for success.
     - `message`: error message if any.
     - `data`: data load. Empty data payload indicates end of generation.
         - `answer`: str, LLM generated answer.
+        - `prompt`: prompt used to generate the answer.
         - `reference`: list, reference used for generating this answer.
+        
+    Return object is generated in incremental way, each returned object has
+        newly generated token appended to previous returned answer.
     """
-    logging.info(f'chat_completion: request={request}')
-    logging.info(f'chat_completion: request.json={request.json}')
+    logging.info(f'**DEBUG** chat_completion: request={request}')
+    logging.info(
+        f'**DEBUG** chat_completion: request.json={json.dumps(request.json, indent=4, ensure_ascii=False)}'
+    )
 
     req = request.json
-
     history = req["history"]
-    logging.info(f"request {history}")
+    logging.info(
+        f"**DEBUG** chat_completion: history={json.dumps(history, indent=4, ensure_ascii=False)}"
+    )
 
     model = get_chat_model()
     final_ans = ''
@@ -43,9 +60,9 @@ def chat_completion():
                     history=history,
                     gen_conf=config.OLLAMA_GEN_CONF,
             ):
-                logging.info(f'chat_completion: ans = {ans}')
                 if isinstance(ans, int):
                     break
+                # append to previous ans
                 final_ans += ans
 
                 yield json.dumps(
