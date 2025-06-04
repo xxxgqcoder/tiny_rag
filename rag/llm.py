@@ -21,7 +21,7 @@ class ChatModel(ABC):
         self,
         history: list[Dict[str, Any]],
         gen_conf: Dict[str, Any],
-    ) -> Union[str, int]:
+    ) -> Generator[Union[str, int], Any, Union[str, int]]:
         """
         Chat API.
 
@@ -30,8 +30,8 @@ class ChatModel(ABC):
         - gen_conf: dict containing LLM generation configuration.
 
         Returns:
-        - The answer in string format.
-        - Answer token num.
+        - A generator of token sequence, last element will be total generated 
+            token num.
         """
         raise NotImplementedError("Not implemented")
 
