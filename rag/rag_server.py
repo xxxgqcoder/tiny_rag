@@ -55,14 +55,14 @@ def chat_completion():
                     "message": str(e),
                     "data": {
                         "answer": "**ERROR**: " + str(e),
-                        "reference": []
-                    }
+                        "reference": [],
+                    },
                 },
                 ensure_ascii=False) + "\n\n"
         yield json.dumps({
             "code": 0,
             "message": "",
-            "data": True
+            "data": True,
         },
                          ensure_ascii=False) + "\n\n"
 
