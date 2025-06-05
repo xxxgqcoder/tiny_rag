@@ -105,7 +105,6 @@ def chat_completion():
     )
 
     model = get_chat_model()
-    embed_model = get_embed_model()
     vector_db = get_vector_db()
 
     message = [{
