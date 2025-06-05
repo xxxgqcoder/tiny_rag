@@ -47,8 +47,8 @@ class PDFParser(Parser):
         # get content list
         temp_dir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
         logging.info(f'asset directory: {temp_dir.name}')
-        # temp_asset_dir = temp_dir.name
-        temp_asset_dir = './parsed_assets'
+        temp_asset_dir = temp_dir.name
+        # temp_asset_dir = './parsed_assets'
 
         content_list = self.parse_pdf_content(
             file_path=file_path,
