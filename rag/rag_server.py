@@ -117,26 +117,8 @@ def chat_completion():
                       if m['role'] == 'user'][-3:]
     chunks = {}
     for question in user_questions:
-        # TODO: rewrite the search part, put embeding and search in db search api,
-        # return json directly.
-        embed = embed_model.encode([question])
-        query = {'sparse': embed['sparse'][[0]], 'dense': embed['dense'][0]}
-        ret = vector_db.search(query=query,
-                               params={
-                                   'limit': 2,
-                                   'output_fields':
-                                   ['uuid', 'content', 'meta']
-                               })
-
-        for hit in ret:
-            entity = hit['entity']
-            meta = json.loads(entity['meta'])
-            file_name = meta['file_name']
-            chunk = {
-                'file_name': file_name,
-                'uuid': entity['uuid'],
-                'content': entity['content'],
-            }
+        ret = vector_db.search(query=question, params={'limit': 2})
+        for chunk in ret:
             if chunk['uuid'] not in chunks:
                 chunks[chunk['uuid']] = chunk
 

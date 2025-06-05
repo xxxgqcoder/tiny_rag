@@ -1,5 +1,6 @@
 import logging
 import traceback
+import json
 
 from typing import Union, Dict, List, Any
 from abc import ABC, abstractmethod
@@ -7,6 +8,7 @@ from strenum import StrEnum
 
 import config
 from utils import singleton
+from .nlp import get_embed_model
 
 
 class VectorDB(ABC):
@@ -58,7 +60,8 @@ class VectorDB(ABC):
         raise NotImplementedError("Not implemented")
 
     @abstractmethod
-    def search(self, query: Dict[str, Any], params: Dict[str, Any]) -> Any:
+    def search(self, query: str, params: Dict[str,
+                                              Any]) -> list[Dict[str, Any]]:
         raise NotImplementedError("Not implemented")
 
 
@@ -83,12 +86,13 @@ class MilvusLiteDB(VectorDB):
         logging.info(f'delete stats: {stats}')
         return len(stats)
 
-    def search(self, query: Dict[str, Any], params: Dict[str, Any]) -> Any:
+    def search(self, query: str, params: Dict[str,
+                                              Any]) -> list[Dict[str, Any]]:
         """
         Run hybird search by default
 
         Args:
-        - query: the query dict, should contain both dense and sparse embeddings
+        - query: user query, natural language.
         - params: the query params.
 
         Returns:
@@ -96,19 +100,27 @@ class MilvusLiteDB(VectorDB):
         """
         from pymilvus import AnnSearchRequest, WeightedRanker
 
-        output_fields = params.get('output_fields', ['content'])
+        output_fields = ['content', 'meta', 'uuid']
         limit = params.get('limit', 10)
         sparse_weight = params.get('sparse_weight', 0.7)
         dense_weight = params.get('dense_weight', 1.0)
 
-        query_dense_embedding = query['dense']
+        # embed query
+        embed_model = get_embed_model()
+        embed = embed_model.encode([query])
+        query_embed = {
+            'sparse': embed['sparse'][[0]],
+            'dense': embed['dense'][0]
+        }
+
+        query_dense_embedding = query_embed['dense']
         dense_search_params = {"metric_type": "IP", "params": {}}
         dense_req = AnnSearchRequest([query_dense_embedding],
                                      "dense_vector",
                                      dense_search_params,
                                      limit=limit)
 
-        query_sparse_embedding = query['sparse']
+        query_sparse_embedding = query_embed['sparse']
         sparse_search_params = {"metric_type": "IP", "params": {}}
         sparse_req = AnnSearchRequest([query_sparse_embedding],
                                       "sparse_vector",
@@ -126,7 +138,25 @@ class MilvusLiteDB(VectorDB):
         if len(res) == 0:
             return []
 
-        return res[0]
+        ret = []
+        for hit in res[0]:
+            entity = hit['entity']
+            meta = entity['meta']
+            try:
+                meta = json.loads(meta)
+            except json.JSONDecodeError:
+                meta = {}
+
+            file_name = meta.get('file_name', '')
+            content = entity.get('content', '')
+            uuid = entity.get('uuid', '')
+            ret.append({
+                'file_name': file_name,
+                'content': content,
+                'uuid': uuid,
+            })
+
+        return ret
 
     def get(self, keys: list[str]) -> list[Any]:
         res = self.client.get(
