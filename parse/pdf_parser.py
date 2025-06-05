@@ -54,14 +54,14 @@ class PDFParser(Parser):
             file_path=file_path,
             temp_asset_dir=temp_asset_dir,
         )
-        with open(os.path.join(temp_asset_dir, 'content_list.pickle'),
-                  'wb') as f:
-            pickle.dump(content_list, f)
+        # with open(os.path.join(temp_asset_dir, 'content_list.pickle'),
+        #           'wb') as f:
+        #     pickle.dump(content_list, f)
 
-        with open(os.path.join(temp_asset_dir, 'content_list.pickle'),
-                  'rb') as f:
-            print(f'loading content list from {temp_asset_dir}')
-            content_list = pickle.load(f)
+        # with open(os.path.join(temp_asset_dir, 'content_list.pickle'),
+        #           'rb') as f:
+        #     print(f'loading content list from {temp_asset_dir}')
+        #     content_list = pickle.load(f)
 
         filtered_content_list = []
         for block in content_list:
