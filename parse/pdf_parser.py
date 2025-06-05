@@ -17,8 +17,22 @@ class PDFParser(Parser):
     PDF parser implementation, backed by [MinerU](https://github.com/opendatalab/MinerU).
     """
 
-    def __init__(self, ):
+    def __init__(
+        self,
+        consecutive_block_num=4,
+        block_overlap_num=1,
+    ):
         super().__init__()
+        """
+        Args:
+        - consecutive_block_num: used in chunking, number of consecutive block to be considered as one chunk.
+        - block_overlap_num: used in chunking, number of overlapped block num between two consecutive chunks.
+        """
+        self.consecutive_block_num = consecutive_block_num
+        self.block_overlap_num = block_overlap_num
+        assert block_overlap_num < consecutive_block_num,\
+            f"block overlap num ({block_overlap_num}) be less than consecutive block num ({consecutive_block_num})"
+
         # set environment variable for magic_pdf to load config json file
         os.environ["MINERU_TOOLS_CONFIG_JSON"] = MAGIC_PDF_CONFIG_PATH
 
@@ -33,11 +47,21 @@ class PDFParser(Parser):
         # get content list
         temp_dir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
         logging.info(f'asset directory: {temp_dir.name}')
+        temp_asset_dir = temp_dir.name
+        # temp_asset_dir = './parsed_assets'
 
         content_list = self.parse_pdf_content(
             file_path=file_path,
-            temp_asset_dir=temp_dir.name,
+            temp_asset_dir=temp_asset_dir,
         )
+        # with open(os.path.join(temp_asset_dir, 'content_list.pickle'),
+        #           'wb') as f:
+        #     pickle.dump(content_list, f)
+
+        # with open(os.path.join(temp_asset_dir, 'content_list.pickle'),
+        #           'rb') as f:
+        #     print(f'loading content list from {temp_asset_dir}')
+        #     content_list = pickle.load(f)
 
         filtered_content_list = []
         for block in content_list:
@@ -53,15 +77,11 @@ class PDFParser(Parser):
         logging.info(f"all parsed block types: {all_types}")
 
         # get chunk list
-        try:
-            chunks = self.chunk(
-                content_list=self.content_list,
-                temp_asset_dir=temp_dir.name,
-                asset_save_dir=asset_save_dir,
-            )
-        except Exception as e:
-            logging_exception(e)
-            return []
+        chunks = self.chunk(
+            content_list=self.content_list,
+            temp_asset_dir=temp_asset_dir,
+            asset_save_dir=asset_save_dir,
+        )
 
         # filter chunks
         filtered_chunks = self.filter_chunks(chunks)
@@ -135,8 +155,7 @@ class PDFParser(Parser):
         ds = PymuDocDataset(pdf_bytes)
 
         # inference
-        infer_result = ds.apply(doc_analyze,
-                                ds.classify() == SupportedPdfParseMethod.OCR)
+        infer_result = ds.apply(doc_analyze)
         pipe_result = infer_result.pipe_txt_mode(image_writer)
 
         # draw model result on each page
@@ -185,63 +204,74 @@ class PDFParser(Parser):
         """
         Chunk parsed pdf contents.
 
-        Rules:
-        - Combine a headline block with following content blocks as one chunk. 
-            Headline is merged into the chunk's content.
-        - Filter table / image block from the chunk and make a separated chunk. 
-            The chunk content will be table / image caption.
+        Scan `self.consecutive_block_num` consecutive blocks and combine as one
+        chunk.
+        If image / table block is encountered within current consecutive blocks,
+        then make the image / table block as independent chunk and continue scan
+        untile `self.consecutive_block_num` is met.
+
+        Two consecutive chunks have `self.block_overlap_num` overlapped block to
+        ensure semantic coherence.
 
         Returns:
-        - List of merged chunks.
+        - List of chunks.
         """
         chunks = []
+        block_buffer = []
         i = 0
-        while i < len(content_list):
-            # find first headline block
-            j = i + 1
-            while j < len(content_list) \
-                    and 'text_level' not in content_list[j]:
+        # since we apply overlap,i can not exceed len(content_list) - self.block_overlap_num,
+        # otherwise, infinite loop may happen.
+        while i < len(content_list) - self.block_overlap_num:
+            print(f"i = {i}")
+
+            # inner loop start from current block
+            j = i
+            while j < len(content_list) and len(
+                    block_buffer) < self.consecutive_block_num:
+                print(f"\tj = {j}")
+
+                block = content_list[j]
+
+                # text block
+                if block['type'] in ['text', 'equation']:
+                    block_buffer.append(block)
+
+                # image / table block
+                elif block['type'] in ['image', 'table']:
+                    if block['type'] == 'table':
+                        chunks.extend(
+                            self.process_table_blocks(
+                                table_blocks=content_list[j:j + 1],
+                                temp_asset_dir=temp_asset_dir,
+                                asset_save_dir=asset_save_dir,
+                            ))
+                    else:
+                        chunks.extend(
+                            self.process_image_blocks(
+                                image_blocks=content_list[j:j + 1],
+                                temp_asset_dir=temp_asset_dir,
+                                asset_save_dir=asset_save_dir,
+                            ))
+                else:
+                    pass
+
+                # move one step forward
                 j += 1
 
-            # find headline block or reach end of list
-            blocks = content_list[i:j]
-
-            # filter and merge blocks
-            text_blocks = [
-                block for block in blocks
-                if block['type'] in ['text', 'equation']
-            ]
-            chunks.extend(
-                self.process_text_blocks(
-                    text_blocks,
-                    temp_asset_dir,
-                    asset_save_dir,
-                ))
-
-            # image blocks
-            image_blocks = [
-                block for block in blocks if block['type'] == 'image'
-            ]
-            chunks.extend(
-                self.process_image_blocks(
-                    image_blocks,
-                    temp_asset_dir,
-                    asset_save_dir,
-                ))
-
-            # table blocks
-            table_blocks = [
-                block for block in blocks if block['type'] == 'table'
-            ]
-            chunks.extend(
-                self.process_table_blocks(
-                    table_blocks,
-                    temp_asset_dir,
-                    asset_save_dir,
-                ))
+            # inner loop ends when j == len(content_list)
+            # or len(block_buffer) == self.consecutive_block_num
+            # generate new chunk if buffer is not empty.
+            if len(block_buffer) > 0:
+                chunks.extend(
+                    self.process_text_blocks(
+                        text_blocks=block_buffer,
+                        temp_asset_dir=temp_asset_dir,
+                        asset_save_dir=asset_save_dir,
+                    ))
+                block_buffer.clear()
 
             # start next iteration
-            i = j
+            i = j - self.block_overlap_num
 
         return chunks
 
@@ -297,7 +327,7 @@ class PDFParser(Parser):
                 content=_load_image(abs_img_path),
                 extra_description=(extra_description).encode('utf-8'),
                 content_url=os.path.join(asset_save_dir,
-                                         os.path.basename(block['img_path'])),
+                                         os.path.basename(abs_img_path)),
             )
             chunks.append(chunk)
 
@@ -368,7 +398,7 @@ class PDFParser(Parser):
         or values are empty.
 
         Returns:
-        - bool, true if block is valid.
+        - bool: true if block is valid.
         """
         # missing key
         if 'type' not in block:

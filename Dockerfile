@@ -26,7 +26,7 @@ RUN --mount=type=cache,id=tiny_rag_pip,target=/root/.cache/pip,sharing=locked \
 # ============================================================================ #
 # additional pip package
 RUN --mount=type=cache,id=tiny_rag_pip_additional,target=/root/.cache/pip,sharing=locked \
-    pip install Flask==3.0.3 ollama==0.4.9 prompt_toolkit==3.0.51
+    pip install ollama==0.4.9 prompt_toolkit==3.0.51 Flask==3.0.3 
 
 
 # ============================================================================ #
@@ -38,6 +38,8 @@ COPY config.py .
 COPY utils.py .
 COPY start_server.py .
 COPY chat.py .
+
+COPY notebooks .
 
 COPY notebooks/start_jupyter.sh .
 RUN chmod +x start_jupyter.sh
