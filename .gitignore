@@ -13,3 +13,5 @@
 **/.virtual_documents/**
 
 assets/**/*model*/**
+
+docker/files/*
