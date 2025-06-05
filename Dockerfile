@@ -38,6 +38,7 @@ COPY config.py .
 COPY utils.py .
 COPY start_server.py .
 COPY chat.py .
+COPY notebooks notebooks
 
 COPY notebooks/start_jupyter.sh .
 RUN chmod +x start_jupyter.sh
