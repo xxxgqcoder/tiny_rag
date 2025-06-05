@@ -114,7 +114,7 @@ def print_loading_mark():
         time.sleep(0.05)
 
 
-def parse_user_input(user_input: str):
+def parse_user_instruct(user_input: str):
     user_input = user_input.strip()
     if len(user_input) == 0:
         return
@@ -155,7 +155,7 @@ def run_chat():
             user_input = prompt(">>",
                                 multiline=True,
                                 placeholder=input_placeholder)
-            parse_user_input(user_input=user_input)
+            parse_user_instruct(user_input=user_input)
 
         except KeyboardInterrupt:
             pass
@@ -174,4 +174,4 @@ if __name__ == '__main__':
         run_chat()
     except Exception as e:
         logging_exception(e)
-        sys.exit(0)
+        os._exit(0)
