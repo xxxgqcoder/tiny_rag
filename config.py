@@ -69,6 +69,11 @@ OLLAMA_GEN_CONF = {
     'frequency_penalty': 0.7,
 }
 
+# ============================================================================ #
+# where to save conversation data.
+CHAT_CONVERSATION_SAVE_PATH = os.path.join(RAG_FILE_DIR,
+                                           'conversation/conversation.json')
+
 
 # ============================================================================ #
 class ChunkType(StrEnum):

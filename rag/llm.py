@@ -21,7 +21,7 @@ class ChatModel(ABC):
         self,
         history: list[Dict[str, Any]],
         gen_conf: Dict[str, Any],
-    ) -> Union[str, int]:
+    ) -> Generator[Union[str, int], Any, Any]:
         """
         Chat API.
 
@@ -30,8 +30,8 @@ class ChatModel(ABC):
         - gen_conf: dict containing LLM generation configuration.
 
         Returns:
-        - The answer in string format.
-        - Answer token num.
+        - A generator of token sequence, last element will be total generated 
+            token num.
         """
         raise NotImplementedError("Not implemented")
 
@@ -92,7 +92,7 @@ class OllamaChat(ChatModel):
         self,
         history: list[Dict[str, Any]],
         gen_conf: Dict[str, Any],
-    ) -> Generator[Union[str, int], Any, Union[str, int]]:
+    ) -> Generator[Union[str, int], Any, Any]:
         ctx_size = self._calculate_dynamic_ctx(history)
         if "max_tokens" in gen_conf:
             del gen_conf["max_tokens"]
@@ -109,7 +109,6 @@ class OllamaChat(ChatModel):
         if "frequency_penalty" in gen_conf:
             options["frequency_penalty"] = gen_conf["frequency_penalty"]
 
-        ans = ""
         try:
             response = self.client.chat(
                 model=self.model_name,
@@ -119,16 +118,14 @@ class OllamaChat(ChatModel):
                 keep_alive=10,
             )
             for resp in response:
-                logging.info(f'chat: resp={resp}')
                 # ollama generates one token per response
                 if resp["done"]:
                     token_count = resp.get("prompt_eval_count", 0) + resp.get(
                         "eval_count", 0)
                     yield token_count
-                ans += resp["message"]["content"]
-                yield ans
+                yield resp["message"]["content"]
         except Exception as e:
-            yield ans + "\n**ERROR**: " + str(e)
+            yield "\n**ERROR**: " + str(e)
         yield 0
 
 

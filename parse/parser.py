@@ -78,3 +78,8 @@ class Parser(ABC):
         - A list of parsed documents chunks.
         """
         raise NotImplementedError("Not implemented")
+
+
+def get_parser() -> Parser:
+    from .pdf_parser import PDFParser
+    return PDFParser()

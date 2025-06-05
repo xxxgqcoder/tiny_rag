@@ -73,7 +73,7 @@ def process_new_file(file_path: str) -> Dict[str, bool]:
     - A list containing all successfuly inserted chunks' uuid, the order is aligned
         with the chunks' original order in source file.
     """
-    from parse.pdf_parser import PDFParser
+    from parse.parser import get_parser
     from config import PARSED_ASSET_DATA_DIR
 
     if ignore_file(file_path):
@@ -82,7 +82,7 @@ def process_new_file(file_path: str) -> Dict[str, bool]:
 
     logging.info(f'{file_path}: process new file')
 
-    parser = PDFParser()
+    parser = get_parser()
 
     vector_db = get_vector_db()
     sql_db = get_rational_db()
