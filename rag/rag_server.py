@@ -1,6 +1,7 @@
 import time
 import logging
 import json
+import re
 
 from flask import (
     jsonify,
@@ -158,6 +159,7 @@ def chat_completion():
                 if isinstance(ans, int):
                     break
                 # append to previous ans
+                ans = re.sub(r" *(\$) *", r"\1", ans)
                 final_ans += ans
 
                 yield json.dumps(
