@@ -127,11 +127,16 @@ def parse_user_input(user_input: str):
     elif user_input == '/exit':
         os.makedirs(os.path.dirname(config.CHAT_CONVERSATION_SAVE_PATH),
                     exist_ok=True)
-        print(f'save conversation to {config.CHAT_CONVERSATION_SAVE_PATH}')
-        with open(config.CHAT_CONVERSATION_SAVE_PATH, 'w+') as f:
-            json.dump(conversation, f, ensure_ascii=False, indent=4)
-            print(f'byte:)')
-        sys.exit(0)
+
+        if len(conversation['history']) >= 2:
+            with open(config.CHAT_CONVERSATION_SAVE_PATH, 'w+') as f:
+                json.dump(conversation, f, ensure_ascii=False, indent=4)
+                print(
+                    f'save conversation to {config.CHAT_CONVERSATION_SAVE_PATH}'
+                )
+
+        print(f'byte:)')
+        os._exit(0)
 
     else:
         # talk to LLM
