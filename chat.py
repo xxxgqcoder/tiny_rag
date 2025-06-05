@@ -78,11 +78,7 @@ def generate_response() -> requests.models.Response:
                 if len(data) == 0:
                     break
 
-                print(
-                    data['answer'][len(last_ans):],
-                    end='',
-                    flush=True,
-                )
+                print(data['answer'][len(last_ans):], end='', flush=True)
 
                 json_buffer = ""
                 last_ans = data['answer']
@@ -92,10 +88,7 @@ def generate_response() -> requests.models.Response:
         logging_exception(e)
         return
 
-    conversation['history'].append({
-        'role': 'assistant',
-        'content': last_ans,
-    })
+    conversation['history'].append({'role': 'assistant', 'content': last_ans})
     print()
 
 
@@ -135,15 +128,12 @@ def parse_user_input(user_input: str):
                     f'save conversation to {config.CHAT_CONVERSATION_SAVE_PATH}'
                 )
 
-        print(f'byte:)')
+        print('byte:)')
         os._exit(0)
 
     else:
         # talk to LLM
-        conversation['history'].append({
-            'role': 'user',
-            'content': user_input,
-        })
+        conversation['history'].append({'role': 'user', 'content': user_input})
 
         generate_response()
 

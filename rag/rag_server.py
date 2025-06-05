@@ -24,8 +24,6 @@ def chat_completion():
             `assistant` represents LLM response, `system` represents system context
             setting.
         - `content`: the chat message.
-        - `prompt`: prompt used to generate the answer.
-        - `reference`: reference when generating this response.
 
 
     Output json:
@@ -33,8 +31,7 @@ def chat_completion():
     - `message`: error message if any.
     - `data`: data load. Empty data payload indicates end of generation.
         - `answer`: str, LLM generated answer.
-        - `prompt`: prompt used to generate the answer.
-        - `reference`: list, reference used for generating this answer.
+        - `prompt`: str, prompt used to generate the answer.
         
     Return object is generated in incremental way, each returned object has
         newly generated token appended to previous returned answer.
@@ -56,10 +53,8 @@ def chat_completion():
     def stream():
         nonlocal model, final_ans
         try:
-            for ans in model.chat(
-                    history=history,
-                    gen_conf=config.OLLAMA_GEN_CONF,
-            ):
+            for ans in model.chat(history=history,
+                                  gen_conf=config.OLLAMA_GEN_CONF):
                 if isinstance(ans, int):
                     break
                 # append to previous ans
@@ -71,7 +66,7 @@ def chat_completion():
                         "message": "",
                         "data": {
                             "answer": final_ans,
-                            "reference": [],
+                            "reference": []
                         }
                     },
                     ensure_ascii=False) + "\n\n"
@@ -84,13 +79,13 @@ def chat_completion():
                     "data": {
                         "answer": "**ERROR**: " + str(e),
                         "reference": [],
-                    },
+                    }
                 },
                 ensure_ascii=False) + "\n\n"
         yield json.dumps({
             "code": 0,
             "message": "",
-            "data": {},
+            "data": {}
         },
                          ensure_ascii=False) + "\n\n"
 
