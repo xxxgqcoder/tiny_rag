@@ -3,6 +3,7 @@ import json
 import time
 import datetime
 import os
+import re
 from typing import Dict, Any
 from concurrent.futures import ThreadPoolExecutor
 
@@ -64,6 +65,7 @@ def generate_response() -> requests.models.Response:
 
     last_ans = ""
     json_buffer = ""
+    context_prompt = ''
     try:
         for chunk in response.iter_content(
                 chunk_size=8192,
@@ -77,6 +79,8 @@ def generate_response() -> requests.models.Response:
                 data = ret.get('data', {})
                 if len(data) == 0:
                     break
+                if not context_prompt:
+                    context_prompt = data['prompt']
 
                 print(data['answer'][len(last_ans):], end='', flush=True)
 
@@ -88,7 +92,11 @@ def generate_response() -> requests.models.Response:
         logging_exception(e)
         return
 
-    conversation['history'].append({'role': 'assistant', 'content': last_ans})
+    conversation['history'].append({
+        'role': 'assistant',
+        'content': last_ans,
+        'prompt': context_prompt
+    })
     print()
 
 
@@ -110,7 +118,6 @@ def parse_user_input(user_input: str):
     user_input = user_input.strip()
     if len(user_input) == 0:
         return
-    print(f'user_input = {user_input}')
 
     if user_input in ['?', '/help']:
         print("""Help info:
