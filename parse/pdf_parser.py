@@ -17,10 +17,22 @@ class PDFParser(Parser):
     PDF parser implementation, backed by [MinerU](https://github.com/opendatalab/MinerU).
     """
 
-    def __init__(self, ):
+    def __init__(self, 
+                 consecutive_block_num=4,
+                 block_overlap_num=1,
+                ):
         super().__init__()
+        """
+        Args:
+        - consecutive_block_num: used in chunking, number of consecutive block to be considered as one chunk.
+        - block_overlap_num: used in chunking, number of overlapped block num between two consecutive chunks.
+        """
+        self.consecutive_block_num = consecutive_block_num
+        self.block_overlap_num = block_overlap_num
+        
         # set environment variable for magic_pdf to load config json file
         os.environ["MINERU_TOOLS_CONFIG_JSON"] = MAGIC_PDF_CONFIG_PATH
+
 
     def parse(
         self,
@@ -33,11 +45,20 @@ class PDFParser(Parser):
         # get content list
         temp_dir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
         logging.info(f'asset directory: {temp_dir.name}')
+        # temp_asset_dir = temp_dir.name
+        temp_asset_dir = './parsed_assets'
 
-        content_list = self.parse_pdf_content(
-            file_path=file_path,
-            temp_asset_dir=temp_dir.name,
-        )
+        # content_list = self.parse_pdf_content(
+        #     file_path=file_path,
+        #     temp_asset_dir=temp_asset_dir,
+        # )
+        # with open(os.path.join(temp_asset_dir, 'content_list.pickle'), 'wb') as f:
+        #     pickle.dump(content_list, f)
+
+        with open(os.path.join(temp_asset_dir, 'content_list.pickle'), 'rb') as f:
+            print(f'loading content list from {temp_asset_dir}')
+            content_list = pickle.load(f)
+    
 
         filtered_content_list = []
         for block in content_list:
@@ -53,15 +74,11 @@ class PDFParser(Parser):
         logging.info(f"all parsed block types: {all_types}")
 
         # get chunk list
-        try:
-            chunks = self.chunk(
-                content_list=self.content_list,
-                temp_asset_dir=temp_dir.name,
-                asset_save_dir=asset_save_dir,
-            )
-        except Exception as e:
-            logging_exception(e)
-            return []
+        chunks = self.chunk(
+            content_list=self.content_list,
+            temp_asset_dir=temp_asset_dir,
+            asset_save_dir=asset_save_dir,
+        )
 
         # filter chunks
         filtered_chunks = self.filter_chunks(chunks)
@@ -135,8 +152,7 @@ class PDFParser(Parser):
         ds = PymuDocDataset(pdf_bytes)
 
         # inference
-        infer_result = ds.apply(doc_analyze,
-                                ds.classify() == SupportedPdfParseMethod.OCR)
+        infer_result = ds.apply(doc_analyze)
         pipe_result = infer_result.pipe_txt_mode(image_writer)
 
         # draw model result on each page
@@ -296,8 +312,7 @@ class PDFParser(Parser):
                 file_name=self.file_name,
                 content=_load_image(abs_img_path),
                 extra_description=(extra_description).encode('utf-8'),
-                content_url=os.path.join(asset_save_dir,
-                                         os.path.basename(block['img_path'])),
+                content_url=os.path.join(asset_save_dir, os.path.basename(abs_img_path)),
             )
             chunks.append(chunk)
 
@@ -368,7 +383,7 @@ class PDFParser(Parser):
         or values are empty.
 
         Returns:
-        - bool, true if block is valid.
+        - bool: true if block is valid.
         """
         # missing key
         if 'type' not in block:
