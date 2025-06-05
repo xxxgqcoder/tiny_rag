@@ -37,7 +37,7 @@ _promot_citation = """
 - DO NOT insert CITATION in the answer if the content is not from retrieved chunks.
 - DO NOT use standalone Document IDs (e.g., '#ID#').
 - Under NO circumstances any other citation styles or formats (e.g., '~~i==', '[i]', '(i)', etc.) be used.
-- Citations ALWAYS the '##i##' format.
+- Citations ALWAYS the '##i@@' format.
 - Any failure to adhere to the above rules, including but not limited to incorrect formatting, use of prohibited styles, or unsupported citations, will be considered a error, should skip adding Citation for this sentence.
 
 --- Example START ---
@@ -64,8 +64,8 @@ The market is heating up after Elon Musk's announcement about Dogecoin. Is this 
 
 <USER>: What's the Elon's view on dogecoin?
 
-<ASSISTANT>: Musk has consistently expressed his fondness for Dogecoin, often citing its humor and the inclusion of dogs in its branding. He has referred to it as his favorite cryptocurrency ##0## ##1##.
-Recently, Musk has hinted at potential future roles for Dogecoin. His tweets have sparked speculation about Dogecoin's potential integration into public services ##3##.
+<ASSISTANT>: Musk has consistently expressed his fondness for Dogecoin, often citing its humor and the inclusion of dogs in its branding. He has referred to it as his favorite cryptocurrency ##0@@ ##1@@.
+Recently, Musk has hinted at potential future roles for Dogecoin. His tweets have sparked speculation about Dogecoin's potential integration into public services ##3@@.
 Overall, while Musk enjoys Dogecoin and often promotes it, he also warns against over-investing in it, reflecting both his personal amusement and caution regarding its speculative nature.
 
 --- Example END ---
