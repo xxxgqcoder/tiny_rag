@@ -1,6 +1,3 @@
-include:
-  - ./docker-compose-base.yml
-
 services:
   tiny_rag:
     # depends_on:
@@ -34,3 +31,7 @@ services:
 volumes:
   tiny_rag_data:
     driver: local
+
+networks:
+  tiny_rag:
+    driver: bridge
