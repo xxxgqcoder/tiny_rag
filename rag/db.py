@@ -130,7 +130,7 @@ class MilvusLiteDB(VectorDB):
         dense_weight = params.get('dense_weight', 1.0)
 
         # embed query
-        embed_model = get_embed_model()
+        embed_model = nlp.get_embed_model()
         embed = embed_model.encode([query])
         query_embed = {
             'sparse': embed['sparse'][[0]],
