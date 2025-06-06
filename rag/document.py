@@ -1,60 +1,14 @@
-import json
 import traceback
 import logging
 import os
-import pickle
 from typing import Dict, Any
-
 from concurrent.futures import ThreadPoolExecutor
 
 import watchdog.events as events
 from watchdog.events import FileSystemEventHandler, FileSystemEvent
-from watchdog.observers import Observer
 
-import config
-from .nlp import EmbeddingModel
-from parse.parser import Chunk
-from utils import now_in_utc, get_hash64, run_once, logging_exception
+from utils import now_in_utc, get_hash64, logging_exception
 from .db import get_vector_db, get_rational_db
-from .nlp import get_embed_model
-
-
-def make_chunk_record(
-    file_path: str,
-    chunk: Chunk,
-    embed: EmbeddingModel,
-) -> Dict[str, Any]:
-    """
-    Make a record from chunk.
-
-    Args:
-    - file_path: original file path.
-    - chunk: parsed chunk.
-    - embed: embedding model.
-
-    Returns:
-    - A dict containing all columns of a record.
-    """
-    content = chunk.content
-    if chunk.content_type != config.ChunkType.TEXT:
-        content = chunk.extra_description
-    content = content.decode('utf-8')
-
-    meta = {'file_name': os.path.basename(file_path)}
-    if chunk.content_type == config.ChunkType.IMAGE:
-        meta['content_url'] = chunk.content_url
-    if chunk.content_type == config.ChunkType.TABLE:
-        meta['table_content'] = chunk.content.decode('utf-8')
-
-    embeddings = embed.encode([content])
-
-    return {
-        'uuid': chunk.uuid,
-        'content': content,
-        'meta': json.dumps(meta, indent=4),
-        'sparse_vector': embeddings['sparse'][[0]],
-        'dense_vector': embeddings['dense'][0],
-    }
 
 
 def process_new_file(file_path: str) -> Dict[str, bool]:
@@ -86,7 +40,6 @@ def process_new_file(file_path: str) -> Dict[str, bool]:
 
     vector_db = get_vector_db()
     sql_db = get_rational_db()
-    embed_model = get_embed_model()
 
     logging.info(f'{file_path}: begin processing')
 
@@ -134,46 +87,32 @@ def process_new_file(file_path: str) -> Dict[str, bool]:
         return
 
     # save parsed chunks into vector db
-    records = [
-        make_chunk_record(file_path=file_path, chunk=chunk, embed=embed_model)
-        for chunk in chunks
-    ]
-    logging.info(f'{file_path}: total {len(records)} records')
-
-    failed_records = []
-    success_records = {}
-    for record in records:
+    failed_chunks = []
+    success_chunks = {}
+    for chunk in chunks:
         try:
-            insert_cnt = vector_db.insert(record)
+            insert_cnt = vector_db.insert(chunk)
             if insert_cnt == 1:
-                success_records[record['uuid']] = True
+                success_chunks[chunk.uuid] = True
             else:
-                failed_records.append(record)
+                failed_chunks.append(chunk)
 
         except Exception as e:
-            logging.info(f"Exception: {type(e).__name__} - {e}")
+            logging_exception(e)
+            failed_chunks.append(chunk)
 
-            formatted_traceback = traceback.format_exc()
-            logging.info(formatted_traceback)
-
-            failed_records.append(record)
-
-    for record in failed_records:
+    for chunk in failed_chunks:
         try:
-            insert_cnt = vector_db.insert(record)
+            insert_cnt = vector_db.insert(chunk)
             if insert_cnt == 1:
-                success_records[record['uuid']] = True
+                success_chunks[chunk.uuid] = True
         except Exception as e:
-            logging.info(f"Exception: {type(e).__name__} - {e}")
-
-            formatted_traceback = traceback.format_exc()
-            logging.info(formatted_traceback)
+            logging_exception(e)
 
     logging.info(
-        f'successfully insert {len(success_records)} records into vector db')
+        f'successfully insert {len(success_chunks)} records into vector db')
     saved_chunks = [
-        record['uuid'] for record in records
-        if record['uuid'] in success_records
+        chunk.uuid for chunk in chunks if chunk.uuid in success_chunks
     ]
 
     # save document record
