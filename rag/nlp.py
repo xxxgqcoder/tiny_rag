@@ -108,5 +108,5 @@ class BGEM3EmbeddingModel(EmbeddingModel):
         }
 
 
-def get_embed_model():
+def get_embed_model() -> EmbeddingModel:
     return BGEM3EmbeddingModel()

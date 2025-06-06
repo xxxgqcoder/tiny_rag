@@ -62,7 +62,7 @@ def create_milvus_collection(
     schema.add_field(
         field_name="content",
         datatype=DataType.VARCHAR,
-        max_length=10240,
+        max_length=65535,
     )
     schema.add_field(
         field_name="meta",
