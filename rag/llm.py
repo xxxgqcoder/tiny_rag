@@ -83,9 +83,9 @@ class OllamaChat(ChatModel):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.client = OllamaClient(
-            host=config.OLLAMA_URL if 'ollama_host' not in
+            host=config.CHAT_MODEL_URL if 'ollama_host' not in
             kwargs else kwargs['ollama_host'])
-        self.model_name = config.OLLAMA_MODEL_NAME if 'ollama_model_name' not in kwargs else kwargs[
+        self.model_name = config.CHAT_MODEL_NAME if 'ollama_model_name' not in kwargs else kwargs[
             'ollama_model_name']
 
     def chat(
@@ -131,6 +131,6 @@ class OllamaChat(ChatModel):
 
 def get_chat_model(name: str = 'Ollama') -> ChatModel:
     return OllamaChat(
-        ollama_host=config.OLLAMA_URL,
-        ollama_model_name=config.OLLAMA_MODEL_NAME,
+        ollama_host=config.CHAT_MODEL_URL,
+        ollama_model_name=config.CHAT_MODEL_NAME,
     )
