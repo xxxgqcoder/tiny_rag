@@ -115,7 +115,7 @@ def chat_completion():
                       if m['role'] == 'user'][-3:]
     chunks = {}
     for question in user_questions:
-        ret = vector_db.search(query=question, params={'limit': 2})
+        ret = vector_db.search(query=question, params={'limit': 4})
         for chunk in ret:
             if chunk['uuid'] not in chunks:
                 chunks[chunk['uuid']] = chunk
@@ -157,7 +157,6 @@ def chat_completion():
                 if isinstance(ans, int):
                     break
                 # append to previous ans
-                ans = re.sub(r" *(\$) *", r"\1", ans)
                 final_ans += ans
 
                 yield json.dumps(
