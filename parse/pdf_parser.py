@@ -19,8 +19,8 @@ class PDFParser(Parser):
 
     def __init__(
         self,
-        consecutive_block_num=4,
-        block_overlap_num=1,
+        consecutive_block_num=6,
+        block_overlap_num=2,
     ):
         super().__init__()
         """
