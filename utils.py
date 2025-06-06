@@ -1,7 +1,7 @@
 import logging
 import os
 import traceback
-from typing import Any
+from typing import Any, Tuple
 from logging.handlers import RotatingFileHandler
 
 import xxhash
@@ -121,6 +121,62 @@ def logging_exception(e: Exception):
     logging.info(f"Exception: {type(e).__name__} - {e}")
     formatted_traceback = traceback.format_exc()
     logging.info(formatted_traceback)
+
+
+from typing import Tuple
+
+
+def estimate_token_num(text: str) -> Tuple[int, list[str]]:
+    """
+    Estimate tokens in text. Combine consecutive ascii character as one token,
+    treat each non-ascii character as one token. Each ascii token accounts for 2.3
+    token, each non-ascii token accounts for 1.2 token.
+
+    Args:
+    - text: the string to parse.
+
+    Return:
+    - int, estimated token num.
+    - list of string, estimated tokens.
+    """
+
+    def is_space(ch: str) -> bool:
+        if ord(ch) >= 128:
+            return False
+        if ch.strip() == '':
+            return True
+        return False
+
+    def find_token_bound(text: str, i: int, j: int) -> bool:
+        if ord(text[i]) < 127:
+            # space met or non-ascii character met
+            return (is_space(text[j]) or ord(text[j]) > 127)
+        else:
+            # count one non-ascii character as one token
+            return j > i
+
+    token_buffer = []
+    i = 0
+    while i < len(text):
+        j = i + 1
+        while j < len(text) and not find_token_bound(text, i, j):
+            j += 1
+
+        token = text[i:j]
+        token_buffer.append(token)
+
+        i = j
+        while i < len(text) and is_space(text[i]):
+            i += 1
+
+    token_num = 0
+    for token in token_buffer:
+        if ord(token[0]) < 128:
+            token_num += 2.3
+        else:
+            token_num += 1.2
+
+    return int(token_num), token_buffer
 
 
 if __name__ == '__main__':
