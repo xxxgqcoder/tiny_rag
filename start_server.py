@@ -191,7 +191,7 @@ if __name__ == '__main__':
     create_milvus_collection(
         conn_url=config.MILVUS_DB_NAME,
         collection_name=config.MILVUS_COLLECTION_NAME,
-        dense_embed_dim=config.BGE_DENSE_EMBED_DIM,
+        dense_embed_dim=config.EMBED_DENSE_DIM,
     )
     create_sqlite_table(
         conn_url=config.SQLITE_DB_NAME,

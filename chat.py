@@ -125,15 +125,13 @@ def parse_user_instruct(user_input: str):
 /exit: exit and save conversation as json.
 """)
     elif user_input == '/exit':
-        os.makedirs(os.path.dirname(config.CHAT_CONVERSATION_SAVE_PATH),
+        os.makedirs(os.path.dirname(config.CONVERSATION_SAVE_PATH),
                     exist_ok=True)
 
         if len(conversation['history']) >= 2:
-            with open(config.CHAT_CONVERSATION_SAVE_PATH, 'w+') as f:
+            with open(config.CONVERSATION_SAVE_PATH, 'w+') as f:
                 json.dump(conversation, f, ensure_ascii=False, indent=4)
-                print(
-                    f'save conversation to {config.CHAT_CONVERSATION_SAVE_PATH}'
-                )
+                print(f'save conversation to {config.CONVERSATION_SAVE_PATH}')
 
         print('byte:)')
         os._exit(0)

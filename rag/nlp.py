@@ -43,7 +43,7 @@ class BGEM3EmbeddingModel(EmbeddingModel):
 
         from FlagEmbedding import BGEM3FlagModel
 
-        with open(config.BGE_MODEL_CONFIG_PATH) as f:
+        with open(config.EMBED_MODEL_CONFIG_PATH) as f:
             model_config = json.load(f)
 
         extra_model_config = {

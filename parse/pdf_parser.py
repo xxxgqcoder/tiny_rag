@@ -8,7 +8,7 @@ from typing import Tuple, Dict, Any
 import config
 from utils import singleton, safe_strip, logging_exception
 from parse.parser import Parser, Chunk, ChunkType
-from config import MAGIC_PDF_CONFIG_PATH
+from config import PDF_PARSER_CONFIG_PATH
 
 
 @singleton
@@ -34,7 +34,7 @@ class PDFParser(Parser):
             f"block overlap num ({block_overlap_num}) be less than consecutive block num ({consecutive_block_num})"
 
         # set environment variable for magic_pdf to load config json file
-        os.environ["MINERU_TOOLS_CONFIG_JSON"] = MAGIC_PDF_CONFIG_PATH
+        os.environ["MINERU_TOOLS_CONFIG_JSON"] = PDF_PARSER_CONFIG_PATH
 
     def parse(
         self,

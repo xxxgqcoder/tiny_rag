@@ -153,7 +153,7 @@ def chat_completion():
         nonlocal model, final_ans
         try:
             for ans in model.chat(history=message,
-                                  gen_conf=config.OLLAMA_GEN_CONF):
+                                  gen_conf=config.CHAT_GEN_CONF):
                 if isinstance(ans, int):
                     break
                 # append to previous ans
