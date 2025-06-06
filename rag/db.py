@@ -8,7 +8,8 @@ from strenum import StrEnum
 
 import config
 from utils import singleton
-from .nlp import get_embed_model
+from . import nlp
+from parse.parser import Chunk
 
 
 class VectorDB(ABC):
@@ -31,7 +32,7 @@ class VectorDB(ABC):
 
     # CRUD
     @abstractmethod
-    def insert(self, data: Union[Dict, List[Dict]]) -> int:
+    def insert(self, data: Chunk) -> int:
         """
         Insert or update records.
         Returns:
@@ -73,8 +74,31 @@ class MilvusLiteDB(VectorDB):
         from pymilvus import MilvusClient
         self.client = MilvusClient(conn_url)
 
-    def insert(self, data: Union[Dict, List[Dict]]) -> int:
-        stats = self.client.upsert(self.collection_name, data)
+    def insert(self, data: Chunk) -> int:
+        # embed chunks
+        embed_model = nlp.get_embed_model()
+        content = data.content
+
+        if data.content_type != config.ChunkType.TEXT:
+            content = data.extra_description
+        content = content.decode('utf-8')
+
+        meta = {'file_name': data.file_name}
+        if data.content_type == config.ChunkType.IMAGE:
+            meta['content_url'] = data.content_url
+        if data.content_type == config.ChunkType.TABLE:
+            meta['table_content'] = data.content.decode('utf-8')
+
+        embeddings = embed_model.encode([content])
+        record = {
+            'uuid': data.uuid,
+            'content': content,
+            'meta': json.dumps(meta, indent=4),
+            'sparse_vector': embeddings['sparse'][[0]],
+            'dense_vector': embeddings['dense'][0],
+        }
+
+        stats = self.client.upsert(self.collection_name, record)
         logging.info(f'insert stats: {stats}')
         return stats['upsert_count']
 

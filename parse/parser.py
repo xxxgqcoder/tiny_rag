@@ -39,6 +39,7 @@ class Chunk:
         self.content = content
         self.extra_description = extra_description
         self.content_url = content_url
+        self.file_name = file_name
         self.uuid = get_hash64(
             file_name.encode('utf-8') + content + extra_description)
 

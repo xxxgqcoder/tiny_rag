@@ -3,23 +3,55 @@ import os
 import json
 import numpy as np
 
-from parse.parser import Parser, SupportedFileType, Chunk, ChunkType
-from parse.pdf_parser import PDFParser
+from parse.parser import Chunk
 
 import config
-from utils import get_project_base_directory, get_hash64
-from start_server import create_milvus_collection, create_sqlite_table
 
 
 class TestMilvusDB(unittest.TestCase):
 
     def test_base(self):
+        from typing import Dict, Any
         from scipy.sparse import csr_array
-        from pymilvus import DataType
-        from rag.db import MilvusLiteDB, get_vector_db
+
+        from rag.db import get_vector_db
+        from start_server import create_milvus_collection
 
         dense_embed_dim = 10
         collection_name = 'test_milvus_collection'
+
+        # mock embed func
+        from rag import nlp
+
+        class MockEmbedingModel(nlp.EmbeddingModel):
+
+            def __init__(self):
+                print(f'call mock embedding model')
+                pass
+
+            def encode(self, texts: list[str]) -> Dict[str, Any]:
+                dense_vector = np.random.uniform(low=0.0,
+                                                 high=1.0,
+                                                 size=dense_embed_dim),
+
+                row = np.array([0, 1, 2, 0])
+                col = np.array([0, 1, 1, 0])
+                data = np.array([1, 2, 4, 8])
+                sparse_vector = csr_array((data, (row, col)), shape=(3, 3))
+
+                return {
+                    'dense': dense_vector,
+                    'sparse': sparse_vector,
+                }
+
+            def dense_embed_dim(self):
+                return dense_embed_dim
+
+        def mock_embed_model() -> nlp.EmbeddingModel:
+            return MockEmbedingModel()
+
+        nlp.get_embed_model = mock_embed_model
+        embed_model = nlp.get_embed_model()
 
         # create collection
         config.MILVUS_DB_NAME = './test_milvus.db'
@@ -42,31 +74,39 @@ class TestMilvusDB(unittest.TestCase):
         data = np.array([1, 2, 4, 8])
         ret = csr_array((data, (row, col)), shape=(3, 3))
 
-        record = {
-            'uuid': '123456',
-            'content': 'test content',
-            'meta': json.dumps({'key': 'value'}),
-            'dense_vector': np.random.uniform(low=0.0, high=1.0, size=10),
-            'sparse_vector': ret[[0]],
-        }
+        # insert chunk1
+        chunk1 = Chunk(
+            content_type=config.ChunkType.TEXT,
+            file_name='fake_file_name',
+            content='chunk 1'.encode('utf-8'),
+            extra_description=''.encode('utf-8'),
+        )
+        uuid1 = chunk1.uuid
 
-        insert_cnt = db.insert(record)
+        insert_cnt = db.insert(chunk1)
         self.assertEqual(insert_cnt, 1)
 
-        record['uuid'] = '654321'
-        insert_cnt = db.insert(record)
+        # insert chunk2
+        chunk2 = Chunk(
+            content_type=config.ChunkType.TEXT,
+            file_name='fake_file_name',
+            content='chunk 2'.encode('utf-8'),
+            extra_description=''.encode('utf-8'),
+        )
+        uuid2 = chunk2.uuid
+        insert_cnt = db.insert(chunk2)
         self.assertEqual(insert_cnt, 1)
 
         ret = db.client.get(collection_name='test_milvus_collection',
-                            ids=['123456'])
+                            ids=[uuid1])
         self.assertTrue(ret is not None)
 
         # test delete
-        delete_cnt = db.delete(keys=['123456', '654321'], )
+        delete_cnt = db.delete(keys=[uuid1, uuid2], )
         self.assertEqual(delete_cnt, 2)
         ret = db.client.get(
             collection_name='test_milvus_collection',
-            ids=['123456'],
+            ids=[uuid1],
         )
         self.assertTrue(len(ret) == 0)
 
@@ -78,6 +118,8 @@ class TestSQLiteDB(unittest.TestCase):
 
         from rag.db import get_rational_db
         from utils import now_in_utc
+        from start_server import create_sqlite_table
+        from utils import get_hash64
 
         # create table
         db_name = './test_sql_lite.db'
