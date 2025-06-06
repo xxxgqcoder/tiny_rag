@@ -4,7 +4,6 @@ import json
 import re
 
 from flask import (
-    jsonify,
     request,
     Blueprint,
     Response,
@@ -12,7 +11,6 @@ from flask import (
 
 import config
 from .llm import get_chat_model
-from .nlp import get_embed_model
 from .db import get_vector_db
 
 bp = Blueprint('rag', __name__, url_prefix='/')
