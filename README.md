@@ -31,7 +31,7 @@ There two ways to prepare the docker image.
 - Build docker image from source code.
 
 ### Pull Prebuild Docker Image.
-TODO: build deploy ready docker image for fast deployment.
+A prebuild image `xxxggxyz/tiny_rag:0.0.4` is built and pushed to docker hub. If you want a quick try out, you can skip image building and change configuration stage and go to [start backend container](#start-backend-container) stage.
 
 ### Build Docker Image from Source Code.
 Follow below steps to build docker image from source code.
@@ -43,14 +43,14 @@ Follow below steps to build docker image from source code.
 ## Change Configuration
 - Configuration file: Tiny rag container requires `env` and `docker-compose-macos.yml` file. Download them to local.
 - Configuration item explanation:
-    - `IMAGE`: docker image version to use.
+    - `IMAGE`: docker image version to use. If you build docker image from source, change this to `tiny_rag:dev`.
     - `HOST_RAG_FILE_DIR`: host directory for saving knowledge file. Tiny RAG will monitor this directory for any content change. If new file found / file deleted, Tiny RAG will automatically trigger job to parse / remove content. Subdirectory is ignored in monitoring, which means if you put file under `HOST_RAG_FILE_DIR/some_dir` the file will be ignored.
     - `HOST_RAG_LOG_DIR`: host directory for saving Tiny RAG logs.
     - `CHAT_MODEL_URL`: local ollama host url. The url parts defaut to `http://host.docker.internal` because Tiny RAG is accessing ollama from docker container.
     - `CHAT_MODEL_NAME`: model name used for chat set it to the llm model name you pulled using ollama. in this case, `qwen3:30b-a3b`. 
 
 
-## Start backend container
+## Start Backend Container
 Run ` docker compose -f docker-compose-macos.yml --env-file env up -d` to start Tiny RAG container.
 
 ## Add Knowledge Base File
