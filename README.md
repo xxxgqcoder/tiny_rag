@@ -31,7 +31,7 @@ There two ways to prepare the docker image.
 - Build docker image from source code.
 
 ### Pull Prebuild Docker Image.
-TODO: build deploy ready docker image for fast deployment.
+A prebuild image `xxxggxyz/tiny_rag:0.0.4` is built and pushed to docker hub. If you want a quick try out, you can skip image building and change configuration stage and go to [start backend container](#start-backend-container) stage.
 
 ### Build Docker Image from Source Code.
 Follow below steps to build docker image from source code.
@@ -50,7 +50,7 @@ Follow below steps to build docker image from source code.
     - `CHAT_MODEL_NAME`: model name used for chat set it to the llm model name you pulled using ollama. in this case, `qwen3:30b-a3b`. 
 
 
-## Start backend container
+## Start Backend Container
 Run ` docker compose -f docker-compose-macos.yml --env-file env up -d` to start Tiny RAG container.
 
 ## Add Knowledge Base File
