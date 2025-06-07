@@ -12,9 +12,6 @@ services:
     env_file: .env
     environment:
       - TZ=${TIMEZONE}
-      - HF_ENDPOINT=${HF_ENDPOINT}
-      - MACOS=${MACOS:-1}
-      - LIGHTEN=${LIGHTEN:-1}
     networks:
       - tiny_rag
     restart: on-failure
