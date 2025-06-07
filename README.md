@@ -53,11 +53,11 @@ Follow below steps to build docker image from source code.
 ## Start backend container
 Run ` docker compose -f docker-compose-macos.yml --env-file env up -d` to start Tiny RAG container.
 
-## Add knowledge base file
+## Add Knowledge Base File
 Put your files to `HOST_RAG_FILE_DIR`, Tiny RAG will begin parsing the files.
 
 
-## Start chat
+## Start Chat
 Run `docker exec -it tiny_rag_server python chat.py` to start chat with knowledge base.
 
 
