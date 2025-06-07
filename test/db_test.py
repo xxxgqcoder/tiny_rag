@@ -21,37 +21,7 @@ class TestMilvusDB(unittest.TestCase):
         collection_name = 'test_milvus_collection'
 
         # mock embed func
-        from rag import nlp
-
-        class MockEmbedingModel(nlp.EmbeddingModel):
-
-            def __init__(self):
-                print(f'call mock embedding model')
-                pass
-
-            def encode(self, texts: list[str]) -> Dict[str, Any]:
-                dense_vector = np.random.uniform(low=0.0,
-                                                 high=1.0,
-                                                 size=dense_embed_dim),
-
-                row = np.array([0, 1, 2, 0])
-                col = np.array([0, 1, 1, 0])
-                data = np.array([1, 2, 4, 8])
-                sparse_vector = csr_array((data, (row, col)), shape=(3, 3))
-
-                return {
-                    'dense': dense_vector,
-                    'sparse': sparse_vector,
-                }
-
-            def dense_embed_dim(self):
-                return dense_embed_dim
-
-        def mock_embed_model() -> nlp.EmbeddingModel:
-            return MockEmbedingModel()
-
-        nlp.get_embed_model = mock_embed_model
-        embed_model = nlp.get_embed_model()
+        config.EMBED_MODEL_NAME = 'mock_for_test'
 
         # create collection
         config.MILVUS_DB_NAME = './test_milvus.db'
@@ -67,12 +37,6 @@ class TestMilvusDB(unittest.TestCase):
 
         self.assertEqual(db.collection_name, 'test_milvus_collection')
         self.assertTrue(db.client.has_collection('test_milvus_collection'))
-
-        # test insert
-        row = np.array([0, 1, 2, 0])
-        col = np.array([0, 1, 1, 0])
-        data = np.array([1, 2, 4, 8])
-        ret = csr_array((data, (row, col)), shape=(3, 3))
 
         # insert chunk1
         chunk1 = Chunk(

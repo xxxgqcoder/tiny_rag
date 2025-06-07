@@ -10,7 +10,7 @@ from strenum import StrEnum
 
 import config
 from utils import singleton, run_once
-from . import nlp
+from . import get_embed_model
 from parse.parser import Chunk
 
 
@@ -78,7 +78,7 @@ class MilvusLiteDB(VectorDB):
 
     def insert(self, data: Chunk) -> int:
         # embed chunks
-        embed_model = nlp.get_embed_model()
+        embed_model = get_embed_model(name=config.EMBED_MODEL_NAME)
         content = data.content
 
         if data.content_type != config.ChunkType.TEXT:
@@ -132,7 +132,7 @@ class MilvusLiteDB(VectorDB):
         dense_weight = params.get('dense_weight', 1.0)
 
         # embed query
-        embed_model = nlp.get_embed_model()
+        embed_model = get_embed_model(name=config.EMBED_MODEL_NAME)
         embed = embed_model.encode([query])
         query_embed = {
             'sparse': embed['sparse'][[0]],
