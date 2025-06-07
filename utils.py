@@ -144,7 +144,7 @@ def estimate_token_num(text: str) -> Tuple[int, list[str]]:
             return True
         return False
 
-    def find_token_bound(text: str, i: int, j: int) -> bool:
+    def token_bound_found(text: str, i: int, j: int) -> bool:
         if ord(text[i]) < 127:
             # space met or non-ascii character met
             return (is_space(text[j]) or ord(text[j]) > 127)
@@ -156,7 +156,7 @@ def estimate_token_num(text: str) -> Tuple[int, list[str]]:
     i = 0
     while i < len(text):
         j = i + 1
-        while j < len(text) and not find_token_bound(text, i, j):
+        while j < len(text) and not token_bound_found(text, i, j):
             j += 1
 
         token = text[i:j]
