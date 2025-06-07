@@ -2,6 +2,9 @@
 # Variable should be in key-value format, for example: key=value, one variable
 # per line. Do not remove existing variables.
 
+# image version to use
+IMAGE=xxxggxyz/tiny_rag:0.0.3
+
 # ============================================================================ #
 # rag data
 # directory for saving knowledge files on host machine
