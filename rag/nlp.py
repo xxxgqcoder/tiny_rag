@@ -2,7 +2,7 @@ import json
 import numpy as np
 import logging
 from abc import ABC, abstractmethod
-from typing import Union, Dict, Any
+from typing import Dict, Any
 from scipy.sparse import csr_array, vstack
 
 import config
@@ -106,7 +106,3 @@ class BGEM3EmbeddingModel(EmbeddingModel):
             "colbert_vecs": self.model.model.colbert_linear.out_features,
             "sparse": len(self.model.tokenizer),
         }
-
-
-def get_embed_model() -> EmbeddingModel:
-    return BGEM3EmbeddingModel()
