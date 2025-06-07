@@ -42,7 +42,7 @@ def init_root_config():
 
     # parsed resouces
     global PARSED_ASSET_DATA_DIR
-    PARSED_ASSET_DATA_DIR = os.path.join(RAG_DATA_DIR,
+    PARSED_ASSET_DATA_DIR = os.path.join(RAG_FILE_DIR,
                                          'tiny_rag_parsed_assets')
     logging.info(f"parsed asset data dir: {PARSED_ASSET_DATA_DIR}")
 
