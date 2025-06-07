@@ -71,7 +71,9 @@ def init_root_config():
     global MILVUS_ROOT_DATA_DIR, MILVUS_DB_NAME, MILVUS_COLLECTION_NAME
     MILVUS_ROOT_DATA_DIR = os.path.join(RAG_DATA_DIR, 'milvus_data')
     MILVUS_DB_NAME = os.path.join(MILVUS_ROOT_DATA_DIR, 'tiny_rag.db')
-    # NOTE: collection name subject to embedding model name and dense dimension.
+    # NOTE: collection name subject to embedding model name and dense dimension,
+    # Thus changing embedding model may cause tables re-creation and re-parse
+    # existing pdf files.
     MILVUS_COLLECTION_NAME = f'knowledge_collection_{EMBED_MODEL_NAME}_{EMBED_DENSE_DIM}'
     MILVUS_COLLECTION_NAME = re.sub(r"[^a-zA-Z0-9_]", "_",
                                     MILVUS_COLLECTION_NAME)
@@ -86,8 +88,12 @@ def init_root_config():
     SQLITE_ROOT_DATA_DIR = os.path.join(RAG_DATA_DIR, 'sqlite_data')
     SQLITE_DB_NAME = os.path.join(SQLITE_ROOT_DATA_DIR,
                                   'tiny_rag_documents.db')
-    # document table subject to embedding model and dense dimension
-    SQLITE_DOCUMENT_TABLE_NAME = f'document{EMBED_MODEL_NAME}_{EMBED_DENSE_DIM}'
+    # NOTE: document table subject to embedding model and dense dimension, thus
+    # changing embedding model may cause table re-creation and re-parse existing
+    # pdf files.
+    SQLITE_DOCUMENT_TABLE_NAME = f'document_{EMBED_MODEL_NAME}_{EMBED_DENSE_DIM}'
+    SQLITE_DOCUMENT_TABLE_NAME = re.sub(r"[^a-zA-Z0-9_]", "_",
+                                        SQLITE_DOCUMENT_TABLE_NAME)
 
     logging.info(f"sqlite root data directory: {SQLITE_ROOT_DATA_DIR}")
     logging.info(f"sqlite db name: {SQLITE_DB_NAME}")

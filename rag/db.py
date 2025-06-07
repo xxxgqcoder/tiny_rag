@@ -453,9 +453,8 @@ def create_sqlite_table(
     - token: not used.
     - table_name: document table name.
     """
-
-    sql_create_table = """
-    CREATE TABLE IF NOT EXISTS document (
+    sql_create_table = f"""
+    CREATE TABLE IF NOT EXISTS {table_name} (
         id INTEGER PRIMARY KEY,
         name TEXT NOT NULL,
         chunks TEXT NOT NULL,
@@ -463,7 +462,7 @@ def create_sqlite_table(
         content_hash TEXT NOT NULL
     )
     """
-    sql_create_index = "CREATE INDEX idx_name ON document (name)"
+    sql_create_index = f"CREATE INDEX idx_name ON {table_name} (name)"
     # NOTE: assume local file path
     os.makedirs(os.path.dirname(conn_url), exist_ok=True)
 
