@@ -50,14 +50,14 @@ Follow below steps to build docker image from source code.
     - `CHAT_MODEL_NAME`: model name used for chat set it to the llm model name you pulled using ollama. in this case, `qwen3:30b-a3b`. 
 
 
-## Start backend container
+## Start Backend Container
 Run ` docker compose -f docker-compose-macos.yml up -d` to start Tiny RAG container.
 
-## Add knowledge base file
+## Add Knowledge Base File
 Put your files to `HOST_RAG_FILE_DIR`, Tiny RAG will begin parsing the files.
 
 
-## Start chat
+## Start Chat
 Run `docker exec -it tiny_rag_server python chat.py` to start chat with knowledge base.
 
 
