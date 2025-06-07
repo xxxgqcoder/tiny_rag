@@ -123,9 +123,6 @@ def logging_exception(e: Exception):
     logging.info(formatted_traceback)
 
 
-from typing import Tuple
-
-
 def estimate_token_num(text: str) -> Tuple[int, list[str]]:
     """
     Estimate tokens in text. Combine consecutive ascii character as one token,
