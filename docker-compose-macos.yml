@@ -6,18 +6,18 @@ services:
       # - ${SVR_HTTP_PORT}:9380
       - 4000:4000
     volumes:
-      - ${HOST_RAG_LOG_DIR:-./docker/tiny_rag_logs}:/tiny_rag/logs
-      - ${HOST_RAG_FILE_DIR:-./docker/files}:${RAG_FILE_DIR:-/var/share/tiny_rag_files} 
+      - ${HOST_RAG_LOG_DIR:-./docker/logs}:/tiny_rag/logs
+      - ${HOST_RAG_FILE_DIR:-./docker/files}:/var/share/tiny_rag_files
       - tiny_rag_data:${RAG_DATA_DIR:-/var/share/tiny_rag_data}
-    env_file: .env
+    env_file: env
     environment:
       - TZ=${TIMEZONE}
+      - RAG_FILE_DIR=/var/share/tiny_rag_files # NOTE: knowledge dir used within container, regular user donot change it.
     networks:
       - tiny_rag
     restart: on-failure
     extra_hosts:
       - "host.docker.internal:host-gateway"
-  
 
 volumes:
   # container data persisted by local docker engine.

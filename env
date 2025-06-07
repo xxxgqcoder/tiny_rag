@@ -2,14 +2,16 @@
 # Variable should be in key-value format, for example: key=value, one variable
 # per line. Do not remove existing variables.
 
-IMAGE=tiny_rag:dev
+# image version to use
+IMAGE=xxxggxyz/tiny_rag:0.0.3
+
 # ============================================================================ #
 # rag data
 # directory for saving knowledge files on host machine
-HOST_RAG_FILE_DIR=~/.tiny_rag/files
+HOST_RAG_FILE_DIR=~/tiny_rag/files
 
 # directory for saving docker logs on host machine
-HOST_RAG_LOG_DIR=~/.tiny_rag/logs
+HOST_RAG_LOG_DIR=~/tiny_rag/logs
 
 # ============================================================================ #
 # chat model

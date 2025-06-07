@@ -41,7 +41,7 @@ Follow below steps to build docker image from source code.
 
 
 ## Change Configuration
-- Configuration file: Tiny rag container requires `.env` and `docker-compose-macos.yml` file. Download them to local.
+- Configuration file: Tiny rag container requires `env` and `docker-compose-macos.yml` file. Download them to local.
 - Configuration item explanation:
     - `IMAGE`: docker image version to use.
     - `HOST_RAG_FILE_DIR`: host directory for saving knowledge file. Tiny RAG will monitor this directory for any content change. If new file found / file deleted, Tiny RAG will automatically trigger job to parse / remove content. Subdirectory is ignored in monitoring, which means if you put file under `HOST_RAG_FILE_DIR/some_dir` the file will be ignored.
@@ -50,8 +50,8 @@ Follow below steps to build docker image from source code.
     - `CHAT_MODEL_NAME`: model name used for chat set it to the llm model name you pulled using ollama. in this case, `qwen3:30b-a3b`. 
 
 
-## Start Backend Container
-Run ` docker compose -f docker-compose-macos.yml up -d` to start Tiny RAG container.
+## Start backend container
+Run ` docker compose -f docker-compose-macos.yml --env-file env up -d` to start Tiny RAG container.
 
 ## Add Knowledge Base File
 Put your files to `HOST_RAG_FILE_DIR`, Tiny RAG will begin parsing the files.
