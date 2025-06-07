@@ -20,6 +20,7 @@ services:
   
 
 volumes:
+  # container data persisted by local docker engine.
   tiny_rag_data:
     driver: local
 
