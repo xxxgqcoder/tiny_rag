@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 
 from config import ChunkType
 from utils import get_hash64
+from . import Pasers
 
 
 class SupportedFileType(StrEnum):
@@ -81,6 +82,10 @@ class Parser(ABC):
         raise NotImplementedError("Not implemented")
 
 
-def get_parser() -> Parser:
-    from .pdf_parser import PDFParser
-    return PDFParser()
+def get_parser(name: str = "MinerU") -> Parser:
+    if name not in Pasers:
+        msg = f"unknown parser: {name}" + "\n" \
+            f"supported parsers are {[k for k in Pasers]}"
+        raise Exception(msg)
+    p = Pasers[name]
+    return p()
