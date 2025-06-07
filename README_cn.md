@@ -37,7 +37,7 @@ TODO：为快速部署构建可直接使用的Docker镜像。
 - 构建Docker镜像。运行 `docker build --build-arg NEED_MIRROR=1 -f Dockerfile -t tiny_rag:dev` 来构建Docker镜像。将生成名为 `tiny_rag:dev` 的镜像。可以通过 `docker image ls` 命令查看。
 
 ## 修改配置
-- 配置文件：Tiny RAG容器需要 `.env` 和 `docker-compose-macos.yml` 文件。将它们下载到本地。
+- 配置文件：Tiny RAG容器需要 `env` 和 `docker-compose-macos.yml` 文件。将它们下载到本地。
 - 配置项说明：
     - `IMAGE`: 要使用的Docker镜像版本。
     - `HOST_RAG_FILE_DIR`: 保存知识文件的主机目录。Tiny RAG会监控此目录中的内容变化。发现新文件/删除文件时，会自动触发解析/删除任务。监控时会忽略子目录，即如果将文件放在 `HOST_RAG_FILE_DIR/some_dir` 下，该文件将被忽略。
@@ -46,7 +46,7 @@ TODO：为快速部署构建可直接使用的Docker镜像。
     - `CHAT_MODEL_NAME`: 用于对话的模型名称，设置为通过ollama拉取的LLM模型名称，此处为 `qwen3:30b-a3b`。
 
 ## 启动后端容器
-运行 `docker compose -f docker-compose-macos.yml up -d` 启动Tiny RAG容器。
+运行 `docker compose -f docker-compose-macos.yml --env-file env up -d` 启动Tiny RAG容器。
 
 ## 添加知识库文件
 将文件放入 `HOST_RAG_FILE_DIR`，Tiny RAG将开始解析文件。

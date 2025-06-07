@@ -43,7 +43,7 @@ Follow below steps to build docker image from source code.
 ## Change Configuration
 - Configuration file: Tiny rag container requires `env` and `docker-compose-macos.yml` file. Download them to local.
 - Configuration item explanation:
-    - `IMAGE`: docker image version to use.
+    - `IMAGE`: docker image version to use. If you build docker image from source, change this to `tiny_rag:dev`.
     - `HOST_RAG_FILE_DIR`: host directory for saving knowledge file. Tiny RAG will monitor this directory for any content change. If new file found / file deleted, Tiny RAG will automatically trigger job to parse / remove content. Subdirectory is ignored in monitoring, which means if you put file under `HOST_RAG_FILE_DIR/some_dir` the file will be ignored.
     - `HOST_RAG_LOG_DIR`: host directory for saving Tiny RAG logs.
     - `CHAT_MODEL_URL`: local ollama host url. The url parts defaut to `http://host.docker.internal` because Tiny RAG is accessing ollama from docker container.
