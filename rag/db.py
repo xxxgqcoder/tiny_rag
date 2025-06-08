@@ -85,7 +85,10 @@ class MilvusLiteDB(VectorDB):
             content = data.extra_description
         content = content.decode('utf-8')
 
-        meta = {'file_name': data.file_name}
+        meta = {
+            'file_name': data.file_name,
+            'content_type': str(data.content_type),
+        }
         if data.content_type == config.ChunkType.IMAGE:
             meta['content_url'] = data.content_url
         if data.content_type == config.ChunkType.TABLE:
