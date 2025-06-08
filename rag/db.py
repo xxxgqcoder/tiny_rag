@@ -346,6 +346,13 @@ class SQLiteDB(RationalDB):
         cur = self.conn.cursor()
         key_col = 'name'
 
+        assert 'chunks' in data, f"chunks not found in data to insert"
+        chunks = data['chunks']
+        assert isinstance(
+            chunks, list
+        ), f"unexpected chunk id type: {type(chunks)}, expected list of string"
+        data['chunks'] = '\x07'.join(chunks)
+
         cur.execute(f"SELECT id FROM {self.document_table} WHERE name = ?",
                     (data[key_col], ))
         record_exists = cur.fetchone() is not None
@@ -388,6 +395,13 @@ class SQLiteDB(RationalDB):
             return 1
 
     def get_document(self, name: str):
+        """
+        Return document record with below keys:
+        - name: str, document name.
+        - chunks: list of str, document parsed chunk id.
+        - created_date: str, when the record is created.
+        - content_hash: str, document content hash value.
+        """
         cur = self.conn.cursor()
         query = f"SELECT * FROM {self.document_table} WHERE name = ?"
 
@@ -398,7 +412,7 @@ class SQLiteDB(RationalDB):
         res = res[0]
         return {
             'name': res[1],
-            'chunks': res[2],
+            'chunks': res[2].split('\x07'),
             'created_date': res[3],
             'content_hash': res[4],
         }

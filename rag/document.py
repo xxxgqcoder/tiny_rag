@@ -120,7 +120,7 @@ def process_new_file(file_path: str) -> Dict[str, bool]:
     # save document record
     document_record = {
         'name': os.path.basename(file_path),
-        'chunks': '\x07'.join(saved_chunks),
+        'chunks': saved_chunks,
         'created_date': now_in_utc(),
         'content_hash': get_hash64(file_bytes),
     }
@@ -161,10 +161,9 @@ def process_delete_file(file_path: str):
     logging.info(f'delete document record from db, delete cnt: {delete_cnt}')
 
     # delete chunks
-    # TODO: find better way handle chunk id splitting
     uuids = []
     if 'chunks' in document_record and len(document_record['chunks']) > 0:
-        uuids = document_record['chunks'].split('\x07')
+        uuids = document_record['chunks']
     logging.info(f'{file_path}: total {len(uuids)} chunks')
 
     # delete image chunk

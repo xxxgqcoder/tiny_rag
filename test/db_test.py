@@ -105,7 +105,6 @@ class TestSQLiteDB(unittest.TestCase):
         4e03170d52fd201a
         57e68f3d1e1ebcfb
         """.strip().split()
-        chunks = "\x07".join(chunks)
 
         data = {
             'name': file_name,
