@@ -181,6 +181,7 @@ def process_delete_file(file_path: str):
     logging.info(f'delete document record from db, delete cnt: {delete_cnt}')
 
     # delete chunks
+    # TODO: find better way handle chunk id splitting
     uuids = []
     if 'chunks' in document_record and len(document_record['chunks']) > 0:
         uuids = document_record['chunks']
