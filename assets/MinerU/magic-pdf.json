@@ -1,4 +1,6 @@
 {
+    "consecutive_block_num": 8,
+    "block_overlap_num": 3,
     "bucket_info": {
         "bucket-name-1": [
             "ak",
