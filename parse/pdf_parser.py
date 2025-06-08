@@ -224,13 +224,10 @@ class PDFParser(Parser):
         # since we apply overlap,i can not exceed len(content_list) - self.block_overlap_num,
         # otherwise, infinite loop may happen.
         while i < len(content_list) - self.block_overlap_num:
-            print(f"i = {i}")
-
             # inner loop start from current block
             j = i
             while j < len(content_list) and len(
                     block_buffer) < self.consecutive_block_num:
-                print(f"\tj = {j}")
 
                 block = content_list[j]
 
