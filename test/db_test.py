@@ -63,7 +63,7 @@ class TestMilvusDB(unittest.TestCase):
 
         ret = db.client.get(collection_name='test_milvus_collection',
                             ids=[uuid1])
-        self.assertTrue(ret is not None)
+        self.assertEqual(ret[0]['uuid'], uuid1)
 
         # test delete
         delete_cnt = db.delete(keys=[uuid1, uuid2], )
