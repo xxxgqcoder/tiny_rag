@@ -1,13 +1,15 @@
 import traceback
 import logging
 import os
+import json
+import shutil
 from typing import Dict, Any
 from concurrent.futures import ThreadPoolExecutor
 
 import watchdog.events as events
 from watchdog.events import FileSystemEventHandler, FileSystemEvent
 
-from utils import now_in_utc, get_hash64, logging_exception, run_once
+from utils import now_in_utc, get_hash64, logging_exception, run_once, time_it
 from .db import get_vector_db, get_rational_db
 
 
@@ -15,7 +17,7 @@ def process_new_file(file_path: str) -> Dict[str, bool]:
     """
     Process new file, parse and save chunks into db.
     Steps:
-    - check if file content is changed by content hash.
+    - check if file content is changed by comparing content hash against db record.
     - clean up previous document record if any once file content change detected.
     - run file content parse.
     - save chunks and document record
@@ -118,7 +120,7 @@ def process_new_file(file_path: str) -> Dict[str, bool]:
     # save document record
     document_record = {
         'name': os.path.basename(file_path),
-        'chunks': '\x07'.join(saved_chunks),
+        'chunks': saved_chunks,
         'created_date': now_in_utc(),
         'content_hash': get_hash64(file_bytes),
     }
@@ -161,8 +163,20 @@ def process_delete_file(file_path: str):
     # delete chunks
     uuids = []
     if 'chunks' in document_record and len(document_record['chunks']) > 0:
-        uuids = document_record['chunks'].split('\x07')
+        uuids = document_record['chunks']
     logging.info(f'{file_path}: total {len(uuids)} chunks')
+
+    # delete image chunk
+    chunks = vector_db.get(keys=uuids)
+    for chunk in chunks:
+        try:
+            meta = json.loads(chunk['meta'])
+        except:
+            continue
+        content_url = meta.get('content_url', None)
+        if content_url and os.path.exists(content_url):
+            os.remove(content_url)
+            logging.info(f'{file_path}: remove {content_url}')
 
     delete_cnt = vector_db.delete(keys=uuids)
     logging.info(f'delete {delete_cnt} chunks from vector db')
@@ -200,6 +214,7 @@ def get_job_executor():
     return _job_executor
 
 
+@time_it
 def on_process_new_file(file_path: str):
     try:
         process_new_file(file_path=file_path)
@@ -207,6 +222,7 @@ def on_process_new_file(file_path: str):
         logging_exception(e)
 
 
+@time_it
 def on_process_delete_file(file_path: str):
     try:
         process_delete_file(file_path=file_path)

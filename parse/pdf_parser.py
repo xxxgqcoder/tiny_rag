@@ -3,12 +3,12 @@ import tempfile
 import logging
 import shutil
 import pickle
+import json
 from typing import Tuple, Dict, Any
 
 import config
 from utils import singleton, safe_strip, logging_exception
 from parse.parser import Parser, Chunk, ChunkType
-from config import PDF_PARSER_CONFIG_PATH
 
 
 @singleton
@@ -17,24 +17,26 @@ class PDFParser(Parser):
     PDF parser implementation, backed by [MinerU](https://github.com/opendatalab/MinerU).
     """
 
-    def __init__(
-        self,
-        consecutive_block_num=6,
-        block_overlap_num=2,
-    ):
+    def __init__(self, ):
         super().__init__()
         """
         Args:
         - consecutive_block_num: used in chunking, number of consecutive block to be considered as one chunk.
         - block_overlap_num: used in chunking, number of overlapped block num between two consecutive chunks.
         """
-        self.consecutive_block_num = consecutive_block_num
-        self.block_overlap_num = block_overlap_num
-        assert block_overlap_num < consecutive_block_num,\
-            f"block overlap num ({block_overlap_num}) be less than consecutive block num ({consecutive_block_num})"
+        with open(config.PDF_PARSER_CONFIG_PATH) as f:
+            conf = json.load(f)
+
+        self.consecutive_block_num = conf.get('consecutive_block_num', 8)
+        self.block_overlap_num = conf.get('block_overlap_num', 3)
+
+        logging.info(f"parsr config: {json.dumps(conf, indent=4)}")
+
+        assert self.block_overlap_num < self.consecutive_block_num,\
+            f"block overlap num ({self.block_overlap_num}) be less than consecutive block num ({self.consecutive_block_num})"
 
         # set environment variable for magic_pdf to load config json file
-        os.environ["MINERU_TOOLS_CONFIG_JSON"] = PDF_PARSER_CONFIG_PATH
+        os.environ["MINERU_TOOLS_CONFIG_JSON"] = config.PDF_PARSER_CONFIG_PATH
 
     def parse(
         self,
@@ -222,13 +224,10 @@ class PDFParser(Parser):
         # since we apply overlap,i can not exceed len(content_list) - self.block_overlap_num,
         # otherwise, infinite loop may happen.
         while i < len(content_list) - self.block_overlap_num:
-            print(f"i = {i}")
-
             # inner loop start from current block
             j = i
             while j < len(content_list) and len(
                     block_buffer) < self.consecutive_block_num:
-                print(f"\tj = {j}")
 
                 block = content_list[j]
 

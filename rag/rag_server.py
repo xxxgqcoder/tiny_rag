@@ -2,6 +2,7 @@ import time
 import logging
 import json
 import re
+from typing import Tuple, Dict, Any
 
 from flask import (
     request,
@@ -12,6 +13,8 @@ from flask import (
 import config
 from .llm import get_chat_model
 from .db import get_vector_db
+from parse.parser import Chunk
+from utils import estimate_token_num
 
 bp = Blueprint('rag', __name__, url_prefix='/')
 
@@ -70,6 +73,58 @@ Overall, while Musk enjoys Dogecoin and often promotes it, he also warns against
 --- Example END ---
 """
 
+_content_divider = "\n\n"
+
+
+def assemble_knowledge_base(chunks: list[Chunk]) -> Tuple[str, Dict[str, Any]]:
+    """
+    Assemble knowledge in chunk and return formatted knowledge base.
+    """
+    # dedup chunks
+    deduped_chunk = {}
+    for chunk in chunks:
+        if chunk.uuid not in deduped_chunk:
+            deduped_chunk[chunk.uuid] = chunk
+
+    # document name to chunks mapping
+    document2chunks = {}
+    for _, chunk in deduped_chunk.items():
+        if chunk.file_name not in document2chunks:
+            document2chunks[chunk.file_name] = []
+        document2chunks[chunk.file_name].append(chunk)
+
+    knowledge_base = []
+    chunk_idx = 0  # reference index within current knowledge base
+    refid2meta = {}  # reference index to chunk meta info
+    for file_name, chunks in document2chunks.items():
+        knowledge_base.append(f"Document: {file_name}{_content_divider}")
+        knowledge_base.append(
+            f'Relevant fragments as following:{_content_divider}')
+        for chunk in chunks:
+            content = ""
+            if chunk.content_type in [config.ChunkType.TEXT]:
+                content = chunk.content.decode('utf-8')
+            else:
+                content = chunk.extra_description.decode('utf-8')
+
+            knowledge_base.append(f"ID:{chunk_idx}\n{content}")
+            tokens = estimate_token_num(content)[-1]
+
+            refid2meta[chunk_idx] = {
+                'uuid': chunk.uuid,
+                'file_name': chunk.file_name,
+                'content_type': chunk.content_type,
+                'content_url': chunk.content_url,
+                'chunk_begin_digest': tokens[:12],
+                'chunk_end_digest': tokens[-12:],
+            }
+
+            chunk_idx += 1
+
+    knowledge_base = _content_divider.join(knowledge_base)
+
+    return knowledge_base, refid2meta
+
 
 @bp.route('/chat_completion', methods=['POST'])
 def chat_completion():
@@ -88,6 +143,7 @@ def chat_completion():
     - `data`: data load. Empty data payload indicates end of generation.
         - `answer`: str, LLM generated answer.
         - `prompt`: str, prompt used to generate the answer.
+        - `reference_meta`: dict, reference id to meta info.
         
     Return object is generated in incremental way, each returned object has
         newly generated token appended to previous returned answer.
@@ -113,36 +169,19 @@ def chat_completion():
 
     user_questions = [m['content'] for m in message
                       if m['role'] == 'user'][-3:]
-    chunks = {}
+    chunks = []
     for question in user_questions:
         ret = vector_db.search(query=question, params={'limit': 4})
-        for chunk in ret:
-            if chunk['uuid'] not in chunks:
-                chunks[chunk['uuid']] = chunk
+        chunks.extend(ret)
 
-    document_chunks = {}
-    for _, chunk in chunks.items():
-        file_name = chunk['file_name']
-        if file_name not in document_chunks:
-            document_chunks[file_name] = []
-        document_chunks[file_name].append(chunk['content'])
-
-    knowledge_base = []
-    chunk_idx = 0
-    for file_name, chunks in document_chunks.items():
-        knowledge_base.append(f"Document: {file_name}\n\n")
-        knowledge_base.append('Relevant fragments as following:\n\n')
-        for chunk in chunks:
-            knowledge_base.append(f"ID:{chunk_idx}: {chunk}\n\n")
-            chunk_idx += 1
-    knowledge_base = '\n'.join(knowledge_base)
+    knowledge_base, refid2meta = assemble_knowledge_base(chunks)
 
     logging.info(
         f'**DEBUG** chat_completion, knowledge_base = \n{knowledge_base}')
     logging.info('=' * 120)
 
     prompt = _prompt_system.format(knowledge_base=knowledge_base) \
-                + '---- \n\n ' \
+                + f'---- {_content_divider} ' \
                 + _promot_citation
 
     message.insert(0, {'role': 'system', 'content': prompt})
@@ -165,11 +204,14 @@ def chat_completion():
                         "message": "",
                         "data": {
                             "answer": final_ans,
-                            "reference": [],
+                            "reference_meta": refid2meta,
                             'prompt': prompt,
+                            'prompt_token_num': estimate_token_num(prompt)[0],
+                            'answer_token_num':
+                            estimate_token_num(final_ans)[0],
                         }
                     },
-                    ensure_ascii=False) + "\n\n"
+                    ensure_ascii=False) + _content_divider
 
         except Exception as e:
             yield json.dumps(
@@ -178,17 +220,17 @@ def chat_completion():
                     "message": str(e),
                     "data": {
                         "answer": "**ERROR**: " + str(e),
-                        "reference": [],
+                        "reference_meta": {},
                         "prompt": prompt,
                     }
                 },
-                ensure_ascii=False) + "\n\n"
+                ensure_ascii=False) + _content_divider
         yield json.dumps({
             "code": 0,
             "message": "",
             "data": {}
         },
-                         ensure_ascii=False) + "\n\n"
+                         ensure_ascii=False) + _content_divider
 
     resp = Response(stream(), mimetype="text/event-stream")
     resp.headers.add_header("Cache-control", "no-cache")

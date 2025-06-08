@@ -85,7 +85,10 @@ class MilvusLiteDB(VectorDB):
             content = data.extra_description
         content = content.decode('utf-8')
 
-        meta = {'file_name': data.file_name}
+        meta = {
+            'file_name': data.file_name,
+            'content_type': str(data.content_type),
+        }
         if data.content_type == config.ChunkType.IMAGE:
             meta['content_url'] = data.content_url
         if data.content_type == config.ChunkType.TABLE:
@@ -112,8 +115,11 @@ class MilvusLiteDB(VectorDB):
         logging.info(f'delete stats: {stats}')
         return len(stats)
 
-    def search(self, query: str, params: Dict[str,
-                                              Any]) -> list[Dict[str, Any]]:
+    def search(
+        self,
+        query: str,
+        params: Dict[str, Any],
+    ) -> list[Chunk]:
         """
         Run hybird search by default
 
@@ -173,14 +179,25 @@ class MilvusLiteDB(VectorDB):
             except json.JSONDecodeError:
                 meta = {}
 
+            content_type = meta.get('content_type', 'text')
+            content_type = config.ChunkType(content_type)
             file_name = meta.get('file_name', '')
+            content_url = meta.get('content_url', '')
             content = entity.get('content', '')
             uuid = entity.get('uuid', '')
-            ret.append({
-                'file_name': file_name,
-                'content': content,
-                'uuid': uuid,
-            })
+            chunk = Chunk(
+                content_type=content_type,
+                file_name=file_name,
+                content=content.encode('utf-8') if content_type
+                in [config.ChunkType.TEXT] else "".encode("utf-8"),
+                extra_description=content.encode('utf-8') if content_type
+                not in [config.ChunkType.TEXT] else "".encode("utf-8"),
+                content_url=content_url,
+            )
+            # NOTE: set uuid instead of auto generating
+            chunk.uuid = uuid
+
+            ret.append(chunk)
 
         return ret
 
@@ -343,6 +360,13 @@ class SQLiteDB(RationalDB):
         cur = self.conn.cursor()
         key_col = 'name'
 
+        assert 'chunks' in data, f"chunks not found in data to insert"
+        chunks = data['chunks']
+        assert isinstance(
+            chunks, list
+        ), f"unexpected chunk id type: {type(chunks)}, expected list of string"
+        data['chunks'] = '\x07'.join(chunks)
+
         cur.execute(f"SELECT id FROM {self.document_table} WHERE name = ?",
                     (data[key_col], ))
         record_exists = cur.fetchone() is not None
@@ -385,6 +409,13 @@ class SQLiteDB(RationalDB):
             return 1
 
     def get_document(self, name: str):
+        """
+        Return document record with below keys:
+        - name: str, document name.
+        - chunks: list of str, document parsed chunk id.
+        - created_date: str, when the record is created.
+        - content_hash: str, document content hash value.
+        """
         cur = self.conn.cursor()
         query = f"SELECT * FROM {self.document_table} WHERE name = ?"
 
@@ -395,7 +426,7 @@ class SQLiteDB(RationalDB):
         res = res[0]
         return {
             'name': res[1],
-            'chunks': res[2],
+            'chunks': res[2].split('\x07'),
             'created_date': res[3],
             'content_hash': res[4],
         }
