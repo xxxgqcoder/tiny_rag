@@ -66,6 +66,9 @@ def generate_response() -> requests.models.Response:
     last_ans = ""
     json_buffer = ""
     context_prompt = ''
+    reference_meta = None
+    prompt_token_num = 0
+    answer_token_num = 0
     try:
         for chunk in response.iter_content(
                 chunk_size=8192,
@@ -81,6 +84,11 @@ def generate_response() -> requests.models.Response:
                     break
                 if not context_prompt:
                     context_prompt = data['prompt']
+                if not reference_meta:
+                    reference_meta = data['reference_meta']
+                    
+                answer_token_num = data['answer_token_num']
+                prompt_token_num = data['prompt_token_num']
 
                 print(data['answer'][len(last_ans):], end='', flush=True)
 
@@ -95,7 +103,10 @@ def generate_response() -> requests.models.Response:
     conversation['history'].append({
         'role': 'assistant',
         'content': last_ans,
-        'prompt': context_prompt
+        'prompt': context_prompt,
+        'reference_meta': reference_meta,
+        'answer_token_num': answer_token_num,
+        'prompt_token_num': prompt_token_num,
     })
     print()
 

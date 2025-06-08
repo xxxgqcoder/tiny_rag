@@ -14,6 +14,7 @@ import config
 from .llm import get_chat_model
 from .db import get_vector_db
 from parse.parser import Chunk
+from utils import estimate_token_num
 
 bp = Blueprint('rag', __name__, url_prefix='/')
 
@@ -93,17 +94,20 @@ def assemble_knowledge_base(chunks: list[Chunk]) -> Tuple[str, Dict[str, Any]]:
         document2chunks[chunk.file_name].append(chunk)
 
     knowledge_base = []
-    chunk_idx = 0 # reference index within current knowledge base
-    refid2meta = {} # reference index to chunk meta info
+    chunk_idx = 0  # reference index within current knowledge base
+    refid2meta = {}  # reference index to chunk meta info
     for file_name, chunks in document2chunks.items():
         knowledge_base.append(f"Document: {file_name}{_content_divider}")
         knowledge_base.append(
             f'Relevant fragments as following:{_content_divider}')
         for chunk in chunks:
             if chunk.content_type in [config.ChunkType.TEXT]:
-                knowledge_base.append(f"ID:{chunk_idx}\n{chunk.content.decode('utf-8')}")
+                knowledge_base.append(
+                    f"ID:{chunk_idx}\n{chunk.content.decode('utf-8')}")
             else:
-                knowledge_base.append(f"ID:{chunk_idx}\n{chunk.extra_description.decode('utf-8')}")
+                knowledge_base.append(
+                    f"ID:{chunk_idx}\n{chunk.extra_description.decode('utf-8')}"
+                )
 
             refid2meta[chunk_idx] = {
                 'uuid': chunk.uuid,
@@ -199,6 +203,8 @@ def chat_completion():
                             "answer": final_ans,
                             "reference_meta": refid2meta,
                             'prompt': prompt,
+                            'prompt_token_num': estimate_token_num(prompt)[0],
+                            'answer_token_num': estimate_token_num(final_ans)[0],
                         }
                     },
                     ensure_ascii=False) + _content_divider
