@@ -115,8 +115,11 @@ class MilvusLiteDB(VectorDB):
         logging.info(f'delete stats: {stats}')
         return len(stats)
 
-    def search(self, query: str, params: Dict[str,
-                                              Any]) -> list[Dict[str, Any]]:
+    def search(
+        self,
+        query: str,
+        params: Dict[str, Any],
+    ) -> list[Chunk]:
         """
         Run hybird search by default
 
@@ -176,14 +179,25 @@ class MilvusLiteDB(VectorDB):
             except json.JSONDecodeError:
                 meta = {}
 
+            content_type = meta.get('content_type', 'text')
+            content_type = config.ChunkType(content_type)
             file_name = meta.get('file_name', '')
+            content_url = meta.get('content_url', '')
             content = entity.get('content', '')
             uuid = entity.get('uuid', '')
-            ret.append({
-                'file_name': file_name,
-                'content': content,
-                'uuid': uuid,
-            })
+            chunk = Chunk(
+                content_type=content_type,
+                file_name=file_name,
+                content=content.encode('utf-8') if content_type
+                in [config.ChunkType.TEXT] else "".encode("utf-8"),
+                extra_description=content.encode('utf-8') if content_type
+                not in [config.ChunkType.TEXT] else "".encode("utf-8"),
+                content_url=content_url,
+            )
+            # NOTE: set uuid instead of auto generating
+            chunk.uuid = uuid
+
+            ret.append(chunk)
 
         return ret
 
