@@ -41,8 +41,8 @@ def get_job_executor():
     return job_executor
 
 
-def print_reference_info(reference_meta: Dict[str, str], answer: str):
-    print("\n")
+def format_reference_info(reference_meta: Dict[str, str], answer: str) -> str:
+    formatted_reference_info = "\n\n"
 
     answer = re.sub(f"<think>.*</think>", "", answer)
 
@@ -55,15 +55,17 @@ def print_reference_info(reference_meta: Dict[str, str], answer: str):
     for ref_id in sorted([ref_id for ref_id in ref_ids]):
         ref_info = ''
         meta = reference_meta[ref_id]
-        ref_info += f"<reference>{ref_id},"
-        ref_info += meta['file_name'] + ','
+        ref_info += f"<reference ID={ref_id}>,"
+        ref_info += "file=" + meta['file_name'] + ','
         if meta['content_url']:
             ref_info += "url=" + meta['content_url'] + ","
 
         chunk_begin_digest = " ".join(meta['chunk_begin_digest'])
         chunk_end_digest = " ".join(meta['chunk_end_digest'])
-        ref_info += f"{chunk_begin_digest} ... {chunk_end_digest}"
-        print(ref_info, end="\n\n")
+        ref_info += "ref content=" + f"{chunk_begin_digest} ... {chunk_end_digest}"
+        formatted_reference_info += ref_info + "\n\n"
+
+    return formatted_reference_info
 
 
 def generate_response() -> requests.models.Response:
@@ -90,7 +92,7 @@ def generate_response() -> requests.models.Response:
 
     last_ans = ""
     json_buffer = ""
-    context_prompt = ''
+    context_prompt = ""
     reference_meta = None
     prompt_token_num = 0
     answer_token_num = 0
@@ -126,13 +128,14 @@ def generate_response() -> requests.models.Response:
         logging_exception(e)
         return
 
-    print_reference_info(reference_meta, last_ans)
+    formatted_reference_info = format_reference_info(reference_meta, last_ans)
+    print(formatted_reference_info)
 
     conversation['history'].append({
         'role': 'assistant',
         'content': last_ans,
         'prompt': context_prompt,
-        'reference_meta': reference_meta,
+        'reference_info': formatted_reference_info,
         'answer_token_num': answer_token_num,
         'prompt_token_num': prompt_token_num,
     })
