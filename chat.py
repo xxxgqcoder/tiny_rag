@@ -41,6 +41,27 @@ def get_job_executor():
     return job_executor
 
 
+def print_reference_info(reference_meta: Dict[str, str], answer: str):
+    print()
+
+    reference = re.findall(r"##[0-9]+@@", answer)
+    ref_ids = {}
+    for ref in reference:
+        ref_id = ref.strip("##").strip("@@")
+        ref_ids[ref_id] = True
+
+    for ref_id in sorted([ref_id for ref_id in ref_ids]):
+        ref_info = ''
+        meta = reference_meta[ref_id]
+        ref_info += f"<reference>{ref_id},"
+        ref_info += meta['file_name'] + ','
+        if meta['content_url']:
+            ref_info += "url=" + meta['content_url']
+
+        ref_info += f"uuid={meta['uuid']}"
+        print(ref_info)
+
+
 def generate_response() -> requests.models.Response:
     global conversation, is_generating
 
@@ -82,13 +103,14 @@ def generate_response() -> requests.models.Response:
                 data = ret.get('data', {})
                 if len(data) == 0:
                     break
+
+                answer_token_num = data['answer_token_num']
+                prompt_token_num = data['prompt_token_num']
+
                 if not context_prompt:
                     context_prompt = data['prompt']
                 if not reference_meta:
                     reference_meta = data['reference_meta']
-                    
-                answer_token_num = data['answer_token_num']
-                prompt_token_num = data['prompt_token_num']
 
                 print(data['answer'][len(last_ans):], end='', flush=True)
 
@@ -99,6 +121,8 @@ def generate_response() -> requests.models.Response:
     except Exception as e:
         logging_exception(e)
         return
+
+    print_reference_info(reference_meta, last_ans)
 
     conversation['history'].append({
         'role': 'assistant',
