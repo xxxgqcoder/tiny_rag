@@ -1,6 +1,7 @@
 import logging
 import os
 import traceback
+import time
 from typing import Any, Tuple
 from logging.handlers import RotatingFileHandler
 
@@ -178,6 +179,22 @@ def estimate_token_num(text: str) -> Tuple[int, list[str]]:
             token_num += 1.2
 
     return int(token_num), token_buffer
+
+
+# util funcs
+def time_it(func):
+
+    def wrapper(*kargs, **kwargs):
+        begin = time.time_ns()
+        ret = func(*kargs, **kwargs)
+        elapse = (time.time_ns() - begin) // 1000000
+        logging.info(
+            f"func {func.__name__} took {elapse // 60000}min {(elapse % 60000)//1000}sec {elapse%60000%1000}ms to finish"
+        )
+
+        return ret
+
+    return wrapper
 
 
 if __name__ == '__main__':

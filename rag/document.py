@@ -9,7 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 import watchdog.events as events
 from watchdog.events import FileSystemEventHandler, FileSystemEvent
 
-from utils import now_in_utc, get_hash64, logging_exception, run_once
+from utils import now_in_utc, get_hash64, logging_exception, run_once, time_it
 from .db import get_vector_db, get_rational_db
 
 
@@ -17,7 +17,7 @@ def process_new_file(file_path: str) -> Dict[str, bool]:
     """
     Process new file, parse and save chunks into db.
     Steps:
-    - check if file content is changed by content hash.
+    - check if file content is changed by comparing content hash against db record.
     - clean up previous document record if any once file content change detected.
     - run file content parse.
     - save chunks and document record
@@ -214,6 +214,7 @@ def get_job_executor():
     return _job_executor
 
 
+@time_it
 def on_process_new_file(file_path: str):
     try:
         process_new_file(file_path=file_path)
@@ -221,6 +222,7 @@ def on_process_new_file(file_path: str):
         logging_exception(e)
 
 
+@time_it
 def on_process_delete_file(file_path: str):
     try:
         process_delete_file(file_path=file_path)
