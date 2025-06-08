@@ -204,7 +204,8 @@ def chat_completion():
                             "reference_meta": refid2meta,
                             'prompt': prompt,
                             'prompt_token_num': estimate_token_num(prompt)[0],
-                            'answer_token_num': estimate_token_num(final_ans)[0],
+                            'answer_token_num':
+                            estimate_token_num(final_ans)[0],
                         }
                     },
                     ensure_ascii=False) + _content_divider
@@ -216,7 +217,7 @@ def chat_completion():
                     "message": str(e),
                     "data": {
                         "answer": "**ERROR**: " + str(e),
-                        "reference_meta": [],
+                        "reference_meta": {},
                         "prompt": prompt,
                     }
                 },
