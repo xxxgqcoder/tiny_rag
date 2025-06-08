@@ -1,6 +1,8 @@
 import traceback
 import logging
 import os
+import json
+import shutil
 from typing import Dict, Any
 from concurrent.futures import ThreadPoolExecutor
 
@@ -159,10 +161,23 @@ def process_delete_file(file_path: str):
     logging.info(f'delete document record from db, delete cnt: {delete_cnt}')
 
     # delete chunks
+    # TODO: find better way handle chunk id splitting
     uuids = []
     if 'chunks' in document_record and len(document_record['chunks']) > 0:
         uuids = document_record['chunks'].split('\x07')
     logging.info(f'{file_path}: total {len(uuids)} chunks')
+
+    # delete image chunk
+    chunks = vector_db.get(keys=uuids)
+    for chunk in chunks:
+        try:
+            meta = json.loads(chunk['meta'])
+        except:
+            continue
+        content_url = meta.get('content_url', None)
+        if content_url and os.path.exists(content_url):
+            os.remove(content_url)
+            logging.info(f'{file_path}: remove {content_url}')
 
     delete_cnt = vector_db.delete(keys=uuids)
     logging.info(f'delete {delete_cnt} chunks from vector db')

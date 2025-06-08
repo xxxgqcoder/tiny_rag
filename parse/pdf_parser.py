@@ -10,15 +10,14 @@ import config
 from utils import singleton, safe_strip, logging_exception
 from parse.parser import Parser, Chunk, ChunkType
 
+
 @singleton
 class PDFParser(Parser):
     """
     PDF parser implementation, backed by [MinerU](https://github.com/opendatalab/MinerU).
     """
 
-    def __init__(
-        self,
-    ):
+    def __init__(self, ):
         super().__init__()
         """
         Args:
