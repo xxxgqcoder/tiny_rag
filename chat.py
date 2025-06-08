@@ -42,7 +42,9 @@ def get_job_executor():
 
 
 def print_reference_info(reference_meta: Dict[str, str], answer: str):
-    print()
+    print("\n")
+
+    answer = re.sub(f"<think>.*</think>", "", answer)
 
     reference = re.findall(r"##[0-9]+@@", answer)
     ref_ids = {}
@@ -56,10 +58,12 @@ def print_reference_info(reference_meta: Dict[str, str], answer: str):
         ref_info += f"<reference>{ref_id},"
         ref_info += meta['file_name'] + ','
         if meta['content_url']:
-            ref_info += "url=" + meta['content_url']
+            ref_info += "url=" + meta['content_url'] + ","
 
-        ref_info += f"uuid={meta['uuid']}"
-        print(ref_info)
+        chunk_begin_digest = " ".join(meta['chunk_begin_digest'])
+        chunk_end_digest = " ".join(meta['chunk_end_digest'])
+        ref_info += f"{chunk_begin_digest} ... {chunk_end_digest}"
+        print(ref_info, end="\n\n")
 
 
 def generate_response() -> requests.models.Response:

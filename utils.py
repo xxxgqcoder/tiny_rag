@@ -136,6 +136,10 @@ def estimate_token_num(text: str) -> Tuple[int, list[str]]:
     - int, estimated token num.
     - list of string, estimated tokens.
     """
+    if text is None or len(text.strip()) == 0:
+        return 0, []
+
+    text = text.strip()
 
     def is_space(ch: str) -> bool:
         if ord(ch) >= 128:

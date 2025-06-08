@@ -101,19 +101,22 @@ def assemble_knowledge_base(chunks: list[Chunk]) -> Tuple[str, Dict[str, Any]]:
         knowledge_base.append(
             f'Relevant fragments as following:{_content_divider}')
         for chunk in chunks:
+            content = ""
             if chunk.content_type in [config.ChunkType.TEXT]:
-                knowledge_base.append(
-                    f"ID:{chunk_idx}\n{chunk.content.decode('utf-8')}")
+                content = chunk.content.decode('utf-8')
             else:
-                knowledge_base.append(
-                    f"ID:{chunk_idx}\n{chunk.extra_description.decode('utf-8')}"
-                )
+                content = chunk.extra_description.decode('utf-8')
+
+            knowledge_base.append(f"ID:{chunk_idx}\n{content}")
+            tokens = estimate_token_num(content)[-1]
 
             refid2meta[chunk_idx] = {
                 'uuid': chunk.uuid,
                 'file_name': chunk.file_name,
                 'content_type': chunk.content_type,
                 'content_url': chunk.content_url,
+                'chunk_begin_digest': tokens[:12],
+                'chunk_end_digest': tokens[-12:],
             }
 
             chunk_idx += 1
