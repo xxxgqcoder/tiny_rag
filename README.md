@@ -56,10 +56,11 @@ Run ` docker compose -f docker-compose-macos.yml --env-file env up -d` to start 
 ## Add Knowledge Base File
 Put your files to `HOST_RAG_FILE_DIR`, Tiny RAG will begin parsing the files.
 
+![til](./assets/container_start_and_file_parse.gif)
 
 ## Start Chat
 Run `docker exec -it tiny_rag_server python chat.py` to start chat with knowledge base.
-
+![til](./assets/container_chat.gif)
 
 # FAQ
 ## Key Concenpts for Non-technical Background Users
