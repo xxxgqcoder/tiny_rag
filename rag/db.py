@@ -99,10 +99,11 @@ class MilvusLiteDB(VectorDB):
             'uuid': data.uuid,
             'content': content,
             'meta': json.dumps(meta, indent=4),
-            'sparse_vector': embeddings['sparse'][[0]],
             'dense_vector': embeddings['dense'][0],
         }
-
+        if config.EMBED_SPARSE_VECTOR:
+            record['sparse_vector'] = embeddings['sparse'][[0]]
+            
         stats = self.client.upsert(self.collection_name, record)
         logging.info(f'insert stats: {stats}')
         return stats['upsert_count']
@@ -134,35 +135,42 @@ class MilvusLiteDB(VectorDB):
 
         output_fields = ['content', 'meta', 'uuid']
         limit = params.get('limit', 10)
-        sparse_weight = params.get('sparse_weight', 0.7)
-        dense_weight = params.get('dense_weight', 1.0)
-
+        ranker_weights = []
+        ranker_weights.append(params.get('dense_weight', 1.0))
+        if config.EMBED_SPARSE_VECTOR:
+            ranker_weights.append(params.get('sparse_weight', 0.7))
+        
         # embed query
         embed_model = get_embed_model(name=config.EMBED_MODEL_NAME)
         embed = embed_model.encode([query])
         query_embed = {
-            'sparse': embed['sparse'][[0]],
             'dense': embed['dense'][0]
         }
+        if config.EMBED_SPARSE_VECTOR:
+            query_embed['sparse'] = embed['sparse'][[0]]
 
+        search_reqs = []
         query_dense_embedding = query_embed['dense']
         dense_search_params = {"metric_type": "IP", "params": {}}
         dense_req = AnnSearchRequest([query_dense_embedding],
                                      "dense_vector",
                                      dense_search_params,
                                      limit=limit)
+        search_reqs.append(dense_req)
 
-        query_sparse_embedding = query_embed['sparse']
-        sparse_search_params = {"metric_type": "IP", "params": {}}
-        sparse_req = AnnSearchRequest([query_sparse_embedding],
-                                      "sparse_vector",
-                                      sparse_search_params,
-                                      limit=limit)
+        if config.EMBED_SPARSE_VECTOR:
+            query_sparse_embedding = query_embed['sparse']
+            sparse_search_params = {"metric_type": "IP", "params": {}}
+            sparse_req = AnnSearchRequest([query_sparse_embedding],
+                                        "sparse_vector",
+                                        sparse_search_params,
+                                        limit=limit)
+            search_reqs.append(sparse_req)
 
-        rerank = WeightedRanker(sparse_weight, dense_weight)
+        rerank = WeightedRanker(*ranker_weights)
         res = self.client.hybrid_search(
             collection_name=self.collection_name,
-            reqs=[sparse_req, dense_req],
+            reqs=search_reqs,
             ranker=rerank,
             limit=limit,
             output_fields=output_fields,
@@ -270,10 +278,11 @@ def create_milvus_collection(
         datatype=DataType.FLOAT_VECTOR,
         dim=dense_embed_dim,
     )
-    schema.add_field(
-        field_name="sparse_vector",
-        datatype=DataType.SPARSE_FLOAT_VECTOR,
-    )
+    if config.EMBED_SPARSE_VECTOR:
+        schema.add_field(
+            field_name="sparse_vector",
+            datatype=DataType.SPARSE_FLOAT_VECTOR,
+        )
 
     # index
     index_params = client.prepare_index_params()
@@ -282,11 +291,12 @@ def create_milvus_collection(
         index_type="AUTOINDEX",
         metric_type="IP",
     )
-    index_params.add_index(
-        field_name="sparse_vector",
-        index_type="SPARSE_INVERTED_INDEX",
-        metric_type="IP",
-    )
+    if config.EMBED_SPARSE_VECTOR:
+        index_params.add_index(
+            field_name="sparse_vector",
+            index_type="SPARSE_INVERTED_INDEX",
+            metric_type="IP",
+        )
 
     # create collection
     client.create_collection(

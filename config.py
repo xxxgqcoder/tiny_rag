@@ -57,14 +57,15 @@ def init_root_config():
 
     # ======================================================================== #
     # embedding model
-    global EMBED_MODEL_CONFIG_PATH, EMBED_DENSE_DIM, EMBED_MODEL_NAME
+    global EMBED_MODEL_CONFIG_PATH, EMBED_DENSE_DIM, EMBED_MODEL_NAME, EMBED_SPARSE_VECTOR
     EMBED_MODEL_NAME = 'bge-m3'
     EMBED_MODEL_CONFIG_PATH = os.path.join(PROJECT_ASSET_DIR,
                                            'bge-m3/bge-m3.json')
     EMBED_DENSE_DIM = 1024
+    EMBED_SPARSE_VECTOR = True
     logging.info(f'embed model name: {EMBED_MODEL_NAME}')
     logging.info(f'embed model config file path: {EMBED_MODEL_CONFIG_PATH}')
-    logging.info(f'embed model dense embed dim: {EMBED_DENSE_DIM}')
+    logging.info(f'embed model dense embed dim: {EMBED_DENSE_DIM}, sparse vector: {EMBED_SPARSE_VECTOR}')
 
     # ============================================================================ #
     # vector db config
