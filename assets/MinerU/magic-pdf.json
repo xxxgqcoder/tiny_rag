@@ -1,6 +1,4 @@
 {
-    "consecutive_block_num": 8,
-    "block_overlap_num": 3,
     "bucket_info": {
         "bucket-name-1": [
             "ak",
@@ -60,5 +58,7 @@
             "enable": false
         }
     },
-    "config_version": "1.2.1"
+    "config_version": "1.2.1",
+    "consecutive_block_num": 8,
+    "block_overlap_num": 3
 }
