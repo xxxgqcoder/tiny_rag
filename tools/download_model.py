@@ -112,33 +112,6 @@ def download_mineru_model(project_dir: str):
     print(f'MinerU config save to {config_file}')
 
 
-def download_qwen_embed(project_dir):
-    # Qwen/Qwen3-Embedding-4B
-    model_dir = snapshot_download('Qwen/Qwen3-Embedding-4B', )
-    print(f'donwloaded model_dir is: {model_dir}')
-
-    # copy model
-    target_dir = os.path.join(project_dir, 'assets/qwen3-embedding-4b/models')
-    shutil.copytree(
-        src=model_dir,
-        dst=target_dir,
-        dirs_exist_ok=True,
-    )
-    print(f'copy model from {model_dir} to {target_dir}')
-
-    # save json config
-    config_file_name = 'qwen3-embedding-4b.json'
-    config_file = os.path.join(project_dir, "assets//qwen3-embedding-4b",
-                               config_file_name)
-    config = {
-        "model_name_or_path":
-        "<project_root_dir>/assets//qwen3-embedding-4b/models",
-    }
-    with open(config_file, 'w', encoding='utf-8') as f:
-        json.dump(config, f, ensure_ascii=False, indent=4)
-    print(f'/qwen3-embedding-4b config save to {config_file}')
-
-
 if __name__ == '__main__':
     file_dir = os.path.abspath(os.path.dirname(os.path.realpath(__file__)))
     project_dir = os.path.realpath(file_dir + "/..")
@@ -149,6 +122,3 @@ if __name__ == '__main__':
 
     download_bge_m3_model(project_dir)
     print(f'finish downloading BGE-M3 model')
-
-    download_qwen_embed(project_dir)
-    print(f'finish downloading qwen3-4b model')
