@@ -65,7 +65,9 @@ def init_root_config():
     EMBED_SPARSE_VECTOR = True
     logging.info(f'embed model name: {EMBED_MODEL_NAME}')
     logging.info(f'embed model config file path: {EMBED_MODEL_CONFIG_PATH}')
-    logging.info(f'embed model dense embed dim: {EMBED_DENSE_DIM}, sparse vector: {EMBED_SPARSE_VECTOR}')
+    logging.info(
+        f'embed model dense embed dim: {EMBED_DENSE_DIM}, sparse vector: {EMBED_SPARSE_VECTOR}'
+    )
 
     # ============================================================================ #
     # vector db config
