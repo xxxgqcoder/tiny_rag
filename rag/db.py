@@ -103,7 +103,7 @@ class MilvusLiteDB(VectorDB):
         }
         if config.EMBED_SPARSE_VECTOR:
             record['sparse_vector'] = embeddings['sparse'][[0]]
-            
+
         stats = self.client.upsert(self.collection_name, record)
         logging.info(f'insert stats: {stats}')
         return stats['upsert_count']
@@ -139,13 +139,11 @@ class MilvusLiteDB(VectorDB):
         ranker_weights.append(params.get('dense_weight', 1.0))
         if config.EMBED_SPARSE_VECTOR:
             ranker_weights.append(params.get('sparse_weight', 0.7))
-        
+
         # embed query
         embed_model = get_embed_model(name=config.EMBED_MODEL_NAME)
         embed = embed_model.encode([query])
-        query_embed = {
-            'dense': embed['dense'][0]
-        }
+        query_embed = {'dense': embed['dense'][0]}
         if config.EMBED_SPARSE_VECTOR:
             query_embed['sparse'] = embed['sparse'][[0]]
 
@@ -162,9 +160,9 @@ class MilvusLiteDB(VectorDB):
             query_sparse_embedding = query_embed['sparse']
             sparse_search_params = {"metric_type": "IP", "params": {}}
             sparse_req = AnnSearchRequest([query_sparse_embedding],
-                                        "sparse_vector",
-                                        sparse_search_params,
-                                        limit=limit)
+                                          "sparse_vector",
+                                          sparse_search_params,
+                                          limit=limit)
             search_reqs.append(sparse_req)
 
         rerank = WeightedRanker(*ranker_weights)
