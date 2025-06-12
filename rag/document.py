@@ -9,8 +9,19 @@ from concurrent.futures import ThreadPoolExecutor
 import watchdog.events as events
 from watchdog.events import FileSystemEventHandler, FileSystemEvent
 
-from utils import now_in_utc, get_hash64, logging_exception, run_once, time_it
+import config
+from utils import now_in_utc, get_hash64, logging_exception, run_once, time_it, estimate_token_num
 from .db import get_vector_db, get_rational_db
+from .llm import get_chat_model
+
+_prompt_text_summary = """"
+/no_think summarize below content, use no more than {max_token_num} words.
+
+{content}
+"""
+
+_prompt_image_summary = """
+"""
 
 
 def process_new_file(file_path: str) -> Dict[str, bool]:
@@ -87,6 +98,22 @@ def process_new_file(file_path: str) -> Dict[str, bool]:
     logging.info(f'{file_path}: total {len(chunks)} chunks')
     if len(chunks) == 0:
         return
+
+    # add llm summary to chunk
+    chat_model = get_chat_model()
+    for chunk in chunks:
+        if chunk.content_type != config.ChunkType.TEXT:
+            continue
+        estimated_token_num = estimate_token_num(chunk.content.decode('utf-8'))[0]
+        prompt = _prompt_text_summary.format(
+            content=chunk.content,
+            max_token_num=int(estimated_token_num * 0.1),
+        )
+        summary = chat_model.instant_chat(
+            prompt=prompt,
+            gen_conf=config.CHAT_GEN_CONF,
+        )
+        chunk.content += f"\n\n\n\n<summary>{summary}</summary>".encode('utf-8')
 
     # save parsed chunks into vector db
     failed_chunks = []

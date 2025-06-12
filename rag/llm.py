@@ -76,6 +76,20 @@ class ChatModel(ABC):
 
         return ctx_size
 
+    @abstractmethod
+    def instant_chat(
+        self,
+        prompt: str,
+        gen_conf: Dict[str, Any],
+    ) -> str:
+        """
+        Instant chat.
+        Args:
+        - prompt: prompt text.
+        - gen_conf: dict containing LLM generation configuration.
+        """
+        raise NotImplementedError("Not implemented")
+
 
 @singleton
 class OllamaChat(ChatModel):
@@ -127,6 +141,38 @@ class OllamaChat(ChatModel):
         except Exception as e:
             yield "\n**ERROR**: " + str(e)
         yield 0
+
+    def instant_chat(
+        self,
+        prompt: str,
+        gen_conf: Dict[str, Any],
+    ) -> str:
+        history = [{'role': 'user', 'content': prompt}]
+        ctx_size = self._calculate_dynamic_ctx(history)
+        if "max_tokens" in gen_conf:
+            del gen_conf["max_tokens"]
+
+        options = {"num_ctx": ctx_size}
+        if "temperature" in gen_conf:
+            options["temperature"] = gen_conf["temperature"]
+        if "max_tokens" in gen_conf:
+            options["num_predict"] = gen_conf["max_tokens"]
+        if "top_p" in gen_conf:
+            options["top_p"] = gen_conf["top_p"]
+        if "presence_penalty" in gen_conf:
+            options["presence_penalty"] = gen_conf["presence_penalty"]
+        if "frequency_penalty" in gen_conf:
+            options["frequency_penalty"] = gen_conf["frequency_penalty"]
+
+        response = self.client.chat(model=self.model_name,
+                                    messages=history,
+                                    options=options,
+                                    keep_alive=10)
+
+        ans = response["message"]["content"].strip()
+        if '</think>' in ans:
+            ans = ans.split('</think>')[-1]
+        return ans.strip()
 
 
 def get_chat_model(name: str = 'Ollama') -> ChatModel:
