@@ -2,6 +2,7 @@ import time
 import logging
 import json
 import re
+import os
 from typing import Tuple, Dict, Any
 
 from flask import (
@@ -76,6 +77,13 @@ Overall, while Musk enjoys Dogecoin and often promotes it, he also warns against
 _content_divider = "\n\n"
 
 
+def format_host_url(content_url: str) -> str:
+    config.HOST_RAG_FILE_DIR
+    file_name = os.path.basename(content_url)
+    ret = os.path.join(config.HOST_RAG_FILE_DIR, 'tiny_rag_parsed_assets', file_name)
+    return ret
+
+
 def assemble_knowledge_base(chunks: list[Chunk]) -> Tuple[str, Dict[str, Any]]:
     """
     Assemble knowledge in chunk and return formatted knowledge base.
@@ -114,7 +122,7 @@ def assemble_knowledge_base(chunks: list[Chunk]) -> Tuple[str, Dict[str, Any]]:
                 'uuid': chunk.uuid,
                 'file_name': chunk.file_name,
                 'content_type': chunk.content_type,
-                'content_url': chunk.content_url,
+                'content_url': format_host_url(chunk.content_url),
                 'chunk_begin_digest': tokens[:12],
                 'chunk_end_digest': tokens[-12:],
             }
