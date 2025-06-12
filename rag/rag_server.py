@@ -78,7 +78,8 @@ _content_divider = "\n\n"
 
 
 def format_host_url(content_url: str) -> str:
-    config.HOST_RAG_FILE_DIR
+    if len(content_url) == 0:
+        return None
     file_name = os.path.basename(content_url)
     ret = os.path.join(config.HOST_RAG_FILE_DIR, 'tiny_rag_parsed_assets', file_name)
     return ret
