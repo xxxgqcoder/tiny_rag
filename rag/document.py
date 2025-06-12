@@ -104,7 +104,8 @@ def process_new_file(file_path: str) -> Dict[str, bool]:
     for chunk in chunks:
         if chunk.content_type != config.ChunkType.TEXT:
             continue
-        estimated_token_num = estimate_token_num(chunk.content.decode('utf-8'))[0]
+        estimated_token_num = estimate_token_num(
+            chunk.content.decode('utf-8'))[0]
         prompt = _prompt_text_summary.format(
             content=chunk.content,
             max_token_num=int(estimated_token_num * 0.1),
@@ -113,7 +114,8 @@ def process_new_file(file_path: str) -> Dict[str, bool]:
             prompt=prompt,
             gen_conf=config.CHAT_GEN_CONF,
         )
-        chunk.content += f"\n\n\n\n<summary>{summary}</summary>".encode('utf-8')
+        chunk.content += f"\n\n\n\n<summary>{summary}</summary>".encode(
+            'utf-8')
 
     # save parsed chunks into vector db
     failed_chunks = []
