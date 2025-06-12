@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from ollama import Client as OllamaClient
 
 import config
-from utils import singleton
+from utils import singleton, estimate_token_num
 
 
 class ChatModel(ABC):
@@ -147,6 +147,15 @@ class OllamaChat(ChatModel):
         prompt: str,
         gen_conf: Dict[str, Any],
     ) -> str:
+        est_token_num = estimate_token_num(prompt)[0]
+        if est_token_num > config.MAX_TOKEN_NUM:
+            truncate_ratio = float(config.MAX_TOKEN_NUM / est_token_num)
+            logging.info(
+                f'estimated token num exceed max token num, prompt byte num: {len(prompt)}, truncated by ratio: {truncate_ratio}'
+            )
+            prompt = prompt[:int(len(prompt) * truncate_ratio)]
+            logging.info(f'truncated byte num: {len(prompt)}')
+
         history = [{'role': 'user', 'content': prompt}]
         ctx_size = self._calculate_dynamic_ctx(history)
         if "max_tokens" in gen_conf:

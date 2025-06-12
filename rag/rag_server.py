@@ -116,9 +116,9 @@ def assemble_knowledge_base(chunks: list[Chunk]) -> Tuple[str, Dict[str, Any]]:
                 content = chunk.content.decode('utf-8')
             else:
                 content = chunk.extra_description.decode('utf-8')
-            
+
             knowledge_base.append(f"ID:{chunk_idx}\n{content}")
-            
+
             # trim llm summary
             content = re.sub("<summary>.*</summary>", "", content)
             tokens = estimate_token_num(content)[-1]
