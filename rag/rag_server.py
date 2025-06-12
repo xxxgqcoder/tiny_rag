@@ -81,7 +81,8 @@ def format_host_url(content_url: str) -> str:
     if len(content_url) == 0:
         return None
     file_name = os.path.basename(content_url)
-    ret = os.path.join(config.HOST_RAG_FILE_DIR, 'tiny_rag_parsed_assets', file_name)
+    ret = os.path.join(config.HOST_RAG_FILE_DIR, 'tiny_rag_parsed_assets',
+                       file_name)
     return ret
 
 
@@ -115,8 +116,11 @@ def assemble_knowledge_base(chunks: list[Chunk]) -> Tuple[str, Dict[str, Any]]:
                 content = chunk.content.decode('utf-8')
             else:
                 content = chunk.extra_description.decode('utf-8')
-
+            
             knowledge_base.append(f"ID:{chunk_idx}\n{content}")
+            
+            # trim llm summary
+            content = re.sub("<summary>.*</summary>", "", content)
             tokens = estimate_token_num(content)[-1]
 
             refid2meta[chunk_idx] = {
@@ -164,9 +168,6 @@ def chat_completion():
 
     req = request.json
     history = req["history"]
-    logging.info(
-        f"**DEBUG** chat_completion: history={json.dumps(history, indent=4, ensure_ascii=False)}"
-    )
 
     model = get_chat_model()
     vector_db = get_vector_db()
