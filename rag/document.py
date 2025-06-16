@@ -1,21 +1,34 @@
 import traceback
 import logging
 import os
+import json
+import shutil
 from typing import Dict, Any
 from concurrent.futures import ThreadPoolExecutor
 
 import watchdog.events as events
 from watchdog.events import FileSystemEventHandler, FileSystemEvent
 
-from utils import now_in_utc, get_hash64, logging_exception, run_once
+import config
+from utils import now_in_utc, get_hash64, logging_exception, run_once, time_it, estimate_token_num
 from .db import get_vector_db, get_rational_db
+from .llm import get_chat_model
+
+_prompt_text_summary = """"
+/no_think summarize below content, use no more than {max_token_num} words.
+
+{content}
+"""
+
+_prompt_image_summary = """
+"""
 
 
 def process_new_file(file_path: str) -> Dict[str, bool]:
     """
     Process new file, parse and save chunks into db.
     Steps:
-    - check if file content is changed by content hash.
+    - check if file content is changed by comparing content hash against db record.
     - clean up previous document record if any once file content change detected.
     - run file content parse.
     - save chunks and document record
@@ -86,6 +99,24 @@ def process_new_file(file_path: str) -> Dict[str, bool]:
     if len(chunks) == 0:
         return
 
+    # add llm summary to chunk
+    chat_model = get_chat_model()
+    for chunk in chunks:
+        if chunk.content_type != config.ChunkType.TEXT:
+            continue
+        estimated_token_num = estimate_token_num(
+            chunk.content.decode('utf-8'))[0]
+        prompt = _prompt_text_summary.format(
+            content=chunk.content,
+            max_token_num=int(estimated_token_num * 0.1),
+        )
+        summary = chat_model.instant_chat(
+            prompt=prompt,
+            gen_conf=config.CHAT_GEN_CONF,
+        )
+        chunk.content += f"\n\n\n\n<summary>{summary}</summary>".encode(
+            'utf-8')
+
     # save parsed chunks into vector db
     failed_chunks = []
     success_chunks = {}
@@ -118,7 +149,7 @@ def process_new_file(file_path: str) -> Dict[str, bool]:
     # save document record
     document_record = {
         'name': os.path.basename(file_path),
-        'chunks': '\x07'.join(saved_chunks),
+        'chunks': saved_chunks,
         'created_date': now_in_utc(),
         'content_hash': get_hash64(file_bytes),
     }
@@ -161,8 +192,20 @@ def process_delete_file(file_path: str):
     # delete chunks
     uuids = []
     if 'chunks' in document_record and len(document_record['chunks']) > 0:
-        uuids = document_record['chunks'].split('\x07')
+        uuids = document_record['chunks']
     logging.info(f'{file_path}: total {len(uuids)} chunks')
+
+    # delete image chunk
+    chunks = vector_db.get(keys=uuids)
+    for chunk in chunks:
+        try:
+            meta = json.loads(chunk['meta'])
+        except:
+            continue
+        content_url = meta.get('content_url', None)
+        if content_url and os.path.exists(content_url):
+            os.remove(content_url)
+            logging.info(f'{file_path}: remove {content_url}')
 
     delete_cnt = vector_db.delete(keys=uuids)
     logging.info(f'delete {delete_cnt} chunks from vector db')
@@ -200,6 +243,7 @@ def get_job_executor():
     return _job_executor
 
 
+@time_it
 def on_process_new_file(file_path: str):
     try:
         process_new_file(file_path=file_path)
@@ -207,6 +251,7 @@ def on_process_new_file(file_path: str):
         logging_exception(e)
 
 
+@time_it
 def on_process_delete_file(file_path: str):
     try:
         process_delete_file(file_path=file_path)

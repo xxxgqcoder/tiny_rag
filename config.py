@@ -57,14 +57,17 @@ def init_root_config():
 
     # ======================================================================== #
     # embedding model
-    global EMBED_MODEL_CONFIG_PATH, EMBED_DENSE_DIM, EMBED_MODEL_NAME
+    global EMBED_MODEL_CONFIG_PATH, EMBED_DENSE_DIM, EMBED_MODEL_NAME, EMBED_SPARSE_VECTOR
     EMBED_MODEL_NAME = 'bge-m3'
     EMBED_MODEL_CONFIG_PATH = os.path.join(PROJECT_ASSET_DIR,
                                            'bge-m3/bge-m3.json')
     EMBED_DENSE_DIM = 1024
+    EMBED_SPARSE_VECTOR = True
     logging.info(f'embed model name: {EMBED_MODEL_NAME}')
     logging.info(f'embed model config file path: {EMBED_MODEL_CONFIG_PATH}')
-    logging.info(f'embed model dense embed dim: {EMBED_DENSE_DIM}')
+    logging.info(
+        f'embed model dense embed dim: {EMBED_DENSE_DIM}, sparse vector: {EMBED_SPARSE_VECTOR}'
+    )
 
     # ============================================================================ #
     # vector db config
@@ -101,7 +104,7 @@ def init_root_config():
 
     # ============================================================================ #
     # chat server
-    global CHAT_MODEL_URL, CHAT_MODEL_NAME, CHAT_GEN_CONF, CONVERSATION_SAVE_PATH
+    global CHAT_MODEL_URL, CHAT_MODEL_NAME, CHAT_GEN_CONF, CONVERSATION_SAVE_PATH, MAX_TOKEN_NUM
 
     CHAT_MODEL_URL = os.environ.get('CHAT_MODEL_URL',
                                     'http://host.docker.internal:11434')
@@ -115,9 +118,10 @@ def init_root_config():
     # where to save conversation data.
     CONVERSATION_SAVE_PATH = os.path.join(RAG_FILE_DIR,
                                           'conversation/conversation.json')
-
+    MAX_TOKEN_NUM = 80 * 1024
     logging.info(f'chat model url: {CHAT_MODEL_URL}')
     logging.info(f'chat model name: {CHAT_MODEL_NAME}')
+    logging.info(f'chat model max token num: {MAX_TOKEN_NUM}')
     logging.info(f"chat model gen conf: {json.dumps(CHAT_GEN_CONF, indent=4)}")
 
 

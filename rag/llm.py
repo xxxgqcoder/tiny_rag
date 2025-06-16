@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from ollama import Client as OllamaClient
 
 import config
-from utils import singleton
+from utils import singleton, estimate_token_num
 
 
 class ChatModel(ABC):
@@ -76,6 +76,20 @@ class ChatModel(ABC):
 
         return ctx_size
 
+    @abstractmethod
+    def instant_chat(
+        self,
+        prompt: str,
+        gen_conf: Dict[str, Any],
+    ) -> str:
+        """
+        Instant chat.
+        Args:
+        - prompt: prompt text.
+        - gen_conf: dict containing LLM generation configuration.
+        """
+        raise NotImplementedError("Not implemented")
+
 
 @singleton
 class OllamaChat(ChatModel):
@@ -83,8 +97,10 @@ class OllamaChat(ChatModel):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.client = OllamaClient(
-            host=config.CHAT_MODEL_URL if 'ollama_host' not in
-            kwargs else kwargs['ollama_host'])
+            host=config.CHAT_MODEL_URL
+            if 'ollama_host' not in kwargs else kwargs['ollama_host'],
+            timeout=15 * 60,  # time out 15 min
+        )
         self.model_name = config.CHAT_MODEL_NAME if 'ollama_model_name' not in kwargs else kwargs[
             'ollama_model_name']
 
@@ -127,6 +143,50 @@ class OllamaChat(ChatModel):
         except Exception as e:
             yield "\n**ERROR**: " + str(e)
         yield 0
+
+    def instant_chat(
+        self,
+        prompt: str,
+        gen_conf: Dict[str, Any],
+    ) -> str:
+        est_token_num = estimate_token_num(prompt)[0]
+        if est_token_num > config.MAX_TOKEN_NUM:
+            truncate_ratio = float(config.MAX_TOKEN_NUM / est_token_num)
+            logging.info(
+                f'estimated token num exceed max token num, prompt byte num: {len(prompt)}, truncated by ratio: {truncate_ratio}'
+            )
+            prompt = prompt[:int(len(prompt) * truncate_ratio)]
+            logging.info(f'truncated byte num: {len(prompt)}')
+
+        history = [{'role': 'user', 'content': prompt}]
+        ctx_size = self._calculate_dynamic_ctx(history)
+        if "max_tokens" in gen_conf:
+            del gen_conf["max_tokens"]
+
+        options = {"num_ctx": ctx_size}
+        if "temperature" in gen_conf:
+            options["temperature"] = gen_conf["temperature"]
+        if "max_tokens" in gen_conf:
+            options["num_predict"] = gen_conf["max_tokens"]
+        if "top_p" in gen_conf:
+            options["top_p"] = gen_conf["top_p"]
+        if "presence_penalty" in gen_conf:
+            options["presence_penalty"] = gen_conf["presence_penalty"]
+        if "frequency_penalty" in gen_conf:
+            options["frequency_penalty"] = gen_conf["frequency_penalty"]
+
+        try:
+            response = self.client.chat(model=self.model_name,
+                                        messages=history,
+                                        options=options,
+                                        keep_alive=10)
+        except Exception as e:
+            return f"Exception: {e}"
+
+        ans = response["message"]["content"].strip()
+        if '</think>' in ans:
+            ans = ans.split('</think>')[-1]
+        return ans.strip()
 
 
 def get_chat_model(name: str = 'Ollama') -> ChatModel:

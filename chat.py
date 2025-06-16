@@ -41,6 +41,33 @@ def get_job_executor():
     return job_executor
 
 
+def format_reference_info(reference_meta: Dict[str, str], answer: str) -> str:
+    formatted_reference_info = "\n\n"
+
+    answer = re.sub(f"<think>.*</think>", "", answer)
+
+    reference = re.findall(r"##[0-9]+@@", answer)
+    ref_ids = {}
+    for ref in reference:
+        ref_id = ref.strip("##").strip("@@")
+        ref_ids[ref_id] = True
+
+    for ref_id in sorted([ref_id for ref_id in ref_ids]):
+        ref_info = ''
+        meta = reference_meta[ref_id]
+        ref_info += f"<reference ID={ref_id}>,"
+        ref_info += "file=" + meta['file_name'] + ','
+        if meta['content_url']:
+            ref_info += "url=" + meta['content_url'] + ","
+
+        chunk_begin_digest = " ".join(meta['chunk_begin_digest'])
+        chunk_end_digest = " ".join(meta['chunk_end_digest'])
+        ref_info += "ref content=" + f"{chunk_begin_digest} ... {chunk_end_digest}"
+        formatted_reference_info += ref_info + "\n\n"
+
+    return formatted_reference_info
+
+
 def generate_response() -> requests.models.Response:
     global conversation, is_generating
 
@@ -65,7 +92,10 @@ def generate_response() -> requests.models.Response:
 
     last_ans = ""
     json_buffer = ""
-    context_prompt = ''
+    context_prompt = ""
+    reference_meta = None
+    prompt_token_num = 0
+    answer_token_num = 0
     try:
         for chunk in response.iter_content(
                 chunk_size=8192,
@@ -79,8 +109,14 @@ def generate_response() -> requests.models.Response:
                 data = ret.get('data', {})
                 if len(data) == 0:
                     break
+
+                answer_token_num = data['answer_token_num']
+                prompt_token_num = data['prompt_token_num']
+
                 if not context_prompt:
                     context_prompt = data['prompt']
+                if not reference_meta:
+                    reference_meta = data['reference_meta']
 
                 print(data['answer'][len(last_ans):], end='', flush=True)
 
@@ -92,10 +128,16 @@ def generate_response() -> requests.models.Response:
         logging_exception(e)
         return
 
+    formatted_reference_info = format_reference_info(reference_meta, last_ans)
+    print(formatted_reference_info)
+
     conversation['history'].append({
         'role': 'assistant',
         'content': last_ans,
-        'prompt': context_prompt
+        'prompt': context_prompt,
+        'reference_info': formatted_reference_info,
+        'answer_token_num': answer_token_num,
+        'prompt_token_num': prompt_token_num,
     })
     print()
 

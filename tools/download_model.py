@@ -98,10 +98,11 @@ def download_mineru_model(project_dir: str):
 
     # <project_root_dir> will be replaced by real directory when deployed.
     json_modification = {
-        'models-dir':
-        "<project_root_dir>/assets/MinerU/models",
+        'models-dir': "<project_root_dir>/assets/MinerU/models",
         'layoutreader-model-dir':
         f"<project_root_dir>/assets/MinerU/layout_reader_models",
+        "consecutive_block_num": 8,
+        "block_overlap_num": 3,
     }
     data = download_json(json_url)
     for key, value in json_modification.items():
