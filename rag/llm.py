@@ -98,7 +98,9 @@ class OllamaChat(ChatModel):
         super().__init__(**kwargs)
         self.client = OllamaClient(
             host=config.CHAT_MODEL_URL if 'ollama_host' not in
-            kwargs else kwargs['ollama_host'])
+            kwargs else kwargs['ollama_host'],
+            timeout=15 * 60, # time out 15 min
+            )
         self.model_name = config.CHAT_MODEL_NAME if 'ollama_model_name' not in kwargs else kwargs[
             'ollama_model_name']
 
@@ -173,10 +175,13 @@ class OllamaChat(ChatModel):
         if "frequency_penalty" in gen_conf:
             options["frequency_penalty"] = gen_conf["frequency_penalty"]
 
-        response = self.client.chat(model=self.model_name,
-                                    messages=history,
-                                    options=options,
-                                    keep_alive=10)
+        try:
+            response = self.client.chat(model=self.model_name,
+                                        messages=history,
+                                        options=options,
+                                        keep_alive=10)
+        except Exception as e:
+            return f"Exception: {e}"
 
         ans = response["message"]["content"].strip()
         if '</think>' in ans:
