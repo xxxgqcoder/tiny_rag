@@ -97,10 +97,10 @@ class OllamaChat(ChatModel):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.client = OllamaClient(
-            host=config.CHAT_MODEL_URL if 'ollama_host' not in
-            kwargs else kwargs['ollama_host'],
-            timeout=15 * 60, # time out 15 min
-            )
+            host=config.CHAT_MODEL_URL
+            if 'ollama_host' not in kwargs else kwargs['ollama_host'],
+            timeout=15 * 60,  # time out 15 min
+        )
         self.model_name = config.CHAT_MODEL_NAME if 'ollama_model_name' not in kwargs else kwargs[
             'ollama_model_name']
 
