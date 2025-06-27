@@ -334,11 +334,11 @@ class RationalDB(ABC):
         raise NotImplementedError("Not implemented")
 
     @abstractmethod
-    def get_document(self, name: str):
+    def get_document(self, name: str) -> Dict[str, Any]:
         raise NotImplementedError("Not implemented")
 
     @abstractmethod
-    def delete_document(self, name: str):
+    def delete_document(self, name: str) -> int:
         """
         Delete document.
 
@@ -416,7 +416,7 @@ class SQLiteDB(RationalDB):
         finally:
             return 1
 
-    def get_document(self, name: str):
+    def get_document(self, name: str) -> Dict[str, Any]:
         """
         Return document record with below keys:
         - name: str, document name.
