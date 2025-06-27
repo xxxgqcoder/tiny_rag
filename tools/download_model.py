@@ -92,7 +92,7 @@ def download_mineru_model(project_dir: str):
     print(f'copy model from {layoutreader_model_dir} to {target_dir}')
 
     # download config json
-    json_url = 'https://github.com/opendatalab/MinerU/raw/master/magic-pdf.template.json'
+    json_url = 'https://github.com/opendatalab/MinerU/raw/master/mineru.template.json'
     config_file_name = 'magic-pdf.json'
     config_file = os.path.join(project_dir, "assets/MinerU", config_file_name)
 
