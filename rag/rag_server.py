@@ -89,6 +89,10 @@ def format_host_url(content_url: str) -> str:
 def assemble_knowledge_base(chunks: list[Chunk]) -> Tuple[str, Dict[str, Any]]:
     """
     Assemble knowledge in chunk and return formatted knowledge base.
+    Returns:
+    - knowledge base: formated knowledge base.
+        format: 
+    - A dict of reference id to chunk meta, key is reference id within current knowledge base.
     """
     # dedup chunks
     deduped_chunk = {}
