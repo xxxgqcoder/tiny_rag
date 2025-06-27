@@ -37,7 +37,7 @@ A prebuild image `xxxggxyz/tiny_rag:0.0.4` is built and pushed to docker hub. If
 Follow below steps to build docker image from source code.
 - Clone repo to local.
 - Download model weight: cd to local repo and run `python tools/download_model.py`. The python script will use hugging-face cli to download pdf parser and embedding model weights from hugging-face. You may need to run `huggingface-cli huggingface-cli login --token $YOUR_HUGGINGFACE_TOKEN` to get access privilege.
-- Build docker image. Run `docker build --build-arg NEED_MIRROR=1 -f Dockerfile -t tiny_rag:dev` to build docker image. A docker image with name `tiny_rag:dev` will be built. You can use command `docker image ls` to check.
+- Build docker image. Run `docker build --build-arg NEED_MIRROR=1 -f Dockerfile -t tiny_rag:dev .` to build docker image. A docker image with name `tiny_rag:dev` will be built. You can use command `docker image ls` to check.
 
 
 ## Change Configuration
