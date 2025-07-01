@@ -14,7 +14,18 @@ from mineru.utils.enum_class import ModelPath
 def download_model(relative_path: str, repo_mode='pipeline') -> str:
     model_source = os.getenv('MINERU_MODEL_SOURCE', "huggingface")
 
-    repo_mapping = {'pipeline': {'huggingface': ModelPath.pipeline_root_hf, 'modelscope': ModelPath.pipeline_root_modelscope, 'default': ModelPath.pipeline_root_hf}, 'vlm': {'huggingface': ModelPath.vlm_root_hf, 'modelscope': ModelPath.vlm_root_modelscope, 'default': ModelPath.vlm_root_hf}}
+    repo_mapping = {
+        'pipeline': {
+            'huggingface': ModelPath.pipeline_root_hf,
+            'modelscope': ModelPath.pipeline_root_modelscope,
+            'default': ModelPath.pipeline_root_hf
+        },
+        'vlm': {
+            'huggingface': ModelPath.vlm_root_hf,
+            'modelscope': ModelPath.vlm_root_modelscope,
+            'default': ModelPath.vlm_root_hf
+        },
+    }
 
     if repo_mode not in repo_mapping:
         raise ValueError(f"Unsupported repo_mode: {repo_mode}, must be 'pipeline' or 'vlm'")
