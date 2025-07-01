@@ -124,8 +124,7 @@ class PDFParser(Parser):
         by key `type`). All captions are stored in each block's caption key, for 
         example, caption of a parsed image is saved in `img_caption` key of the block.
 
-        Refer [MinerU API demo](https://mineru.readthedocs.io/en/latest/user_guide/usage/api.html) 
-        for more details.
+        https://github.com/opendatalab/MinerU/blob/master/demo/demo.py for more details.
 
         Returns:
         - A list of parsed content block dict.
@@ -224,13 +223,7 @@ class PDFParser(Parser):
             json.dumps(model_json, ensure_ascii=False, indent=4),
         )
 
-        # update image path to absolute path
-        for content in content_list:
-            img_path = content.get('img_path', None)
-            if img_path:
-                content['img_path'] = os.path.realpath(
-                    os.path.join(temp_asset_dir, file_name, parse_method,
-                                 img_path))
+        return content_list
 
     def chunk(
         self,
@@ -332,6 +325,7 @@ class PDFParser(Parser):
         temp_asset_dir: str,
         asset_save_dir: str,
     ) -> list[Chunk]:
+        from pathlib import Path
 
         def _load_image(p: str) -> bytes:
             with open(p, 'rb') as f:
@@ -353,7 +347,8 @@ class PDFParser(Parser):
                 extra_description = "no caption for this image"
 
             # NOTE: hard coded image path format
-            abs_img_path = os.path.join(temp_asset_dir, self.file_name, 'auto',
+            abs_img_path = os.path.join(temp_asset_dir,
+                                        str(Path(self.file_name).stem), 'auto',
                                         block['img_path'])
             _save_image(abs_img_path, asset_save_dir)
 
