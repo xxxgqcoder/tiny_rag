@@ -31,7 +31,7 @@ There two ways to prepare the docker image.
 - Build docker image from source code.
 
 ### Pull Prebuild Docker Image.
-A prebuild image `xxxggxyz/tiny_rag:0.0.4` is built and pushed to docker hub. If you want a quick try out, you can skip image building and change configuration stage and go to [start backend container](#start-backend-container) stage.
+A prebuild image `xxxggxyz/tiny_rag:latest` is built and pushed to docker hub. If you want a quick try out, you can skip image building and change configuration stage and go to [start backend container](#start-backend-container) stage.
 
 ### Build Docker Image from Source Code.
 Follow below steps to build docker image from source code.
