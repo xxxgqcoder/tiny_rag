@@ -68,14 +68,12 @@ class PDFParser(Parser):
         filtered_content_list = []
         for block in content_list:
             if not self.is_valid_block(block):
-                logging.info(
-                    f'{self.file_name}: invalid block, ignore {block}')
+                logging.info(f'{self.file_name}: invalid block, ignore {block}')
                 continue
             filtered_content_list.append(block)
 
         self.content_list = filtered_content_list
-        all_types = sorted(
-            list(set([block['type'] for block in self.content_list])))
+        all_types = sorted(list(set([block['type'] for block in self.content_list])))
         logging.info(f"all parsed block types: {all_types}")
 
         # get chunk list
@@ -90,8 +88,7 @@ class PDFParser(Parser):
 
         temp_dir.cleanup()
 
-        logging.info(
-            f'{self.file_name}: {len(filtered_chunks)} chunks after filtering')
+        logging.info(f'{self.file_name}: {len(filtered_chunks)} chunks after filtering')
 
         return filtered_chunks
 
@@ -159,8 +156,7 @@ class PDFParser(Parser):
         file_name = str(Path(file_path).stem)
         pdf_bytes = read_fn(file_path)
 
-        new_pdf_bytes = convert_pdf_bytes_to_bytes_by_pypdfium2(
-            pdf_bytes, start_page_id, end_page_id)
+        new_pdf_bytes = convert_pdf_bytes_to_bytes_by_pypdfium2(pdf_bytes, start_page_id, end_page_id)
 
         infer_results, all_image_lists, all_pdf_docs, lang_list, ocr_enabled_list = pipeline_doc_analyze(
             [new_pdf_bytes],
@@ -172,10 +168,8 @@ class PDFParser(Parser):
 
         model_list = infer_results[0]
         model_json = copy.deepcopy(model_list)
-        local_image_dir, local_md_dir = prepare_env(temp_asset_dir, file_name,
-                                                    parse_method)
-        image_writer, md_writer = FileBasedDataWriter(
-            local_image_dir), FileBasedDataWriter(local_md_dir)
+        local_image_dir, local_md_dir = prepare_env(temp_asset_dir, file_name, parse_method)
+        image_writer, md_writer = FileBasedDataWriter(local_image_dir), FileBasedDataWriter(local_md_dir)
 
         middle_json = pipeline_result_to_middle_json(
             model_list,
@@ -190,22 +184,18 @@ class PDFParser(Parser):
         pdf_info = middle_json["pdf_info"]
 
         # draw span and layout
-        draw_layout_bbox(pdf_info, new_pdf_bytes, local_md_dir,
-                         f"{file_name}_layout.pdf")
-        draw_span_bbox(pdf_info, new_pdf_bytes, local_md_dir,
-                       f"{file_name}_span.pdf")
+        draw_layout_bbox(pdf_info, new_pdf_bytes, local_md_dir, f"{file_name}_layout.pdf")
+        draw_span_bbox(pdf_info, new_pdf_bytes, local_md_dir, f"{file_name}_span.pdf")
         md_writer.write(f"{file_name}_origin.pdf", new_pdf_bytes)
 
         # dump md
         image_dir = str(os.path.basename(local_image_dir))
-        md_content_str = pipeline_union_make(pdf_info, MakeMode.MM_MD,
-                                             image_dir)
+        md_content_str = pipeline_union_make(pdf_info, MakeMode.MM_MD, image_dir)
         md_writer.write_string(f"{file_name}.md", md_content_str)
 
         # dump content list
         image_dir = str(os.path.basename(local_image_dir))
-        content_list = pipeline_union_make(pdf_info, MakeMode.CONTENT_LIST,
-                                           image_dir)
+        content_list = pipeline_union_make(pdf_info, MakeMode.CONTENT_LIST, image_dir)
         md_writer.write_string(
             f"{file_name}_content_list.json",
             json.dumps(content_list, ensure_ascii=False, indent=4),
@@ -254,8 +244,7 @@ class PDFParser(Parser):
         while i < len(content_list) - self.block_overlap_num:
             # inner loop start from current block
             j = i
-            while j < len(content_list) and len(
-                    block_buffer) < self.consecutive_block_num:
+            while j < len(content_list) and len(block_buffer) < self.consecutive_block_num:
 
                 block = content_list[j]
 
@@ -266,19 +255,17 @@ class PDFParser(Parser):
                 # image / table block
                 elif block['type'] in ['image', 'table']:
                     if block['type'] == 'table':
-                        chunks.extend(
-                            self.process_table_blocks(
-                                table_blocks=content_list[j:j + 1],
-                                temp_asset_dir=temp_asset_dir,
-                                asset_save_dir=asset_save_dir,
-                            ))
+                        chunks.extend(self.process_table_blocks(
+                            table_blocks=content_list[j:j + 1],
+                            temp_asset_dir=temp_asset_dir,
+                            asset_save_dir=asset_save_dir,
+                        ))
                     else:
-                        chunks.extend(
-                            self.process_image_blocks(
-                                image_blocks=content_list[j:j + 1],
-                                temp_asset_dir=temp_asset_dir,
-                                asset_save_dir=asset_save_dir,
-                            ))
+                        chunks.extend(self.process_image_blocks(
+                            image_blocks=content_list[j:j + 1],
+                            temp_asset_dir=temp_asset_dir,
+                            asset_save_dir=asset_save_dir,
+                        ))
                 else:
                     pass
 
@@ -289,12 +276,11 @@ class PDFParser(Parser):
             # or len(block_buffer) == self.consecutive_block_num
             # generate new chunk if buffer is not empty.
             if len(block_buffer) > 0:
-                chunks.extend(
-                    self.process_text_blocks(
-                        text_blocks=block_buffer,
-                        temp_asset_dir=temp_asset_dir,
-                        asset_save_dir=asset_save_dir,
-                    ))
+                chunks.extend(self.process_text_blocks(
+                    text_blocks=block_buffer,
+                    temp_asset_dir=temp_asset_dir,
+                    asset_save_dir=asset_save_dir,
+                ))
                 block_buffer.clear()
 
             # start next iteration
@@ -310,14 +296,12 @@ class PDFParser(Parser):
     ) -> list[Chunk]:
         texts = [str(block['text']) for block in text_blocks]
         content = self.strip_text_content(texts)
-        return [
-            Chunk(
-                content_type=ChunkType.TEXT,
-                file_name=self.file_name,
-                content=content.encode('utf-8'),
-                extra_description=''.encode('utf-8'),
-            )
-        ]
+        return [Chunk(
+            content_type=ChunkType.TEXT,
+            file_name=self.file_name,
+            content=content.encode('utf-8'),
+            extra_description=''.encode('utf-8'),
+        )]
 
     def process_image_blocks(
         self,
@@ -347,9 +331,7 @@ class PDFParser(Parser):
                 extra_description = "no caption for this image"
 
             # NOTE: hard coded image path format
-            abs_img_path = os.path.join(temp_asset_dir,
-                                        str(Path(self.file_name).stem), 'auto',
-                                        block['img_path'])
+            abs_img_path = os.path.join(temp_asset_dir, str(Path(self.file_name).stem), 'auto', block['img_path'])
             _save_image(abs_img_path, asset_save_dir)
 
             chunk = Chunk(
@@ -357,8 +339,7 @@ class PDFParser(Parser):
                 file_name=self.file_name,
                 content=_load_image(abs_img_path),
                 extra_description=(extra_description).encode('utf-8'),
-                content_url=os.path.join(asset_save_dir,
-                                         os.path.basename(abs_img_path)),
+                content_url=os.path.join(asset_save_dir, os.path.basename(abs_img_path)),
             )
             chunks.append(chunk)
 
@@ -401,9 +382,7 @@ class PDFParser(Parser):
                 content = chunk.extra_description
             content = safe_strip(content.decode('utf-8'))
             if len(content) < 8 or len(content.split()) < 3:
-                logging.info(
-                    f'{self.file_name}: remove chunk due to too short content: {str(chunk)}'
-                )
+                logging.info(f'{self.file_name}: remove chunk due to too short content: {str(chunk)}')
                 continue
 
             filtered_chunks.append(chunk)

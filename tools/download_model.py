@@ -14,25 +14,12 @@ from mineru.utils.enum_class import ModelPath
 def download_model(relative_path: str, repo_mode='pipeline') -> str:
     model_source = os.getenv('MINERU_MODEL_SOURCE', "huggingface")
 
-    repo_mapping = {
-        'pipeline': {
-            'huggingface': ModelPath.pipeline_root_hf,
-            'modelscope': ModelPath.pipeline_root_modelscope,
-            'default': ModelPath.pipeline_root_hf
-        },
-        'vlm': {
-            'huggingface': ModelPath.vlm_root_hf,
-            'modelscope': ModelPath.vlm_root_modelscope,
-            'default': ModelPath.vlm_root_hf
-        }
-    }
+    repo_mapping = {'pipeline': {'huggingface': ModelPath.pipeline_root_hf, 'modelscope': ModelPath.pipeline_root_modelscope, 'default': ModelPath.pipeline_root_hf}, 'vlm': {'huggingface': ModelPath.vlm_root_hf, 'modelscope': ModelPath.vlm_root_modelscope, 'default': ModelPath.vlm_root_hf}}
 
     if repo_mode not in repo_mapping:
-        raise ValueError(
-            f"Unsupported repo_mode: {repo_mode}, must be 'pipeline' or 'vlm'")
+        raise ValueError(f"Unsupported repo_mode: {repo_mode}, must be 'pipeline' or 'vlm'")
 
-    repo = repo_mapping[repo_mode].get(model_source,
-                                       repo_mapping[repo_mode]['default'])
+    repo = repo_mapping[repo_mode].get(model_source, repo_mapping[repo_mode]['default'])
 
     if model_source == "huggingface":
         snapshot_download = hf_snapshot_download
@@ -45,19 +32,16 @@ def download_model(relative_path: str, repo_mode='pipeline') -> str:
 
     if repo_mode == 'pipeline':
         relative_path = relative_path.strip('/')
-        cache_dir = snapshot_download(
-            repo, allow_patterns=[relative_path, relative_path + "/*"])
+        cache_dir = snapshot_download(repo, allow_patterns=[relative_path, relative_path + "/*"])
     elif repo_mode == 'vlm':
         if relative_path == "/":
             cache_dir = snapshot_download(repo)
         else:
             relative_path = relative_path.strip('/')
-            cache_dir = snapshot_download(
-                repo, allow_patterns=[relative_path, relative_path + "/*"])
+            cache_dir = snapshot_download(repo, allow_patterns=[relative_path, relative_path + "/*"])
 
     if not cache_dir:
-        raise FileNotFoundError(
-            f"Failed to download model: {relative_path} from {repo}")
+        raise FileNotFoundError(f"Failed to download model: {relative_path} from {repo}")
     return cache_dir
 
 
@@ -130,8 +114,7 @@ def download_mineru_model(project_dir: str):
     # modify json config file
     json_url = 'https://gcore.jsdelivr.net/gh/opendatalab/MinerU@master/mineru.template.json'
     config_file_name = 'magic-pdf.json'
-    config_filep_path = os.path.join(project_dir, "assets/MinerU",
-                                     config_file_name)
+    config_filep_path = os.path.join(project_dir, "assets/MinerU", config_file_name)
     json_modification = {
         'models-dir': {
             "pipeline": "<project_root_dir>/assets/MinerU/models",

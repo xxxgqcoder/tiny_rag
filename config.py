@@ -42,16 +42,14 @@ def init_root_config():
 
     # parsed resouces
     global PARSED_ASSET_DATA_DIR
-    PARSED_ASSET_DATA_DIR = os.path.join(RAG_FILE_DIR,
-                                         'tiny_rag_parsed_assets')
+    PARSED_ASSET_DATA_DIR = os.path.join(RAG_FILE_DIR, 'tiny_rag_parsed_assets')
     logging.info(f"parsed asset data dir: {PARSED_ASSET_DATA_DIR}")
 
     # ======================================================================== #
     # PDF parser
     global PDF_PARSER_NAME, PDF_PARSER_CONFIG_PATH
     PDF_PARSER_NAME = os.environ.get('PDF_PARSER_NAME', 'MinerU')
-    PDF_PARSER_CONFIG_PATH = os.path.join(PROJECT_ASSET_DIR,
-                                          'MinerU/magic-pdf.json')
+    PDF_PARSER_CONFIG_PATH = os.path.join(PROJECT_ASSET_DIR, 'MinerU/magic-pdf.json')
     logging.info(f'pdf parser name: {PDF_PARSER_NAME}')
     logging.info(f'pdf parser config path: {PDF_PARSER_CONFIG_PATH}')
 
@@ -59,15 +57,12 @@ def init_root_config():
     # embedding model
     global EMBED_MODEL_CONFIG_PATH, EMBED_DENSE_DIM, EMBED_MODEL_NAME, EMBED_SPARSE_VECTOR
     EMBED_MODEL_NAME = 'bge-m3'
-    EMBED_MODEL_CONFIG_PATH = os.path.join(PROJECT_ASSET_DIR,
-                                           'bge-m3/bge-m3.json')
+    EMBED_MODEL_CONFIG_PATH = os.path.join(PROJECT_ASSET_DIR, 'bge-m3/bge-m3.json')
     EMBED_DENSE_DIM = 1024
     EMBED_SPARSE_VECTOR = True
     logging.info(f'embed model name: {EMBED_MODEL_NAME}')
     logging.info(f'embed model config file path: {EMBED_MODEL_CONFIG_PATH}')
-    logging.info(
-        f'embed model dense embed dim: {EMBED_DENSE_DIM}, sparse vector: {EMBED_SPARSE_VECTOR}'
-    )
+    logging.info(f'embed model dense embed dim: {EMBED_DENSE_DIM}, sparse vector: {EMBED_SPARSE_VECTOR}')
 
     # ============================================================================ #
     # vector db config
@@ -78,8 +73,7 @@ def init_root_config():
     # Thus changing embedding model may cause tables re-creation and re-parse
     # existing pdf files.
     MILVUS_COLLECTION_NAME = f'knowledge_collection_{EMBED_MODEL_NAME}_{EMBED_DENSE_DIM}'
-    MILVUS_COLLECTION_NAME = re.sub(r"[^a-zA-Z0-9_]", "_",
-                                    MILVUS_COLLECTION_NAME)
+    MILVUS_COLLECTION_NAME = re.sub(r"[^a-zA-Z0-9_]", "_", MILVUS_COLLECTION_NAME)
 
     logging.info(f"milvus root data directory: {MILVUS_ROOT_DATA_DIR}")
     logging.info(f"milvus db name: {MILVUS_DB_NAME}")
@@ -89,14 +83,12 @@ def init_root_config():
     # sqlite db config
     global SQLITE_ROOT_DATA_DIR, SQLITE_DB_NAME, SQLITE_DOCUMENT_TABLE_NAME
     SQLITE_ROOT_DATA_DIR = os.path.join(RAG_DATA_DIR, 'sqlite_data')
-    SQLITE_DB_NAME = os.path.join(SQLITE_ROOT_DATA_DIR,
-                                  'tiny_rag_documents.db')
+    SQLITE_DB_NAME = os.path.join(SQLITE_ROOT_DATA_DIR, 'tiny_rag_documents.db')
     # NOTE: document table subject to embedding model and dense dimension, thus
     # changing embedding model may cause table re-creation and re-parse existing
     # pdf files.
     SQLITE_DOCUMENT_TABLE_NAME = f'document_{EMBED_MODEL_NAME}_{EMBED_DENSE_DIM}'
-    SQLITE_DOCUMENT_TABLE_NAME = re.sub(r"[^a-zA-Z0-9_]", "_",
-                                        SQLITE_DOCUMENT_TABLE_NAME)
+    SQLITE_DOCUMENT_TABLE_NAME = re.sub(r"[^a-zA-Z0-9_]", "_", SQLITE_DOCUMENT_TABLE_NAME)
 
     logging.info(f"sqlite root data directory: {SQLITE_ROOT_DATA_DIR}")
     logging.info(f"sqlite db name: {SQLITE_DB_NAME}")
@@ -106,8 +98,7 @@ def init_root_config():
     # chat server
     global CHAT_MODEL_URL, CHAT_MODEL_NAME, CHAT_GEN_CONF, CONVERSATION_SAVE_PATH, MAX_TOKEN_NUM
 
-    CHAT_MODEL_URL = os.environ.get('CHAT_MODEL_URL',
-                                    'http://host.docker.internal:11434')
+    CHAT_MODEL_URL = os.environ.get('CHAT_MODEL_URL', 'http://host.docker.internal:11434')
     CHAT_MODEL_NAME = os.environ.get('CHAT_MODEL_NAME', 'qwen3:30b-a3b')
     CHAT_GEN_CONF = {
         'temperature': 0.1,
@@ -116,8 +107,7 @@ def init_root_config():
         'frequency_penalty': 0.7,
     }
     # where to save conversation data.
-    CONVERSATION_SAVE_PATH = os.path.join(RAG_FILE_DIR,
-                                          'conversation/conversation.json')
+    CONVERSATION_SAVE_PATH = os.path.join(RAG_FILE_DIR, 'conversation/conversation.json')
     MAX_TOKEN_NUM = 80 * 1024
     logging.info(f'chat model url: {CHAT_MODEL_URL}')
     logging.info(f'chat model name: {CHAT_MODEL_NAME}')

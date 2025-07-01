@@ -81,8 +81,7 @@ def format_host_url(content_url: str) -> str:
     if len(content_url) == 0:
         return None
     file_name = os.path.basename(content_url)
-    ret = os.path.join(config.HOST_RAG_FILE_DIR, 'tiny_rag_parsed_assets',
-                       file_name)
+    ret = os.path.join(config.HOST_RAG_FILE_DIR, 'tiny_rag_parsed_assets', file_name)
     return ret
 
 
@@ -112,8 +111,7 @@ def assemble_knowledge_base(chunks: list[Chunk]) -> Tuple[str, Dict[str, Any]]:
     refid2meta = {}  # reference index to chunk meta info
     for file_name, chunks in document2chunks.items():
         knowledge_base.append(f"Document: {file_name}{_content_divider}")
-        knowledge_base.append(
-            f'Relevant fragments as following:{_content_divider}')
+        knowledge_base.append(f'Relevant fragments as following:{_content_divider}')
         for chunk in chunks:
             content = ""
             if chunk.content_type in [config.ChunkType.TEXT]:
@@ -166,9 +164,7 @@ def chat_completion():
         newly generated token appended to previous returned answer.
     """
     logging.info(f'**DEBUG** chat_completion: request={request}')
-    logging.info(
-        f'**DEBUG** chat_completion: request.json={json.dumps(request.json, indent=4, ensure_ascii=False)}'
-    )
+    logging.info(f'**DEBUG** chat_completion: request.json={json.dumps(request.json, indent=4, ensure_ascii=False)}')
 
     req = request.json
     history = req["history"]
@@ -176,13 +172,9 @@ def chat_completion():
     model = get_chat_model()
     vector_db = get_vector_db()
 
-    message = [{
-        'role': m['role'],
-        'content': m['content']
-    } for m in history if m['role'] != 'system']
+    message = [{'role': m['role'], 'content': m['content']} for m in history if m['role'] != 'system']
 
-    user_questions = [m['content'] for m in message
-                      if m['role'] == 'user'][-3:]
+    user_questions = [m['content'] for m in message if m['role'] == 'user'][-3:]
     chunks = []
     for question in user_questions:
         ret = vector_db.search(query=question, params={'limit': 4})
@@ -190,8 +182,7 @@ def chat_completion():
 
     knowledge_base, refid2meta = assemble_knowledge_base(chunks)
 
-    logging.info(
-        f'**DEBUG** chat_completion, knowledge_base = \n{knowledge_base}')
+    logging.info(f'**DEBUG** chat_completion, knowledge_base = \n{knowledge_base}')
     logging.info('=' * 120)
 
     prompt = _prompt_system.format(knowledge_base=knowledge_base) \
@@ -205,46 +196,35 @@ def chat_completion():
     def stream():
         nonlocal model, final_ans
         try:
-            for ans in model.chat(history=message,
-                                  gen_conf=config.CHAT_GEN_CONF):
+            for ans in model.chat(history=message, gen_conf=config.CHAT_GEN_CONF):
                 if isinstance(ans, int):
                     break
                 # append to previous ans
                 final_ans += ans
 
-                yield json.dumps(
-                    {
-                        "code": 0,
-                        "message": "",
-                        "data": {
-                            "answer": final_ans,
-                            "reference_meta": refid2meta,
-                            'prompt': prompt,
-                            'prompt_token_num': estimate_token_num(prompt)[0],
-                            'answer_token_num':
-                            estimate_token_num(final_ans)[0],
-                        }
-                    },
-                    ensure_ascii=False) + _content_divider
+                yield json.dumps({
+                    "code": 0,
+                    "message": "",
+                    "data": {
+                        "answer": final_ans,
+                        "reference_meta": refid2meta,
+                        'prompt': prompt,
+                        'prompt_token_num': estimate_token_num(prompt)[0],
+                        'answer_token_num': estimate_token_num(final_ans)[0],
+                    }
+                }, ensure_ascii=False) + _content_divider
 
         except Exception as e:
-            yield json.dumps(
-                {
-                    "code": 500,
-                    "message": str(e),
-                    "data": {
-                        "answer": "**ERROR**: " + str(e),
-                        "reference_meta": {},
-                        "prompt": prompt,
-                    }
-                },
-                ensure_ascii=False) + _content_divider
-        yield json.dumps({
-            "code": 0,
-            "message": "",
-            "data": {}
-        },
-                         ensure_ascii=False) + _content_divider
+            yield json.dumps({
+                "code": 500,
+                "message": str(e),
+                "data": {
+                    "answer": "**ERROR**: " + str(e),
+                    "reference_meta": {},
+                    "prompt": prompt,
+                }
+            }, ensure_ascii=False) + _content_divider
+        yield json.dumps({"code": 0, "message": "", "data": {}}, ensure_ascii=False) + _content_divider
 
     resp = Response(stream(), mimetype="text/event-stream")
     resp.headers.add_header("Cache-control", "no-cache")
