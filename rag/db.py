@@ -63,8 +63,7 @@ class VectorDB(ABC):
         raise NotImplementedError("Not implemented")
 
     @abstractmethod
-    def search(self, query: str, params: Dict[str,
-                                              Any]) -> list[Dict[str, Any]]:
+    def search(self, query: str, params: Dict[str, Any]) -> list[Dict[str, Any]]:
         raise NotImplementedError("Not implemented")
 
 
@@ -150,19 +149,13 @@ class MilvusLiteDB(VectorDB):
         search_reqs = []
         query_dense_embedding = query_embed['dense']
         dense_search_params = {"metric_type": "IP", "params": {}}
-        dense_req = AnnSearchRequest([query_dense_embedding],
-                                     "dense_vector",
-                                     dense_search_params,
-                                     limit=limit)
+        dense_req = AnnSearchRequest([query_dense_embedding], "dense_vector", dense_search_params, limit=limit)
         search_reqs.append(dense_req)
 
         if config.EMBED_SPARSE_VECTOR:
             query_sparse_embedding = query_embed['sparse']
             sparse_search_params = {"metric_type": "IP", "params": {}}
-            sparse_req = AnnSearchRequest([query_sparse_embedding],
-                                          "sparse_vector",
-                                          sparse_search_params,
-                                          limit=limit)
+            sparse_req = AnnSearchRequest([query_sparse_embedding], "sparse_vector", sparse_search_params, limit=limit)
             search_reqs.append(sparse_req)
 
         rerank = WeightedRanker(*ranker_weights)
@@ -194,10 +187,8 @@ class MilvusLiteDB(VectorDB):
             chunk = Chunk(
                 content_type=content_type,
                 file_name=file_name,
-                content=content.encode('utf-8') if content_type
-                in [config.ChunkType.TEXT] else "".encode("utf-8"),
-                extra_description=content.encode('utf-8') if content_type
-                not in [config.ChunkType.TEXT] else "".encode("utf-8"),
+                content=content.encode('utf-8') if content_type in [config.ChunkType.TEXT] else "".encode("utf-8"),
+                extra_description=content.encode('utf-8') if content_type not in [config.ChunkType.TEXT] else "".encode("utf-8"),
                 content_url=content_url,
             )
             # NOTE: set uuid instead of auto generating
@@ -243,9 +234,7 @@ def create_milvus_collection(
     client = MilvusClient(conn_url)
 
     if client.has_collection(collection_name=collection_name):
-        logging.info(
-            f'collection {collection_name} found in {conn_url}, skip collection creation'
-        )
+        logging.info(f'collection {collection_name} found in {conn_url}, skip collection creation')
         logging.info('existing collection schema')
         client.describe_collection(collection_name=collection_name)
         return
@@ -334,11 +323,11 @@ class RationalDB(ABC):
         raise NotImplementedError("Not implemented")
 
     @abstractmethod
-    def get_document(self, name: str):
+    def get_document(self, name: str) -> Dict[str, Any]:
         raise NotImplementedError("Not implemented")
 
     @abstractmethod
-    def delete_document(self, name: str):
+    def delete_document(self, name: str) -> int:
         """
         Delete document.
 
@@ -370,13 +359,10 @@ class SQLiteDB(RationalDB):
 
         assert 'chunks' in data, f"chunks not found in data to insert"
         chunks = data['chunks']
-        assert isinstance(
-            chunks, list
-        ), f"unexpected chunk id type: {type(chunks)}, expected list of string"
+        assert isinstance(chunks, list), f"unexpected chunk id type: {type(chunks)}, expected list of string"
         data['chunks'] = '\x07'.join(chunks)
 
-        cur.execute(f"SELECT id FROM {self.document_table} WHERE name = ?",
-                    (data[key_col], ))
+        cur.execute(f"SELECT id FROM {self.document_table} WHERE name = ?", (data[key_col], ))
         record_exists = cur.fetchone() is not None
 
         try:
@@ -416,7 +402,7 @@ class SQLiteDB(RationalDB):
         finally:
             return 1
 
-    def get_document(self, name: str):
+    def get_document(self, name: str) -> Dict[str, Any]:
         """
         Return document record with below keys:
         - name: str, document name.
@@ -453,8 +439,7 @@ class SQLiteDB(RationalDB):
             if self.conn:
                 self.conn.rollback()
 
-            logging.info(
-                f"Initial delete fail, exception: {type(e).__name__} - {e}")
+            logging.info(f"Initial delete fail, exception: {type(e).__name__} - {e}")
 
             formatted_traceback = traceback.format_exc()
             logging.info(formatted_traceback)
@@ -508,13 +493,10 @@ def create_sqlite_table(
     with sqlite3.connect(conn_url) as conn:
         cur = conn.cursor()
         try:
-            ret = cur.execute("SELECT name FROM sqlite_master WHERE name = ?",
-                              (table_name, ))
+            ret = cur.execute("SELECT name FROM sqlite_master WHERE name = ?", (table_name, ))
             res = ret.fetchall()
             if len(res) > 0:
-                logging.info(
-                    f'table {table_name} found in {conn_url}, skip table creation'
-                )
+                logging.info(f'table {table_name} found in {conn_url}, skip table creation')
                 return
             cur.execute(sql_create_table)
             cur.execute(sql_create_index)

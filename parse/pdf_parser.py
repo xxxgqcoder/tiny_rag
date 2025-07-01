@@ -68,14 +68,12 @@ class PDFParser(Parser):
         filtered_content_list = []
         for block in content_list:
             if not self.is_valid_block(block):
-                logging.info(
-                    f'{self.file_name}: invalid block, ignore {block}')
+                logging.info(f'{self.file_name}: invalid block, ignore {block}')
                 continue
             filtered_content_list.append(block)
 
         self.content_list = filtered_content_list
-        all_types = sorted(
-            list(set([block['type'] for block in self.content_list])))
+        all_types = sorted(list(set([block['type'] for block in self.content_list])))
         logging.info(f"all parsed block types: {all_types}")
 
         # get chunk list
@@ -90,8 +88,7 @@ class PDFParser(Parser):
 
         temp_dir.cleanup()
 
-        logging.info(
-            f'{self.file_name}: {len(filtered_chunks)} chunks after filtering')
+        logging.info(f'{self.file_name}: {len(filtered_chunks)} chunks after filtering')
 
         return filtered_chunks
 
@@ -124,8 +121,7 @@ class PDFParser(Parser):
         by key `type`). All captions are stored in each block's caption key, for 
         example, caption of a parsed image is saved in `img_caption` key of the block.
 
-        Refer [MinerU API demo](https://mineru.readthedocs.io/en/latest/user_guide/usage/api.html) 
-        for more details.
+        https://github.com/opendatalab/MinerU/blob/master/demo/demo.py for more details.
 
         Returns:
         - A list of parsed content block dict.
@@ -133,67 +129,89 @@ class PDFParser(Parser):
         # NOTE: magic_pdf package uses singleton design and the model isntance is
         # initialized when the module is imported, so postpone the import statement
         # until parse method is called.
-        from magic_pdf.data.data_reader_writer import FileBasedDataWriter, FileBasedDataReader
-        from magic_pdf.data.dataset import PymuDocDataset
-        from magic_pdf.model.doc_analyze_by_custom_model import doc_analyze
-        from magic_pdf.config.enums import SupportedPdfParseMethod
+
+        import copy
+        from pathlib import Path
+
+        from mineru.cli.common import convert_pdf_bytes_to_bytes_by_pypdfium2, prepare_env, read_fn
+        from mineru.data.data_reader_writer import FileBasedDataWriter
+        from mineru.utils.draw_bbox import draw_layout_bbox, draw_span_bbox
+        from mineru.utils.enum_class import MakeMode
+        from mineru.backend.pipeline.pipeline_analyze import doc_analyze as pipeline_doc_analyze
+        from mineru.backend.pipeline.pipeline_middle_json_mkcontent import union_make as pipeline_union_make
+        from mineru.backend.pipeline.model_json_to_middle_json import result_to_middle_json as pipeline_result_to_middle_json
 
         # prepare env
-        name_without_suff = os.path.basename(file_path).split(".")[0]
-        local_image_dir = os.path.join(temp_asset_dir, "images")
-        local_md_dir = temp_asset_dir
-        image_dir = os.path.basename(local_image_dir)
-        os.makedirs(local_image_dir, exist_ok=True)
+        try:
+            shutil.rmtree(temp_asset_dir)
+        except:
+            pass
+        os.makedirs(temp_asset_dir, exist_ok=True)
 
-        image_writer = FileBasedDataWriter(local_image_dir)
-        md_writer = FileBasedDataWriter(local_md_dir)
+        lang = 'ch'
+        start_page_id = 0
+        end_page_id = None
+        parse_method = 'auto'
 
-        # read bytes
-        reader = FileBasedDataReader("")
-        pdf_bytes = reader.read(file_path)
-        logging.info(f"{file_path}: read bytes count: {len(pdf_bytes)}")
+        file_name = str(Path(file_path).stem)
+        pdf_bytes = read_fn(file_path)
 
-        # process
-        ds = PymuDocDataset(pdf_bytes)
+        new_pdf_bytes = convert_pdf_bytes_to_bytes_by_pypdfium2(pdf_bytes, start_page_id, end_page_id)
 
-        # inference
-        infer_result = ds.apply(doc_analyze)
-        pipe_result = infer_result.pipe_txt_mode(image_writer)
+        infer_results, all_image_lists, all_pdf_docs, lang_list, ocr_enabled_list = pipeline_doc_analyze(
+            [new_pdf_bytes],
+            [lang],
+            parse_method=parse_method,
+            formula_enable=True,
+            table_enable=True,
+        )
 
-        # draw model result on each page
-        infer_result.draw_model(
-            os.path.join(local_md_dir, f"{name_without_suff}_model.pdf"))
+        model_list = infer_results[0]
+        model_json = copy.deepcopy(model_list)
+        local_image_dir, local_md_dir = prepare_env(temp_asset_dir, file_name, parse_method)
+        image_writer, md_writer = FileBasedDataWriter(local_image_dir), FileBasedDataWriter(local_md_dir)
 
-        # get model inference result
-        model_inference_result = infer_result.get_infer_res()
+        middle_json = pipeline_result_to_middle_json(
+            model_list,
+            all_image_lists[0],
+            all_pdf_docs[0],
+            image_writer,
+            lang,
+            ocr_enabled_list[0],
+            True,
+        )
 
-        # draw layout result on each page
-        pipe_result.draw_layout(
-            os.path.join(local_md_dir, f"{name_without_suff}_layout.pdf"))
+        pdf_info = middle_json["pdf_info"]
 
-        # draw spans result on each page
-        pipe_result.draw_span(
-            os.path.join(local_md_dir, f"{name_without_suff}_spans.pdf"))
+        # draw span and layout
+        draw_layout_bbox(pdf_info, new_pdf_bytes, local_md_dir, f"{file_name}_layout.pdf")
+        draw_span_bbox(pdf_info, new_pdf_bytes, local_md_dir, f"{file_name}_span.pdf")
+        md_writer.write(f"{file_name}_origin.pdf", new_pdf_bytes)
 
-        # get markdown content
-        md_content = pipe_result.get_markdown(image_dir)
-
-        # dump markdown
-        pipe_result.dump_md(md_writer, f"{name_without_suff}.md", image_dir)
-
-        # get content list content
-        content_list = pipe_result.get_content_list(image_dir)
+        # dump md
+        image_dir = str(os.path.basename(local_image_dir))
+        md_content_str = pipeline_union_make(pdf_info, MakeMode.MM_MD, image_dir)
+        md_writer.write_string(f"{file_name}.md", md_content_str)
 
         # dump content list
-        pipe_result.dump_content_list(
-            md_writer, f"{name_without_suff}_content_list.json", image_dir)
-
-        # get middle json
-        middle_json_content = pipe_result.get_middle_json()
+        image_dir = str(os.path.basename(local_image_dir))
+        content_list = pipeline_union_make(pdf_info, MakeMode.CONTENT_LIST, image_dir)
+        md_writer.write_string(
+            f"{file_name}_content_list.json",
+            json.dumps(content_list, ensure_ascii=False, indent=4),
+        )
 
         # dump middle json
-        pipe_result.dump_middle_json(md_writer,
-                                     f'{name_without_suff}_middle.json')
+        md_writer.write_string(
+            f"{file_name}_middle.json",
+            json.dumps(middle_json, ensure_ascii=False, indent=4),
+        )
+
+        # dump model json
+        md_writer.write_string(
+            f"{file_name}_model.json",
+            json.dumps(model_json, ensure_ascii=False, indent=4),
+        )
 
         return content_list
 
@@ -226,8 +244,7 @@ class PDFParser(Parser):
         while i < len(content_list) - self.block_overlap_num:
             # inner loop start from current block
             j = i
-            while j < len(content_list) and len(
-                    block_buffer) < self.consecutive_block_num:
+            while j < len(content_list) and len(block_buffer) < self.consecutive_block_num:
 
                 block = content_list[j]
 
@@ -238,19 +255,17 @@ class PDFParser(Parser):
                 # image / table block
                 elif block['type'] in ['image', 'table']:
                     if block['type'] == 'table':
-                        chunks.extend(
-                            self.process_table_blocks(
-                                table_blocks=content_list[j:j + 1],
-                                temp_asset_dir=temp_asset_dir,
-                                asset_save_dir=asset_save_dir,
-                            ))
+                        chunks.extend(self.process_table_blocks(
+                            table_blocks=content_list[j:j + 1],
+                            temp_asset_dir=temp_asset_dir,
+                            asset_save_dir=asset_save_dir,
+                        ))
                     else:
-                        chunks.extend(
-                            self.process_image_blocks(
-                                image_blocks=content_list[j:j + 1],
-                                temp_asset_dir=temp_asset_dir,
-                                asset_save_dir=asset_save_dir,
-                            ))
+                        chunks.extend(self.process_image_blocks(
+                            image_blocks=content_list[j:j + 1],
+                            temp_asset_dir=temp_asset_dir,
+                            asset_save_dir=asset_save_dir,
+                        ))
                 else:
                     pass
 
@@ -261,12 +276,11 @@ class PDFParser(Parser):
             # or len(block_buffer) == self.consecutive_block_num
             # generate new chunk if buffer is not empty.
             if len(block_buffer) > 0:
-                chunks.extend(
-                    self.process_text_blocks(
-                        text_blocks=block_buffer,
-                        temp_asset_dir=temp_asset_dir,
-                        asset_save_dir=asset_save_dir,
-                    ))
+                chunks.extend(self.process_text_blocks(
+                    text_blocks=block_buffer,
+                    temp_asset_dir=temp_asset_dir,
+                    asset_save_dir=asset_save_dir,
+                ))
                 block_buffer.clear()
 
             # start next iteration
@@ -282,14 +296,12 @@ class PDFParser(Parser):
     ) -> list[Chunk]:
         texts = [str(block['text']) for block in text_blocks]
         content = self.strip_text_content(texts)
-        return [
-            Chunk(
-                content_type=ChunkType.TEXT,
-                file_name=self.file_name,
-                content=content.encode('utf-8'),
-                extra_description=''.encode('utf-8'),
-            )
-        ]
+        return [Chunk(
+            content_type=ChunkType.TEXT,
+            file_name=self.file_name,
+            content=content.encode('utf-8'),
+            extra_description=''.encode('utf-8'),
+        )]
 
     def process_image_blocks(
         self,
@@ -297,6 +309,7 @@ class PDFParser(Parser):
         temp_asset_dir: str,
         asset_save_dir: str,
     ) -> list[Chunk]:
+        from pathlib import Path
 
         def _load_image(p: str) -> bytes:
             with open(p, 'rb') as f:
@@ -317,7 +330,8 @@ class PDFParser(Parser):
             if len(extra_description) == 0:
                 extra_description = "no caption for this image"
 
-            abs_img_path = os.path.join(temp_asset_dir, block['img_path'])
+            # NOTE: hard coded image path format
+            abs_img_path = os.path.join(temp_asset_dir, str(Path(self.file_name).stem), 'auto', block['img_path'])
             _save_image(abs_img_path, asset_save_dir)
 
             chunk = Chunk(
@@ -325,8 +339,7 @@ class PDFParser(Parser):
                 file_name=self.file_name,
                 content=_load_image(abs_img_path),
                 extra_description=(extra_description).encode('utf-8'),
-                content_url=os.path.join(asset_save_dir,
-                                         os.path.basename(abs_img_path)),
+                content_url=os.path.join(asset_save_dir, os.path.basename(abs_img_path)),
             )
             chunks.append(chunk)
 
@@ -369,9 +382,7 @@ class PDFParser(Parser):
                 content = chunk.extra_description
             content = safe_strip(content.decode('utf-8'))
             if len(content) < 8 or len(content.split()) < 3:
-                logging.info(
-                    f'{self.file_name}: remove chunk due to too short content: {str(chunk)}'
-                )
+                logging.info(f'{self.file_name}: remove chunk due to too short content: {str(chunk)}')
                 continue
 
             filtered_chunks.append(chunk)

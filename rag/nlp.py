@@ -79,11 +79,9 @@ class BGEM3EmbeddingModel(EmbeddingModel):
                 indices = [int(k) for k in sparse_vec]
                 values = np.array(list(sparse_vec.values()), dtype=np.float64)
                 row_indices = [0] * len(indices)
-                csr = csr_array((values, (row_indices, indices)),
-                                shape=(1, sparse_dim))
+                csr = csr_array((values, (row_indices, indices)), shape=(1, sparse_dim))
                 results["sparse"].append(csr)
-            results["sparse"] = self.stack_sparse_embeddings(
-                results["sparse"]).tocsr()
+            results["sparse"] = self.stack_sparse_embeddings(results["sparse"]).tocsr()
 
         if self._encode_config["return_colbert_vecs"]:
             results["colbert_vecs"] = output["colbert_vecs"]
@@ -93,8 +91,7 @@ class BGEM3EmbeddingModel(EmbeddingModel):
         """
         Vertical stack sparse vectors
         """
-        return vstack(
-            [sparse_emb.reshape((1, -1)) for sparse_emb in sparse_embs])
+        return vstack([sparse_emb.reshape((1, -1)) for sparse_emb in sparse_embs])
 
     def dense_embed_dim(self):
         return self.dim["dense"]

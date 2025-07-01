@@ -13,40 +13,22 @@ class TestPDFParser(unittest.TestCase):
     def test_filter_chunks(self):
         chunks = [
             # keep
-            Chunk(content='text 1: should keep'.encode('utf-8'),
-                  file_name='/fake/path',
-                  extra_description=''.encode('utf-8'),
-                  content_type=config.ChunkType.TEXT),
+            Chunk(content='text 1: should keep'.encode('utf-8'), file_name='/fake/path', extra_description=''.encode('utf-8'), content_type=config.ChunkType.TEXT),
 
             # rm
-            Chunk(content='text 2'.encode('utf-8'),
-                  file_name='/fake/path',
-                  extra_description=''.encode('utf-8'),
-                  content_type=config.ChunkType.TEXT),
+            Chunk(content='text 2'.encode('utf-8'), file_name='/fake/path', extra_description=''.encode('utf-8'), content_type=config.ChunkType.TEXT),
 
             # keep
-            Chunk(content=''.encode('utf-8'),
-                  file_name='/fake/path',
-                  extra_description='image 1: should keep'.encode('utf-8'),
-                  content_type=config.ChunkType.IMAGE),
+            Chunk(content=''.encode('utf-8'), file_name='/fake/path', extra_description='image 1: should keep'.encode('utf-8'), content_type=config.ChunkType.IMAGE),
 
             # rm
-            Chunk(content=''.encode('utf-8'),
-                  file_name='/fake/path',
-                  extra_description='image 2'.encode('utf-8'),
-                  content_type=config.ChunkType.TEXT),
+            Chunk(content=''.encode('utf-8'), file_name='/fake/path', extra_description='image 2'.encode('utf-8'), content_type=config.ChunkType.TEXT),
 
             # keep
-            Chunk(content=''.encode('utf-8'),
-                  file_name='/fake/path',
-                  extra_description='table 1: should keep'.encode('utf-8'),
-                  content_type=config.ChunkType.TABLE),
+            Chunk(content=''.encode('utf-8'), file_name='/fake/path', extra_description='table 1: should keep'.encode('utf-8'), content_type=config.ChunkType.TABLE),
 
             # rm
-            Chunk(content=''.encode('utf-8'),
-                  file_name='/fake/path',
-                  extra_description='table 2'.encode('utf-8'),
-                  content_type=config.ChunkType.TABLE),
+            Chunk(content=''.encode('utf-8'), file_name='/fake/path', extra_description='table 2'.encode('utf-8'), content_type=config.ChunkType.TABLE),
         ]
 
         parser = PDFParser()
@@ -58,10 +40,8 @@ class TestPDFParser(unittest.TestCase):
 
         self.assertEqual(len(ret), 3)
         self.assertEqual(ret[0].content.decode('utf-8'), 'text 1: should keep')
-        self.assertEqual(ret[1].extra_description.decode('utf-8'),
-                         'image 1: should keep')
-        self.assertEqual(ret[2].extra_description.decode('utf-8'),
-                         'table 1: should keep')
+        self.assertEqual(ret[1].extra_description.decode('utf-8'), 'image 1: should keep')
+        self.assertEqual(ret[2].extra_description.decode('utf-8'), 'table 1: should keep')
 
     def test_strip_text_content(self, ):
         texts = ['', None, 'test ', 'block 1']
@@ -111,9 +91,7 @@ class TestPDFParser(unittest.TestCase):
         parser.block_overlap_num = 1
         parser.file_name = '/fake/path'
 
-        chunks = parser.chunk(content_list=content_list,
-                              temp_asset_dir='',
-                              asset_save_dir='')
+        chunks = parser.chunk(content_list=content_list, temp_asset_dir='', asset_save_dir='')
 
         # print('=' * 80)
         # for chunk in chunks:
@@ -121,24 +99,16 @@ class TestPDFParser(unittest.TestCase):
         #     print('=' * 80)
 
         # should have 2 table chunk
-        table_chunks = [
-            chunk for chunk in chunks if chunk.content_type == 'table'
-        ]
+        table_chunks = [chunk for chunk in chunks if chunk.content_type == 'table']
         self.assertEqual(len(table_chunks), 2)
-        self.assertEqual(table_chunks[0].extra_description.decode('utf-8'),
-                         'table 1')
-        self.assertEqual(table_chunks[1].extra_description.decode('utf-8'),
-                         'table 2')
+        self.assertEqual(table_chunks[0].extra_description.decode('utf-8'), 'table 1')
+        self.assertEqual(table_chunks[1].extra_description.decode('utf-8'), 'table 2')
 
         # should have 2 text chunk
-        text_chunks = [
-            chunk for chunk in chunks if chunk.content_type == 'text'
-        ]
+        text_chunks = [chunk for chunk in chunks if chunk.content_type == 'text']
         self.assertEqual(len(text_chunks), 2)
-        self.assertEqual(text_chunks[0].content.decode('utf-8'),
-                         '\n\n'.join(['1', '2', '3', '4']))
-        self.assertEqual(text_chunks[1].content.decode('utf-8'),
-                         '\n\n'.join(['4', '5', '6']))
+        self.assertEqual(text_chunks[0].content.decode('utf-8'), '\n\n'.join(['1', '2', '3', '4']))
+        self.assertEqual(text_chunks[1].content.decode('utf-8'), '\n\n'.join(['4', '5', '6']))
 
         # # chunk 0
         # self.assertTrue('h1' in str(chunks[0]) and 'p1' in str(chunks[0])

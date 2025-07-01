@@ -14,9 +14,7 @@ class MockEmbedingModel(EmbeddingModel):
         import numpy as np
         from scipy.sparse import csr_array
 
-        dense_vector = np.random.uniform(low=0.0,
-                                         high=1.0,
-                                         size=self.dense_embed_dim),
+        dense_vector = np.random.uniform(low=0.0, high=1.0, size=self.dense_embed_dim),
 
         row = np.array([0, 1, 2, 0])
         col = np.array([0, 1, 1, 0])

@@ -26,16 +26,12 @@ def init_root_logger(
 
     logger = logging.getLogger()
     logger.handlers.clear()
-    log_path = os.path.abspath(
-        os.path.join(get_project_base_directory(), "logs",
-                     f"{logfile_basename}.log"))
+    log_path = os.path.abspath(os.path.join(get_project_base_directory(), "logs", f"{logfile_basename}.log"))
 
     os.makedirs(os.path.dirname(log_path), exist_ok=True)
     formatter = logging.Formatter(log_format)
 
-    handler1 = RotatingFileHandler(log_path,
-                                   maxBytes=10 * 1024 * 1024,
-                                   backupCount=5)
+    handler1 = RotatingFileHandler(log_path, maxBytes=10 * 1024 * 1024, backupCount=5)
     handler1.setFormatter(formatter)
     logger.addHandler(handler1)
 
@@ -188,9 +184,7 @@ def time_it(func):
         begin = time.time_ns()
         ret = func(*kargs, **kwargs)
         elapse = (time.time_ns() - begin) // 1000000
-        logging.info(
-            f"func {func.__name__} took {elapse // 60000}min {(elapse % 60000)//1000}sec {elapse%60000%1000}ms to finish"
-        )
+        logging.info(f"func {func.__name__} took {elapse // 60000}min {(elapse % 60000)//1000}sec {elapse%60000%1000}ms to finish")
 
         return ret
 

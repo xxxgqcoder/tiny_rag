@@ -6,6 +6,44 @@ from typing import Any
 
 from huggingface_hub import snapshot_download
 
+from huggingface_hub import snapshot_download as hf_snapshot_download
+from modelscope import snapshot_download as ms_snapshot_download
+from mineru.utils.enum_class import ModelPath
+
+
+def download_model(relative_path: str, repo_mode='pipeline') -> str:
+    model_source = os.getenv('MINERU_MODEL_SOURCE', "huggingface")
+
+    repo_mapping = {'pipeline': {'huggingface': ModelPath.pipeline_root_hf, 'modelscope': ModelPath.pipeline_root_modelscope, 'default': ModelPath.pipeline_root_hf}, 'vlm': {'huggingface': ModelPath.vlm_root_hf, 'modelscope': ModelPath.vlm_root_modelscope, 'default': ModelPath.vlm_root_hf}}
+
+    if repo_mode not in repo_mapping:
+        raise ValueError(f"Unsupported repo_mode: {repo_mode}, must be 'pipeline' or 'vlm'")
+
+    repo = repo_mapping[repo_mode].get(model_source, repo_mapping[repo_mode]['default'])
+
+    if model_source == "huggingface":
+        snapshot_download = hf_snapshot_download
+    elif model_source == "modelscope":
+        snapshot_download = ms_snapshot_download
+    else:
+        raise ValueError(f"unknown repo type: {model_source}")
+
+    cache_dir = None
+
+    if repo_mode == 'pipeline':
+        relative_path = relative_path.strip('/')
+        cache_dir = snapshot_download(repo, allow_patterns=[relative_path, relative_path + "/*"])
+    elif repo_mode == 'vlm':
+        if relative_path == "/":
+            cache_dir = snapshot_download(repo)
+        else:
+            relative_path = relative_path.strip('/')
+            cache_dir = snapshot_download(repo, allow_patterns=[relative_path, relative_path + "/*"])
+
+    if not cache_dir:
+        raise FileNotFoundError(f"Failed to download model: {relative_path} from {repo}")
+    return cache_dir
+
 
 def download_json(url: str) -> Any:
     response = requests.get(url)
@@ -48,68 +86,54 @@ def download_bge_m3_model(project_dir: str):
 
 
 def download_mineru_model(project_dir: str):
-    # part 1
-    mineru_patterns = [
-        "models/Layout/YOLO/*",
-        "models/MFD/YOLO/*",
-        "models/MFR/unimernet_hf_small_2503/*",
-        "models/OCR/paddleocr_torch/*",
+    # donwnload model
+    model_paths = [
+        ModelPath.doclayout_yolo,
+        ModelPath.yolo_v8_mfd,
+        ModelPath.unimernet_small,
+        ModelPath.pytorch_paddle,
+        ModelPath.layout_reader,
+        ModelPath.slanet_plus,
     ]
-    model_dir = snapshot_download(
-        'opendatalab/PDF-Extract-Kit-1.0',
-        allow_patterns=mineru_patterns,
-    )
-    model_dir = model_dir + '/models'
-    print(f'donwloaded model_dir is: {model_dir}')
+    downloaded_model_dir = ""
+    for model_path in model_paths:
+        print(f"downloading model from: {model_path}")
+        downloaded_model_dir = download_model(model_path, repo_mode='pipeline')
 
-    # layout reader
-    layoutreader_pattern = [
-        "*.json",
-        "*.safetensors",
-    ]
-    layoutreader_model_dir = snapshot_download(
-        'hantian/layoutreader',
-        allow_patterns=layoutreader_pattern,
-    )
-    print(f'donwloaded layoutreader_model_dir is: {layoutreader_model_dir}')
+    print(f'donwloaded model path: {downloaded_model_dir}')
 
     # copy model
     target_dir = os.path.join(project_dir, 'assets/MinerU/models')
     shutil.copytree(
-        src=model_dir,
+        src=downloaded_model_dir,
         dst=target_dir,
         dirs_exist_ok=True,
     )
-    print(f'copy model from {model_dir} to {target_dir}')
+    print(f'copy model from {downloaded_model_dir} to {target_dir}')
 
-    target_dir = os.path.join(project_dir,
-                              'assets/MinerU/layout_reader_models')
-    shutil.copytree(
-        src=layoutreader_model_dir,
-        dst=target_dir,
-        dirs_exist_ok=True,
-    )
-    print(f'copy model from {layoutreader_model_dir} to {target_dir}')
-
-    # download config json
-    json_url = 'https://github.com/opendatalab/MinerU/raw/master/magic-pdf.template.json'
+    # modify json config file
+    json_url = 'https://gcore.jsdelivr.net/gh/opendatalab/MinerU@master/mineru.template.json'
     config_file_name = 'magic-pdf.json'
-    config_file = os.path.join(project_dir, "assets/MinerU", config_file_name)
-
-    # <project_root_dir> will be replaced by real directory when deployed.
+    config_filep_path = os.path.join(project_dir, "assets/MinerU", config_file_name)
     json_modification = {
-        'models-dir': "<project_root_dir>/assets/MinerU/models",
-        'layoutreader-model-dir':
-        f"<project_root_dir>/assets/MinerU/layout_reader_models",
+        'models-dir': {
+            "pipeline": "<project_root_dir>/assets/MinerU/models",
+        },
         "consecutive_block_num": 8,
         "block_overlap_num": 3,
     }
     data = download_json(json_url)
+
     for key, value in json_modification.items():
-        data[key] = value
-    with open(config_file, 'w', encoding='utf-8') as f:
+        if key in data:
+            if isinstance(data[key], dict):
+                data[key].update(value, )
+            else:
+                data[key] = value
+
+    with open(config_filep_path, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
-    print(f'MinerU config save to {config_file}')
+        print(f'save modified config file to path: {config_filep_path}')
 
 
 if __name__ == '__main__':

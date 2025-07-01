@@ -61,8 +61,7 @@ class TestMilvusDB(unittest.TestCase):
         insert_cnt = db.insert(chunk2)
         self.assertEqual(insert_cnt, 1)
 
-        ret = db.client.get(collection_name='test_milvus_collection',
-                            ids=[uuid1])
+        ret = db.client.get(collection_name='test_milvus_collection', ids=[uuid1])
         self.assertEqual(ret[0]['uuid'], uuid1)
 
         # test delete
@@ -120,8 +119,7 @@ class TestSQLiteDB(unittest.TestCase):
         ret = db.get_document(name=file_name)
         print(ret)
         self.assertEqual(ret['chunks'], chunks)
-        self.assertEqual(ret['content_hash'],
-                         get_hash64('test'.encode('utf-8')))
+        self.assertEqual(ret['content_hash'], get_hash64('test'.encode('utf-8')))
 
         # delete
         delete_cnt = db.delete_document(name=file_name)

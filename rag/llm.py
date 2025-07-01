@@ -97,12 +97,10 @@ class OllamaChat(ChatModel):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.client = OllamaClient(
-            host=config.CHAT_MODEL_URL
-            if 'ollama_host' not in kwargs else kwargs['ollama_host'],
+            host=config.CHAT_MODEL_URL if 'ollama_host' not in kwargs else kwargs['ollama_host'],
             timeout=15 * 60,  # time out 15 min
         )
-        self.model_name = config.CHAT_MODEL_NAME if 'ollama_model_name' not in kwargs else kwargs[
-            'ollama_model_name']
+        self.model_name = config.CHAT_MODEL_NAME if 'ollama_model_name' not in kwargs else kwargs['ollama_model_name']
 
     def chat(
         self,
@@ -136,8 +134,7 @@ class OllamaChat(ChatModel):
             for resp in response:
                 # ollama generates one token per response
                 if resp["done"]:
-                    token_count = resp.get("prompt_eval_count", 0) + resp.get(
-                        "eval_count", 0)
+                    token_count = resp.get("prompt_eval_count", 0) + resp.get("eval_count", 0)
                     yield token_count
                 yield resp["message"]["content"]
         except Exception as e:
@@ -152,9 +149,7 @@ class OllamaChat(ChatModel):
         est_token_num = estimate_token_num(prompt)[0]
         if est_token_num > config.MAX_TOKEN_NUM:
             truncate_ratio = float(config.MAX_TOKEN_NUM / est_token_num)
-            logging.info(
-                f'estimated token num exceed max token num, prompt byte num: {len(prompt)}, truncated by ratio: {truncate_ratio}'
-            )
+            logging.info(f'estimated token num exceed max token num, prompt byte num: {len(prompt)}, truncated by ratio: {truncate_ratio}')
             prompt = prompt[:int(len(prompt) * truncate_ratio)]
             logging.info(f'truncated byte num: {len(prompt)}')
 
@@ -176,10 +171,7 @@ class OllamaChat(ChatModel):
             options["frequency_penalty"] = gen_conf["frequency_penalty"]
 
         try:
-            response = self.client.chat(model=self.model_name,
-                                        messages=history,
-                                        options=options,
-                                        keep_alive=10)
+            response = self.client.chat(model=self.model_name, messages=history, options=options, keep_alive=10)
         except Exception as e:
             return f"Exception: {e}"
 

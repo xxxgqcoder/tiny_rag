@@ -167,8 +167,7 @@ def parse_user_instruct(user_input: str):
 /exit: exit and save conversation as json.
 """)
     elif user_input == '/exit':
-        os.makedirs(os.path.dirname(config.CONVERSATION_SAVE_PATH),
-                    exist_ok=True)
+        os.makedirs(os.path.dirname(config.CONVERSATION_SAVE_PATH), exist_ok=True)
 
         if len(conversation['history']) >= 2:
             with open(config.CONVERSATION_SAVE_PATH, 'w+') as f:
@@ -192,9 +191,7 @@ def run_chat():
         try:
             # get user input
             is_generating = False
-            user_input = prompt(">>",
-                                multiline=True,
-                                placeholder=input_placeholder)
+            user_input = prompt(">>", multiline=True, placeholder=input_placeholder)
             parse_user_instruct(user_input=user_input)
 
         except KeyboardInterrupt:
