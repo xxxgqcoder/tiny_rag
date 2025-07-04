@@ -109,7 +109,7 @@ def process_new_file(file_path: str) -> Dict[str, bool]:
             prompt=prompt,
             gen_conf=config.CHAT_GEN_CONF,
         )
-        chunk.content += f"\n\n\n\n<summary>{summary}</summary>".encode('utf-8')
+        chunk.content += f"\n\n\n\n<summary>{summary}</summary>".encode('utf-8', errors='ignore')
 
     # save parsed chunks into vector db
     failed_chunks = []
