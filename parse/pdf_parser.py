@@ -299,8 +299,8 @@ class PDFParser(Parser):
         return [Chunk(
             content_type=ChunkType.TEXT,
             file_name=self.file_name,
-            content=content.encode('utf-8'),
-            extra_description=''.encode('utf-8'),
+            content=content.encode('utf-8', errors="ignore"),
+            extra_description=''.encode('utf-8', errors="ignore"),
         )]
 
     def process_image_blocks(
@@ -338,7 +338,7 @@ class PDFParser(Parser):
                 content_type=ChunkType.IMAGE,
                 file_name=self.file_name,
                 content=_load_image(abs_img_path),
-                extra_description=(extra_description).encode('utf-8'),
+                extra_description=(extra_description).encode('utf-8', errors="ignore"),
                 content_url=os.path.join(asset_save_dir, os.path.basename(abs_img_path)),
             )
             chunks.append(chunk)
@@ -364,8 +364,8 @@ class PDFParser(Parser):
             chunk = Chunk(
                 content_type=ChunkType.TABLE,
                 file_name=self.file_name,
-                content=block['table_body'].encode('utf-8'),
-                extra_description=(extra_description).encode('utf-8'),
+                content=block['table_body'].encode('utf-8', errors="ignore"),
+                extra_description=(extra_description).encode('utf-8', errors="ignore"),
             )
             chunks.append(chunk)
 

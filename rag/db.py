@@ -187,8 +187,8 @@ class MilvusLiteDB(VectorDB):
             chunk = Chunk(
                 content_type=content_type,
                 file_name=file_name,
-                content=content.encode('utf-8') if content_type in [config.ChunkType.TEXT] else "".encode("utf-8"),
-                extra_description=content.encode('utf-8') if content_type not in [config.ChunkType.TEXT] else "".encode("utf-8"),
+                content=content.encode('utf-8', errors='ignore') if content_type in [config.ChunkType.TEXT] else "".encode("utf-8"),
+                extra_description=content.encode('utf-8', errors='ignore') if content_type not in [config.ChunkType.TEXT] else "".encode("utf-8"),
                 content_url=content_url,
             )
             # NOTE: set uuid instead of auto generating
