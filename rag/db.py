@@ -53,7 +53,7 @@ class VectorDB(ABC):
         raise NotImplementedError("Not implemented")
 
     @abstractmethod
-    def get(self, keys: list[str]) -> list[Any]:
+    def get(self, keys: list[str]) -> list[Chunk]:
         """
         Get records.
 
@@ -63,7 +63,7 @@ class VectorDB(ABC):
         raise NotImplementedError("Not implemented")
 
     @abstractmethod
-    def search(self, query: str, params: Dict[str, Any]) -> list[Dict[str, Any]]:
+    def search(self, query: str, params: Dict[str, Any]) -> list[Chunk]:
         raise NotImplementedError("Not implemented")
 
 
@@ -204,7 +204,33 @@ class MilvusLiteDB(VectorDB):
             ids=keys,
             output_fields=['uuid', 'content', 'meta'],
         )
-        return res
+
+        ret_chunks = []
+        for ret in res:
+            meta = ret['meta']
+            try:
+                meta = json.loads(meta)
+            except json.JSONDecodeError:
+                meta = {}
+
+            content_type = meta.get('content_type', 'text')
+            content_type = config.ChunkType(content_type)
+            file_name = meta.get('file_name', '')
+            content_url = meta.get('content_url', '')
+            content = ret.get('content', '')
+            uuid = ret.get('uuid', '')
+            chunk = Chunk(
+                content_type=content_type,
+                file_name=file_name,
+                content=content.encode('utf-8', errors='ignore') if content_type in [config.ChunkType.TEXT] else "".encode("utf-8"),
+                extra_description=content.encode('utf-8', errors='ignore') if content_type not in [config.ChunkType.TEXT] else "".encode("utf-8"),
+                content_url=content_url,
+            )
+            # NOTE: set uuid instead of auto generating
+            chunk.uuid = uuid
+            ret_chunks.append(chunk)
+
+        return ret_chunks
 
 
 @run_once
