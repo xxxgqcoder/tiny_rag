@@ -9,12 +9,13 @@ from flask import (
     request,
     Blueprint,
     Response,
+    jsonify,
 )
 
 import config
 from .llm import get_chat_model
 from .db import get_vector_db
-from parse.parser import Chunk
+from parse.parser import Chunk, ChunkType
 from utils import estimate_token_num
 
 bp = Blueprint('rag', __name__, url_prefix='/')
@@ -232,3 +233,54 @@ def chat_completion():
     resp.headers.add_header("X-Accel-Buffering", "no")
     resp.headers.add_header("Content-Type", "text/event-stream; charset=utf-8")
     return resp
+
+
+@bp.route('/search', methods=['POST'])
+def search():
+    """
+    Input json:
+
+    Output json:
+    - `code`: 0 for success.
+    - `message`: error message if any.
+    - `data`: data payload
+    """
+    logging.info(f'**DEBUG** search: request={request}')
+    logging.info(f'**DEBUG** search: request.json={json.dumps(request.json, indent=4, ensure_ascii=False)}')
+
+    vector_db = get_vector_db()
+
+    req = request.json
+    query = req['query']
+    if query.get('uuid', None):
+        uuids = query.get('uuid')
+        ret_chunks = vector_db.get(keys=uuids)
+    elif query.get('question', None):
+        question = query.get('question')
+        ret_chunks = vector_db.search(query=question, params={'limit': 4})
+
+    response = {
+        'code': 0,
+        'data': [],
+    }
+    for chunk in ret_chunks:
+        if chunk.content_type in ChunkType.TEXT:
+            response['data'].append({
+                'uuid': chunk.uuid,
+                'file_name': chunk.file_name,
+                'content': chunk.content.decode('utf-8'),
+                'content_type': str(chunk.content_type),
+                'content_url': format_host_url(chunk.content_url) if chunk.content_url else "",
+            })
+        else:
+            response['data'].append({
+                'uuid': chunk.uuid,
+                'file_name': chunk.file_name,
+                'content': chunk.extra_description.decode('utf-8'),
+                'content_type': str(chunk.content_type),
+                'content_url': format_host_url(chunk.content_url) if chunk.content_url else "",
+            })
+
+    logging.info(f'search response: {json.dumps(response, indent=4)}')
+
+    return jsonify(response)
