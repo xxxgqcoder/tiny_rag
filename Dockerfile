@@ -61,6 +61,7 @@ COPY config.py .
 COPY utils.py .
 COPY start_server.py .
 COPY chat.py .
+COPY search_debug.py .
 
 COPY notebooks .
 
