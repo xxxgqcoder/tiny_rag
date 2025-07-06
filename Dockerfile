@@ -20,6 +20,7 @@ RUN --mount=type=cache,id=tiny_rag_apt,target=/var/cache/apt,sharing=locked \
     apt update && \
     apt --no-install-recommends install -y ca-certificates && \
     apt update && \
+    apt install -y default-jdk && \
     apt install -y build-essential && \
     apt install -y python3-pip pipx nginx unzip curl wget git vim less
 
