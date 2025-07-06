@@ -239,11 +239,14 @@ def chat_completion():
 def search():
     """
     Input json:
-
+    - `query`: query content, container one of below keys:
+        - `uuid`: list of uuids.
+        - `question`: user question in natural language.
+        
     Output json:
     - `code`: 0 for success.
     - `message`: error message if any.
-    - `data`: data payload
+    - `data`: data payload, list of returned chunks.
     """
     logging.info(f'**DEBUG** search: request={request}')
     logging.info(f'**DEBUG** search: request.json={json.dumps(request.json, indent=4, ensure_ascii=False)}')
