@@ -145,7 +145,7 @@ def assemble_knowledge_base(chunks: list[Chunk]) -> Tuple[str, Dict[str, Any]]:
 def chat_completion():
     """
     Input json:
-    - `history`: chat history json ojbect:
+    - `history`: chat history json object:
         - `role`: one of `user` / `assistant` / `system`. `user` represents user input,
             `assistant` represents LLM response, `system` represents system context
             setting.
