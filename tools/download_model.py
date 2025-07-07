@@ -116,7 +116,7 @@ def download_mineru_model(project_dir: str):
     # copy model
     target_dir = os.path.join(project_dir, 'assets/MinerU/models')
     shutil.copytree(
-        src=downloaded_model_dir,
+        src=downloaded_model_dir + "/models",
         dst=target_dir,
         dirs_exist_ok=True,
     )
@@ -155,5 +155,5 @@ if __name__ == '__main__':
     download_mineru_model(project_dir)
     print(f'finish downloading MinerU model')
 
-    download_bge_m3_model(project_dir)
-    print(f'finish downloading BGE-M3 model')
+    # download_bge_m3_model(project_dir)
+    # print(f'finish downloading BGE-M3 model')
