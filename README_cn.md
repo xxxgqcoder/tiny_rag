@@ -28,13 +28,13 @@ Tiny RAG 是一个简化版的RAG系统，作为个人知识助手，仅专注�
 - 从源代码构建Docker镜像
 
 ### 拉取预构建的Docker镜像
-一个预构建镜像 xxxggxyz/tiny_rag:0.0.4 已经构建并推送到 Docker Hub。如果您希望快速尝试，可以跳过镜像构建步骤，直接修改配置阶段，进入 启动后端容器 部分。
+一个预构建镜像 xxxggxyz/tiny_rag:latest 已经构建并推送到 Docker Hub。如果您希望快速尝试，可以跳过镜像构建步骤，直接修改配置阶段，进入 启动后端容器 部分。
 
 ### 从源代码构建Docker镜像
 按照以下步骤从源代码构建Docker镜像：
 - 克隆仓库到本地。
 - 下载模型权重：进入本地仓库目录并运行 `python tools/download_model.py`。该Python脚本会使用hugging-face cli从hugging-face下载PDF解析器和嵌入模型权重。你可能需要运行 `huggingface-cli login --token $YOUR_HUGGINGFACE_TOKEN` 来获取访问权限。
-- 构建Docker镜像。运行 `docker build --build-arg NEED_MIRROR=1 -f Dockerfile -t tiny_rag:dev` 来构建Docker镜像。将生成名为 `tiny_rag:dev` 的镜像。可以通过 `docker image ls` 命令查看。
+- 构建Docker镜像。运行 `docker build --build-arg NEED_MIRROR=1 -f Dockerfile -t tiny_rag:dev` 来构建Docker镜像。将生成名为 `tiny_rag:dev` 的镜像。可以通过 `docker image ls` 命令查看构建的镜像文件。
 
 ## 修改配置
 - 配置文件：Tiny RAG容器需要 `env` 和 `docker-compose-macos.yml` 文件。将它们下载到本地。
