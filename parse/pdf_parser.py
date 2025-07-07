@@ -19,15 +19,14 @@ class PDFParser(Parser):
 
     def __init__(self, ):
         super().__init__()
-        """
-        Args:
-        - consecutive_block_num: used in chunking, number of consecutive block to be considered as one chunk.
-        - block_overlap_num: used in chunking, number of overlapped block num between two consecutive chunks.
-        """
+
         with open(config.PDF_PARSER_CONFIG_PATH) as f:
             conf = json.load(f)
 
+        # used in chunking, number of consecutive block to be considered as one chunk.
         self.consecutive_block_num = conf.get('consecutive_block_num', 8)
+
+        # used in chunking, number of overlapped block num between two consecutive chunks.
         self.block_overlap_num = conf.get('block_overlap_num', 3)
 
         logging.info(f"parsr config: {json.dumps(conf, indent=4)}")
@@ -46,57 +45,44 @@ class PDFParser(Parser):
         os.makedirs(asset_save_dir, exist_ok=True)
         self.file_name = os.path.basename(file_path)
 
-        # get content list
+        # get original chunk list
         temp_dir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
-        logging.info(f'asset directory: {temp_dir.name}')
         temp_asset_dir = temp_dir.name
-        # temp_asset_dir = './parsed_assets'
+        logging.info(f'temp asset directory: {temp_asset_dir}')
 
-        content_list = self.parse_pdf_content(
+        chunks = self.parse_pdf_content(
             file_path=file_path,
-            temp_asset_dir=temp_asset_dir,
-        )
-        # with open(os.path.join(temp_asset_dir, 'content_list.pickle'),
-        #           'wb') as f:
-        #     pickle.dump(content_list, f)
-
-        # with open(os.path.join(temp_asset_dir, 'content_list.pickle'),
-        #           'rb') as f:
-        #     print(f'loading content list from {temp_asset_dir}')
-        #     content_list = pickle.load(f)
-
-        filtered_content_list = []
-        for block in content_list:
-            if not self.is_valid_block(block):
-                logging.info(f'{self.file_name}: invalid block, ignore {block}')
-                continue
-            filtered_content_list.append(block)
-
-        self.content_list = filtered_content_list
-        all_types = sorted(list(set([block['type'] for block in self.content_list])))
-        logging.info(f"all parsed block types: {all_types}")
-
-        # get chunk list
-        chunks = self.chunk(
-            content_list=self.content_list,
             temp_asset_dir=temp_asset_dir,
             asset_save_dir=asset_save_dir,
         )
+        logging.info(f"original chunk num: {len(chunks)}")
 
-        # filter chunks
-        filtered_chunks = self.filter_chunks(chunks)
+        # with open(os.path.join(temp_asset_dir, 'chunks.pickle'), 'wb') as f:
+        #     pickle.dump(chunks, f)
+
+        # with open(os.path.join(temp_asset_dir, 'chunks.pickle'), 'rb') as f:
+        #     print(f'loading content list from {temp_asset_dir}')
+        #     chunks = pickle.load(f)
+
+        self.chunks = self.filter_chunks(chunks)
+        logging.info(f"after filtering, chunk num: {len(self.chunks)}")
+
+        all_types = sorted(list(set([str(chunk.content_type) for chunk in self.chunks])))
+        logging.info(f"all parsed block types: {all_types}")
+
+        # merge chunk list
+        merged_chunks = self.merge_chunk(chunks=self.chunks)
+        logging.info(f'{self.file_name}: total {len(merged_chunks)} chunks ')
 
         temp_dir.cleanup()
-
-        logging.info(f'{self.file_name}: {len(filtered_chunks)} chunks after filtering')
-
-        return filtered_chunks
+        return merged_chunks
 
     def parse_pdf_content(
         self,
         file_path: str,
         temp_asset_dir: str,
-    ) -> list[dict]:
+        asset_save_dir: str,
+    ) -> list[Chunk]:
         """
         Parse PDF content and return content list. The result is a list of json 
         oject representing a pdf content block.
@@ -124,7 +110,7 @@ class PDFParser(Parser):
         https://github.com/opendatalab/MinerU/blob/master/demo/demo.py for more details.
 
         Returns:
-        - A list of parsed content block dict.
+        - A list of parsed chunk.
         """
         # NOTE: magic_pdf package uses singleton design and the model isntance is
         # initialized when the module is imported, so postpone the import statement
@@ -213,104 +199,7 @@ class PDFParser(Parser):
             json.dumps(model_json, ensure_ascii=False, indent=4),
         )
 
-        return content_list
-
-    def chunk(
-        self,
-        content_list: list[dict],
-        temp_asset_dir: str,
-        asset_save_dir: str,
-    ) -> Chunk:
-        """
-        Chunk parsed pdf contents.
-
-        Scan `self.consecutive_block_num` consecutive blocks and combine as one
-        chunk.
-        If image / table block is encountered within current consecutive blocks,
-        then make the image / table block as independent chunk and continue scan
-        untile `self.consecutive_block_num` is met.
-
-        Two consecutive chunks have `self.block_overlap_num` overlapped block to
-        ensure semantic coherence.
-
-        Returns:
-        - List of chunks.
-        """
-        chunks = []
-        block_buffer = []
-        i = 0
-        # since we apply overlap,i can not exceed len(content_list) - self.block_overlap_num,
-        # otherwise, infinite loop may happen.
-        while i < len(content_list) - self.block_overlap_num:
-            # inner loop start from current block
-            j = i
-            while j < len(content_list) and len(block_buffer) < self.consecutive_block_num:
-
-                block = content_list[j]
-
-                # text block
-                if block['type'] in ['text', 'equation']:
-                    block_buffer.append(block)
-
-                # image / table block
-                elif block['type'] in ['image', 'table']:
-                    if block['type'] == 'table':
-                        chunks.extend(self.process_table_blocks(
-                            table_blocks=content_list[j:j + 1],
-                            temp_asset_dir=temp_asset_dir,
-                            asset_save_dir=asset_save_dir,
-                        ))
-                    else:
-                        chunks.extend(self.process_image_blocks(
-                            image_blocks=content_list[j:j + 1],
-                            temp_asset_dir=temp_asset_dir,
-                            asset_save_dir=asset_save_dir,
-                        ))
-                else:
-                    pass
-
-                # move one step forward
-                j += 1
-
-            # inner loop ends when j == len(content_list)
-            # or len(block_buffer) == self.consecutive_block_num
-            # generate new chunk if buffer is not empty.
-            if len(block_buffer) > 0:
-                chunks.extend(self.process_text_blocks(
-                    text_blocks=block_buffer,
-                    temp_asset_dir=temp_asset_dir,
-                    asset_save_dir=asset_save_dir,
-                ))
-                block_buffer.clear()
-
-            # start next iteration
-            i = j - self.block_overlap_num
-
-        return chunks
-
-    def process_text_blocks(
-        self,
-        text_blocks: list[dict],
-        temp_asset_dir: str,
-        asset_save_dir: str,
-    ) -> list[Chunk]:
-        texts = [str(block['text']) for block in text_blocks]
-        content = self.strip_text_content(texts)
-        return [Chunk(
-            content_type=ChunkType.TEXT,
-            file_name=self.file_name,
-            content=content.encode('utf-8', errors="ignore"),
-            extra_description=''.encode('utf-8', errors="ignore"),
-        )]
-
-    def process_image_blocks(
-        self,
-        image_blocks: list[dict],
-        temp_asset_dir: str,
-        asset_save_dir: str,
-    ) -> list[Chunk]:
-        from pathlib import Path
-
+        # parse content list to chunks
         def _load_image(p: str) -> bytes:
             with open(p, 'rb') as f:
                 image_bytes = f.read()
@@ -320,56 +209,151 @@ class PDFParser(Parser):
             dst_path = os.path.join(dst_dir, os.path.basename(src_path))
             shutil.copyfile(src_path, dst_path)
 
+        def _is_valid_content(content: Dict[str, Any]) -> bool:
+            """
+            There are corner cases where returned blocks dont contain expected keys 
+            or values are empty.
+
+            Returns:
+            - bool: true if block is valid.
+            """
+            # missing key
+            if 'type' not in content:
+                return False
+            # text / equation
+            if content['type'] in ['text', 'equation']:
+                return 'text' in content
+            # image
+            if content['type'] == 'image':
+                return 'img_path' in content and len(content['img_path']) > 0
+            # table
+            if content['type'] == 'table':
+                return 'table_body' in content
+            return True
+
         chunks = []
-        for block in image_blocks:
-            texts = [
-                str(block.get('img_caption', '')),
-                str(block.get('img_footnote', '')),
-            ]
-            extra_description = self.strip_text_content(texts)
-            if len(extra_description) == 0:
-                extra_description = "no caption for this image"
+        for content in content_list:
+            if not _is_valid_content(content):
+                logging.info(f'invalid content: {json.dumps(content, indent=4)}')
+                continue
 
-            # NOTE: hard coded image path format
-            abs_img_path = os.path.join(temp_asset_dir, str(Path(self.file_name).stem), 'auto', block['img_path'])
-            _save_image(abs_img_path, asset_save_dir)
+            # text content
+            if content['type'] in ['text', 'equation']:
+                text = self.strip_text_content([content['text']])
+                chunks.append(Chunk(
+                    content_type=ChunkType.TEXT,
+                    file_name=self.file_name,
+                    content=text.encode('utf-8', errors="ignore"),
+                    extra_description=''.encode('utf-8', errors="ignore"),
+                ))
 
-            chunk = Chunk(
-                content_type=ChunkType.IMAGE,
-                file_name=self.file_name,
-                content=_load_image(abs_img_path),
-                extra_description=(extra_description).encode('utf-8', errors="ignore"),
-                content_url=os.path.join(asset_save_dir, os.path.basename(abs_img_path)),
-            )
-            chunks.append(chunk)
+            # iamge content
+            elif content['type'] in ['image']:
+                texts = [
+                    str(content.get('img_caption', '')),
+                    str(content.get('img_footnote', '')),
+                ]
+                extra_description = self.strip_text_content(texts)
+                if len(extra_description) == 0:
+                    extra_description = "no caption for this image"
+
+                # NOTE: hard coded image path format
+                abs_img_path = os.path.join(temp_asset_dir, str(Path(self.file_name).stem), 'auto', content['img_path'])
+                _save_image(abs_img_path, asset_save_dir)
+
+                chunk = Chunk(
+                    content_type=ChunkType.IMAGE,
+                    file_name=self.file_name,
+                    content=_load_image(abs_img_path),
+                    extra_description=(extra_description).encode('utf-8', errors="ignore"),
+                    content_url=os.path.join(asset_save_dir, os.path.basename(abs_img_path)),
+                )
+                chunks.append(chunk)
+
+            # table content
+            elif content['type'] in ['table']:
+                texts = [
+                    str(content.get('table_caption', '')),
+                    str(content.get('table_footnote', '')),
+                ]
+                extra_description = self.strip_text_content(texts)
+                if len(extra_description) == 0:
+                    extra_description = "no caption for this table"
+
+                abs_img_path = os.path.join(temp_asset_dir, str(Path(self.file_name).stem), 'auto', content['img_path'])
+                if content['img_path']:
+                    _save_image(abs_img_path, asset_save_dir)
+
+                chunk = Chunk(
+                    content_type=ChunkType.TABLE,
+                    file_name=self.file_name,
+                    content=content['table_body'].encode('utf-8', errors="ignore"),
+                    extra_description=(extra_description).encode('utf-8', errors="ignore"),
+                    content_url=os.path.join(asset_save_dir, os.path.basename(abs_img_path)) if content['img_path'] else None,
+                )
+                chunks.append(chunk)
+            else:
+                pass
 
         return chunks
 
-    def process_table_blocks(
-        self,
-        table_blocks: list[dict],
-        temp_asset_dir: str,
-        asset_save_dir: str,
-    ) -> list[Chunk]:
-        chunks = []
-        for block in table_blocks:
-            texts = [
-                str(block.get('table_caption', '')),
-                str(block.get('table_footnote', '')),
-            ]
-            extra_description = self.strip_text_content(texts)
-            if len(extra_description) == 0:
-                extra_description = "no caption for this table"
+    def merge_chunk(self, chunks: list[Chunk]) -> Chunk:
+        """
+        Chunk parsed pdf contents.
 
-            chunk = Chunk(
-                content_type=ChunkType.TABLE,
-                file_name=self.file_name,
-                content=block['table_body'].encode('utf-8', errors="ignore"),
-                extra_description=(extra_description).encode('utf-8', errors="ignore"),
-            )
-            chunks.append(chunk)
+        Scan `self.consecutive_block_num` consecutive chunk and combine as one
+        chunk.
+        If image / table chunk is encountered within current consecutive chunks,
+        then make the image / table chunk as independent chunk and continue scan
+        until `self.consecutive_block_num` is met.
 
-        return chunks
+        Two consecutive merged chunks have `self.block_overlap_num` overlapped chunk to
+        ensure semantic coherence.
+
+        Returns:
+        - List of chunks.
+        """
+        merged_chunks = []
+        chunk_buffer = []
+        i = 0
+        # since we apply overlap,i can not exceed len(chunks) - self.block_overlap_num,
+        # otherwise, infinite loop may happen.
+        while i < len(chunks) - self.block_overlap_num:
+            # inner loop start from current chunk
+            j = i
+            while j < len(chunks) and len(chunk_buffer) < self.consecutive_block_num:
+                chunk = chunks[j]
+
+                # text chunk
+                if chunk.content_type in [ChunkType.TEXT]:
+                    chunk_buffer.append(chunk)
+                # image / table chunk
+                elif chunk.content_type in [ChunkType.IMAGE, ChunkType.TABLE]:
+                    merged_chunks.append(chunk)
+                else:
+                    pass
+
+                # move one step forward
+                j += 1
+
+            # inner loop ends when j == len(chunks) or len(block_buffer) == self.consecutive_block_num
+            # generate new chunk if buffer is not empty.
+            if len(chunk_buffer) > 0:
+                texts = [chunk.content.decode('utf-8') for chunk in chunk_buffer]
+                texts = "\n\n".join(texts)
+                new_chunk = Chunk(
+                    content_type=ChunkType.TEXT,
+                    file_name=self.file_name,
+                    content=texts.encode('utf-8', errors="ignore"),
+                    extra_description=''.encode('utf-8', errors="ignore"),
+                )
+                merged_chunks.append(new_chunk)
+                chunk_buffer.clear()
+
+            # start next iteration
+            i = j - self.block_overlap_num
+
+        return merged_chunks
 
     def filter_chunks(self, chunks: list[Chunk]) -> list[Chunk]:
         """
@@ -381,7 +365,7 @@ class PDFParser(Parser):
             if chunk.content_type != config.ChunkType.TEXT:
                 content = chunk.extra_description
             content = safe_strip(content.decode('utf-8'))
-            if len(content) < 8 or len(content.split()) < 3:
+            if len(content) < 1:
                 logging.info(f'{self.file_name}: remove chunk due to too short content: {str(chunk)}')
                 continue
 
@@ -401,29 +385,3 @@ class PDFParser(Parser):
             content += striped
             content += "\n\n"
         return content.strip()
-
-    def is_valid_block(self, block: Dict[str, Any]) -> bool:
-        """
-        There are corner cases where returned blocks dont contain expected keys 
-        or values are empty.
-
-        Returns:
-        - bool: true if block is valid.
-        """
-        # missing key
-        if 'type' not in block:
-            return False
-
-        # text / equation
-        if block['type'] in ['text', 'equation']:
-            return 'text' in block
-
-        # image
-        if block['type'] == 'image':
-            return 'img_path' in block and len(block['img_path']) > 0
-
-        # table
-        if block['type'] == 'table':
-            return 'table_body' in block
-
-        return True

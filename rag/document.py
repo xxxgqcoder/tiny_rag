@@ -81,7 +81,7 @@ def process_new_file(file_path: str) -> Dict[str, bool]:
     if stored_content_hash == file_content_hash:
         logging.info(f'{file_path}: content hash ({file_content_hash}) unchanged, ignore')
         return
-    logging.info(f'{file_path}: file content chnaged or new file')
+    logging.info(f'{file_path}: file content changed or new file')
 
     # delete document record if any
     process_delete_file(file_path=file_path)
