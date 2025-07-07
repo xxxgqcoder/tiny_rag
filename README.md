@@ -2,7 +2,7 @@
 Tiny RAG is a simplified LLM base RAG, which acts as personal knowledge assistance and focus only on core logic of an RAG system.
 
 Key features 
-1. Local directory based kowledge file management. All knowledge base files are stored in local file folder. Tiny RAG monitors local file directory and once file created / deleted, Tiny RAG will automatically digest and delete corresponding content.
+1. Local directory based knowledge file management. All knowledge base files are stored in local file folder. Tiny RAG monitors local file directory and once file created / deleted, Tiny RAG will automatically digest and delete corresponding content.
 2. Advanced PDF parser library used. Tiny RAG adopts [`MinerU`](https://github.com/opendatalab/MinerU) for pdf parsing.
 3. Use [`Milvus`](https://milvus.io/) as vector db for fast and hybird (dense vector and key-word matching combined) content retrival.
 4. Leverage local [`ollama`](https://ollama.com/) LLM for conversation.
