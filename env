@@ -3,7 +3,7 @@
 # per line. Do not remove existing variables.
 
 # image version to use
-IMAGE=tiny_rag:dev
+IMAGE=xxxggxyz/tiny_rag:latest
 
 # ============================================================================ #
 # rag data
