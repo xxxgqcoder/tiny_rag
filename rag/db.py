@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from strenum import StrEnum
 
 import config
-from utils import singleton, run_once
+from utils import singleton, run_once, time_it
 from . import get_embed_model
 from parse.parser import Chunk
 
@@ -75,6 +75,7 @@ class MilvusLiteDB(VectorDB):
         from pymilvus import MilvusClient
         self.client = MilvusClient(conn_url)
 
+    @time_it
     def insert(self, data: Chunk) -> int:
         # embed chunks
         embed_model = get_embed_model(name=config.EMBED_MODEL_NAME)
@@ -106,7 +107,8 @@ class MilvusLiteDB(VectorDB):
         stats = self.client.upsert(self.collection_name, record)
         logging.info(f'insert stats: {stats}')
         return stats['upsert_count']
-
+    
+    @time_it
     def delete(self, keys: list[str]) -> Any:
         stats = self.client.delete(
             collection_name=self.collection_name,
@@ -115,6 +117,7 @@ class MilvusLiteDB(VectorDB):
         logging.info(f'delete stats: {stats}')
         return len(stats)
 
+    @time_it
     def search(
         self,
         query: str,
@@ -198,6 +201,7 @@ class MilvusLiteDB(VectorDB):
 
         return ret
 
+    @time_it
     def get(self, keys: list[str]) -> list[Any]:
         res = self.client.get(
             collection_name=self.collection_name,
@@ -378,6 +382,7 @@ class SQLiteDB(RationalDB):
         for k, v in kwargs.items():
             setattr(self, k, v)
 
+    @time_it
     def insert_document(self, data: Dict[str, Any]) -> int:
         import sqlite3
         cur = self.conn.cursor()
@@ -427,7 +432,8 @@ class SQLiteDB(RationalDB):
             return 0
         finally:
             return 1
-
+    
+    @time_it
     def get_document(self, name: str) -> Dict[str, Any]:
         """
         Return document record with below keys:
@@ -451,6 +457,7 @@ class SQLiteDB(RationalDB):
             'content_hash': res[4],
         }
 
+    @time_it
     def delete_document(self, name: str) -> int:
         import sqlite3
 
