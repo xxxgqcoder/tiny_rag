@@ -4,8 +4,6 @@ import requests
 import json
 from typing import Any
 
-from huggingface_hub import snapshot_download
-
 from huggingface_hub import snapshot_download as hf_snapshot_download
 from modelscope import snapshot_download as ms_snapshot_download
 from mineru.utils.enum_class import ModelPath
@@ -62,40 +60,6 @@ def download_json(url: str) -> Any:
     return response.json()
 
 
-def download_bge_m3_model(project_dir: str):
-    patterns = [
-        "*.pt",
-        "*.json",
-        "*.bin",
-        "*.model",
-    ]
-    model_dir = snapshot_download(
-        'BAAI/bge-m3',
-        allow_patterns=patterns,
-        ignore_patterns=['*onnx*'],
-    )
-    print(f'donwloaded model_dir is: {model_dir}')
-
-    # copy model
-    target_dir = os.path.join(project_dir, 'assets/bge-m3/models')
-    shutil.copytree(
-        src=model_dir,
-        dst=target_dir,
-        dirs_exist_ok=True,
-    )
-    print(f'copy model from {model_dir} to {target_dir}')
-
-    # save json config
-    config_file_name = 'bge-m3.json'
-    config_file = os.path.join(project_dir, "assets/bge-m3", config_file_name)
-    config = {
-        "model_name_or_path": "<project_root_dir>/assets/bge-m3/models",
-    }
-    with open(config_file, 'w', encoding='utf-8') as f:
-        json.dump(config, f, ensure_ascii=False, indent=4)
-    print(f'MinerU config save to {config_file}')
-
-
 def download_mineru_model(project_dir: str):
     # donwnload model
     model_paths = [
@@ -147,6 +111,42 @@ def download_mineru_model(project_dir: str):
         print(f'save modified config file to path: {config_filep_path}')
 
 
+def download_bge_m3_model(project_dir: str):
+    from huggingface_hub import snapshot_download
+
+    patterns = [
+        "*.pt",
+        "*.json",
+        "*.bin",
+        "*.model",
+    ]
+    model_dir = snapshot_download(
+        'BAAI/bge-m3',
+        allow_patterns=patterns,
+        ignore_patterns=['*onnx*'],
+    )
+    print(f'donwloaded model_dir is: {model_dir}')
+
+    # copy model
+    target_dir = os.path.join(project_dir, 'assets/bge-m3/models')
+    shutil.copytree(
+        src=model_dir,
+        dst=target_dir,
+        dirs_exist_ok=True,
+    )
+    print(f'copy model from {model_dir} to {target_dir}')
+
+    # save json config
+    config_file_name = 'bge-m3.json'
+    config_file = os.path.join(project_dir, "assets/bge-m3", config_file_name)
+    config = {
+        "model_name_or_path": "<project_root_dir>/assets/bge-m3/models",
+    }
+    with open(config_file, 'w', encoding='utf-8') as f:
+        json.dump(config, f, ensure_ascii=False, indent=4)
+    print(f'MinerU config save to {config_file}')
+
+
 if __name__ == '__main__':
     file_dir = os.path.abspath(os.path.dirname(os.path.realpath(__file__)))
     project_dir = os.path.realpath(file_dir + "/..")
@@ -155,5 +155,5 @@ if __name__ == '__main__':
     download_mineru_model(project_dir)
     print(f'finish downloading MinerU model')
 
-    # download_bge_m3_model(project_dir)
-    # print(f'finish downloading BGE-M3 model')
+    download_bge_m3_model(project_dir)
+    print(f'finish downloading BGE-M3 model')
