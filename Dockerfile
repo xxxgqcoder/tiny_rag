@@ -47,7 +47,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 COPY requirements.txt .
 RUN --mount=type=cache,id=tiny_rag_pip,target=/root/.cache/pip,sharing=locked \
     if [ "$NEED_MIRROR" == "1" ]; then \
-        pip3 config set global.index-url https://mirrors.aliyun.com/pypi/simple && \
+        pip3 config set global.index-url https://mirrors.aliyun.com/pypi/simple; \
         pip3 config set global.trusted-host mirrors.aliyun.com; \
     fi; \
     pip3 install -r requirements.txt

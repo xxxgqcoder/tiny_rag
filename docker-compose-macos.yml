@@ -11,7 +11,7 @@ services:
       - tiny_rag_data:${RAG_DATA_DIR:-/var/share/tiny_rag_data}
     env_file: env
     environment:
-      - TZ=${TIMEZONE}
+      - TZ=${TIMEZONE:-Asia/Shanghai}
       - RAG_FILE_DIR=/var/share/tiny_rag_files # NOTE: knowledge dir used within container, regular user donot change it.
     networks:
       - tiny_rag
