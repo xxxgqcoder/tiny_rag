@@ -120,10 +120,10 @@ def assemble_knowledge_base(chunks: list[Chunk]) -> Tuple[str, Dict[str, Any]]:
             else:
                 content = chunk.extra_description.decode('utf-8')
 
-            knowledge_base.append(f"ID:{chunk_idx}\n{content}")
-
             # trim llm summary
             content = re.sub(r"<summary>[.\s\S]*</summary>", "", content)
+            knowledge_base.append(f"ID:{chunk_idx}\n{content}")
+            
             tokens = estimate_token_num(content)[-1]
 
             refid2meta[chunk_idx] = {
@@ -175,6 +175,7 @@ def chat_completion():
 
     message = [{'role': m['role'], 'content': m['content']} for m in history if m['role'] != 'system']
 
+    # get last 3 questions and query db to fetch related chunks, assemble the chunks as system kwnowledge base
     user_questions = [m['content'] for m in message if m['role'] == 'user'][-3:]
     chunks = []
     for question in user_questions:
