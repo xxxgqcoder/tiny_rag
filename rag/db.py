@@ -107,7 +107,7 @@ class MilvusLiteDB(VectorDB):
         stats = self.client.upsert(self.collection_name, record)
         logging.info(f'insert stats: {stats}')
         return stats['upsert_count']
-    
+
     @time_it
     def delete(self, keys: list[str]) -> Any:
         stats = self.client.delete(
@@ -432,7 +432,7 @@ class SQLiteDB(RationalDB):
             return 0
         finally:
             return 1
-    
+
     @time_it
     def get_document(self, name: str) -> Dict[str, Any]:
         """

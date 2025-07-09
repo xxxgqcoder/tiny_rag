@@ -123,7 +123,7 @@ def assemble_knowledge_base(chunks: list[Chunk]) -> Tuple[str, Dict[str, Any]]:
             knowledge_base.append(f"ID:{chunk_idx}\n{content}")
 
             # trim llm summary
-            content = re.sub("<summary>.*</summary>", "", content)
+            content = re.sub(r"<summary>[.\s\S]*</summary>", "", content)
             tokens = estimate_token_num(content)[-1]
 
             refid2meta[chunk_idx] = {
