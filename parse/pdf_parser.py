@@ -40,11 +40,11 @@ class PDFParser(Parser):
         # MinerU defaults to load model weight from huggingface cache dir, move model weights to it.
         hf_cache_dir = os.path.join(os.path.expanduser('~'), '.cache/huggingface/hub')
         minuer_config = None
-        with open(config.PDF_PARSER_CONFIG_PATH, 'r')  as f:
+        with open(config.PDF_PARSER_CONFIG_PATH, 'r') as f:
             minuer_config = json.load(f)
         model_dir = minuer_config['models-dir']['pipeline']
         logging.info(f'MinerU original model directory: {model_dir}')
-        
+
         repo_name = [p for p in os.listdir(model_dir) if os.path.isdir(os.path.join(model_dir, p))][0]
         logging.info(f'MinerU repo name: {repo_name}')
 
@@ -249,7 +249,7 @@ class PDFParser(Parser):
             if content['type'] == 'table':
                 return 'table_body' in content
             return True
-        
+
         def _format_caption(caption: Any) -> str:
             """
             Format caption as text.
