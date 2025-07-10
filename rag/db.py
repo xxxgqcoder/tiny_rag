@@ -11,7 +11,7 @@ from strenum import StrEnum
 import config
 from utils import singleton, run_once, time_it
 from . import get_embed_model
-from parse.parser import Chunk
+from parse.parser import Chunk, ChunkType
 
 
 class VectorDB(ABC):
@@ -81,7 +81,7 @@ class MilvusLiteDB(VectorDB):
         embed_model = get_embed_model(name=config.EMBED_MODEL_NAME)
         content = data.content
 
-        if data.content_type != config.ChunkType.TEXT:
+        if data.content_type != ChunkType.TEXT:
             content = data.extra_description
         content = content.decode('utf-8')
 
@@ -89,9 +89,9 @@ class MilvusLiteDB(VectorDB):
             'file_name': data.file_name,
             'content_type': str(data.content_type),
         }
-        if data.content_type == config.ChunkType.IMAGE:
+        if data.content_type == ChunkType.IMAGE:
             meta['content_url'] = data.content_url
-        if data.content_type == config.ChunkType.TABLE:
+        if data.content_type == ChunkType.TABLE:
             meta['table_content'] = data.content.decode('utf-8')
 
         embeddings = embed_model.encode([content])
@@ -182,7 +182,7 @@ class MilvusLiteDB(VectorDB):
                 meta = {}
 
             content_type = meta.get('content_type', 'text')
-            content_type = config.ChunkType(content_type)
+            content_type = ChunkType(content_type)
             file_name = meta.get('file_name', '')
             content_url = meta.get('content_url', '')
             content = entity.get('content', '')
@@ -190,8 +190,8 @@ class MilvusLiteDB(VectorDB):
             chunk = Chunk(
                 content_type=content_type,
                 file_name=file_name,
-                content=content.encode('utf-8', errors='ignore') if content_type in [config.ChunkType.TEXT] else "".encode("utf-8"),
-                extra_description=content.encode('utf-8', errors='ignore') if content_type not in [config.ChunkType.TEXT] else "".encode("utf-8"),
+                content=content.encode('utf-8', errors='ignore') if content_type in [ChunkType.TEXT] else "".encode("utf-8"),
+                extra_description=content.encode('utf-8', errors='ignore') if content_type not in [ChunkType.TEXT] else "".encode("utf-8"),
                 content_url=content_url,
             )
             # NOTE: set uuid instead of auto generating
@@ -218,7 +218,7 @@ class MilvusLiteDB(VectorDB):
                 meta = {}
 
             content_type = meta.get('content_type', 'text')
-            content_type = config.ChunkType(content_type)
+            content_type = ChunkType(content_type)
             file_name = meta.get('file_name', '')
             content_url = meta.get('content_url', '')
             content = ret.get('content', '')
@@ -226,8 +226,8 @@ class MilvusLiteDB(VectorDB):
             chunk = Chunk(
                 content_type=content_type,
                 file_name=file_name,
-                content=content.encode('utf-8', errors='ignore') if content_type in [config.ChunkType.TEXT] else "".encode("utf-8"),
-                extra_description=content.encode('utf-8', errors='ignore') if content_type not in [config.ChunkType.TEXT] else "".encode("utf-8"),
+                content=content.encode('utf-8', errors='ignore') if content_type in [ChunkType.TEXT] else "".encode("utf-8"),
+                extra_description=content.encode('utf-8', errors='ignore') if content_type not in [ChunkType.TEXT] else "".encode("utf-8"),
                 content_url=content_url,
             )
             # NOTE: set uuid instead of auto generating

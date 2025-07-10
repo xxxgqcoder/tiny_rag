@@ -10,6 +10,7 @@ import watchdog.events as events
 from watchdog.events import FileSystemEventHandler, FileSystemEvent
 
 import config
+from parse.parser import ChunkType
 from utils import now_in_utc, get_hash64, logging_exception, run_once, time_it, estimate_token_num
 from .db import get_vector_db, get_rational_db
 from .llm import get_chat_model
@@ -98,7 +99,7 @@ def process_new_file(file_path: str) -> Dict[str, bool]:
     # add llm summary to chunk
     chat_model = get_chat_model()
     for chunk in chunks:
-        if chunk.content_type != config.ChunkType.TEXT:
+        if chunk.content_type != ChunkType.TEXT:
             continue
         estimated_token_num = estimate_token_num(chunk.content.decode('utf-8'))[0]
         prompt = _prompt_text_summary.format(

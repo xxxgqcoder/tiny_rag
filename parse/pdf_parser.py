@@ -362,7 +362,7 @@ class PDFParser(Parser):
         filtered_chunks = []
         for chunk in chunks:
             content = chunk.content
-            if chunk.content_type != config.ChunkType.TEXT:
+            if chunk.content_type != ChunkType.TEXT:
                 content = chunk.extra_description
             content = safe_strip(content.decode('utf-8'))
             if len(content) < 1:

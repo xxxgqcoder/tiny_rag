@@ -3,7 +3,7 @@ import os
 import json
 import numpy as np
 
-from parse.parser import Chunk
+from parse.parser import Chunk, ChunkType
 
 import config
 
@@ -40,7 +40,7 @@ class TestMilvusDB(unittest.TestCase):
 
         # insert chunk1
         chunk1 = Chunk(
-            content_type=config.ChunkType.TEXT,
+            content_type=ChunkType.TEXT,
             file_name='fake_file_name',
             content='chunk 1'.encode('utf-8'),
             extra_description=''.encode('utf-8'),
@@ -52,7 +52,7 @@ class TestMilvusDB(unittest.TestCase):
 
         # insert chunk2
         chunk2 = Chunk(
-            content_type=config.ChunkType.TEXT,
+            content_type=ChunkType.TEXT,
             file_name='fake_file_name',
             content='chunk 2'.encode('utf-8'),
             extra_description=''.encode('utf-8'),

@@ -1,13 +1,20 @@
 import xxhash
 from strenum import StrEnum
 from abc import ABC, abstractmethod
+from strenum import StrEnum
 
-from config import ChunkType
 from utils import get_hash64
 
 
 class SupportedFileType(StrEnum):
     PDF = "pdf"
+
+
+class ChunkType(StrEnum):
+    TEXT = "text"
+    AUDIO = "audio"
+    IMAGE = "image"
+    TABLE = "table"
 
 
 class Chunk:

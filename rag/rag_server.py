@@ -115,7 +115,7 @@ def assemble_knowledge_base(chunks: list[Chunk]) -> Tuple[str, Dict[str, Any]]:
         knowledge_base.append(f'Relevant fragments as following:{_content_divider}')
         for chunk in chunks:
             content = ""
-            if chunk.content_type in [config.ChunkType.TEXT]:
+            if chunk.content_type in [ChunkType.TEXT]:
                 content = chunk.content.decode('utf-8')
             else:
                 content = chunk.extra_description.decode('utf-8')
@@ -123,7 +123,7 @@ def assemble_knowledge_base(chunks: list[Chunk]) -> Tuple[str, Dict[str, Any]]:
             # trim llm summary
             content = re.sub(r"<summary>[.\s\S]*</summary>", "", content)
             knowledge_base.append(f"ID:{chunk_idx}\n{content}")
-            
+
             tokens = estimate_token_num(content)[-1]
 
             refid2meta[chunk_idx] = {
