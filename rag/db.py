@@ -9,9 +9,9 @@ from abc import ABC, abstractmethod
 from strenum import StrEnum
 
 import config
-from utils import singleton, run_once
+from utils import singleton, run_once, time_it
 from . import get_embed_model
-from parse.parser import Chunk
+from parse.parser import Chunk, ChunkType
 
 
 class VectorDB(ABC):
@@ -75,12 +75,13 @@ class MilvusLiteDB(VectorDB):
         from pymilvus import MilvusClient
         self.client = MilvusClient(conn_url)
 
+    @time_it
     def insert(self, data: Chunk) -> int:
         # embed chunks
         embed_model = get_embed_model(name=config.EMBED_MODEL_NAME)
         content = data.content
 
-        if data.content_type != config.ChunkType.TEXT:
+        if data.content_type != ChunkType.TEXT:
             content = data.extra_description
         content = content.decode('utf-8')
 
@@ -88,9 +89,9 @@ class MilvusLiteDB(VectorDB):
             'file_name': data.file_name,
             'content_type': str(data.content_type),
         }
-        if data.content_type == config.ChunkType.IMAGE:
+        if data.content_type == ChunkType.IMAGE:
             meta['content_url'] = data.content_url
-        if data.content_type == config.ChunkType.TABLE:
+        if data.content_type == ChunkType.TABLE:
             meta['table_content'] = data.content.decode('utf-8')
 
         embeddings = embed_model.encode([content])
@@ -107,6 +108,7 @@ class MilvusLiteDB(VectorDB):
         logging.info(f'insert stats: {stats}')
         return stats['upsert_count']
 
+    @time_it
     def delete(self, keys: list[str]) -> Any:
         stats = self.client.delete(
             collection_name=self.collection_name,
@@ -115,6 +117,7 @@ class MilvusLiteDB(VectorDB):
         logging.info(f'delete stats: {stats}')
         return len(stats)
 
+    @time_it
     def search(
         self,
         query: str,
@@ -179,7 +182,7 @@ class MilvusLiteDB(VectorDB):
                 meta = {}
 
             content_type = meta.get('content_type', 'text')
-            content_type = config.ChunkType(content_type)
+            content_type = ChunkType(content_type)
             file_name = meta.get('file_name', '')
             content_url = meta.get('content_url', '')
             content = entity.get('content', '')
@@ -187,8 +190,8 @@ class MilvusLiteDB(VectorDB):
             chunk = Chunk(
                 content_type=content_type,
                 file_name=file_name,
-                content=content.encode('utf-8', errors='ignore') if content_type in [config.ChunkType.TEXT] else "".encode("utf-8"),
-                extra_description=content.encode('utf-8', errors='ignore') if content_type not in [config.ChunkType.TEXT] else "".encode("utf-8"),
+                content=content.encode('utf-8', errors='ignore') if content_type in [ChunkType.TEXT] else "".encode("utf-8"),
+                extra_description=content.encode('utf-8', errors='ignore') if content_type not in [ChunkType.TEXT] else "".encode("utf-8"),
                 content_url=content_url,
             )
             # NOTE: set uuid instead of auto generating
@@ -198,6 +201,7 @@ class MilvusLiteDB(VectorDB):
 
         return ret
 
+    @time_it
     def get(self, keys: list[str]) -> list[Any]:
         res = self.client.get(
             collection_name=self.collection_name,
@@ -214,7 +218,7 @@ class MilvusLiteDB(VectorDB):
                 meta = {}
 
             content_type = meta.get('content_type', 'text')
-            content_type = config.ChunkType(content_type)
+            content_type = ChunkType(content_type)
             file_name = meta.get('file_name', '')
             content_url = meta.get('content_url', '')
             content = ret.get('content', '')
@@ -222,8 +226,8 @@ class MilvusLiteDB(VectorDB):
             chunk = Chunk(
                 content_type=content_type,
                 file_name=file_name,
-                content=content.encode('utf-8', errors='ignore') if content_type in [config.ChunkType.TEXT] else "".encode("utf-8"),
-                extra_description=content.encode('utf-8', errors='ignore') if content_type not in [config.ChunkType.TEXT] else "".encode("utf-8"),
+                content=content.encode('utf-8', errors='ignore') if content_type in [ChunkType.TEXT] else "".encode("utf-8"),
+                extra_description=content.encode('utf-8', errors='ignore') if content_type not in [ChunkType.TEXT] else "".encode("utf-8"),
                 content_url=content_url,
             )
             # NOTE: set uuid instead of auto generating
@@ -378,6 +382,7 @@ class SQLiteDB(RationalDB):
         for k, v in kwargs.items():
             setattr(self, k, v)
 
+    @time_it
     def insert_document(self, data: Dict[str, Any]) -> int:
         import sqlite3
         cur = self.conn.cursor()
@@ -428,6 +433,7 @@ class SQLiteDB(RationalDB):
         finally:
             return 1
 
+    @time_it
     def get_document(self, name: str) -> Dict[str, Any]:
         """
         Return document record with below keys:
@@ -451,6 +457,7 @@ class SQLiteDB(RationalDB):
             'content_hash': res[4],
         }
 
+    @time_it
     def delete_document(self, name: str) -> int:
         import sqlite3
 

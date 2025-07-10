@@ -13,22 +13,22 @@ class TestPDFParser(unittest.TestCase):
     def test_filter_chunks(self):
         chunks = [
             # keep
-            Chunk(content='text 1: should keep'.encode('utf-8'), file_name='/fake/path', extra_description=''.encode('utf-8'), content_type=config.ChunkType.TEXT),
+            Chunk(content='text 1: should keep'.encode('utf-8'), file_name='/fake/path', extra_description=''.encode('utf-8'), content_type=ChunkType.TEXT),
 
             # rm
-            Chunk(content='text 2'.encode('utf-8'), file_name='/fake/path', extra_description=''.encode('utf-8'), content_type=config.ChunkType.TEXT),
+            Chunk(content='text 2'.encode('utf-8'), file_name='/fake/path', extra_description=''.encode('utf-8'), content_type=ChunkType.TEXT),
 
             # keep
-            Chunk(content=''.encode('utf-8'), file_name='/fake/path', extra_description='image 1: should keep'.encode('utf-8'), content_type=config.ChunkType.IMAGE),
+            Chunk(content=''.encode('utf-8'), file_name='/fake/path', extra_description='image 1: should keep'.encode('utf-8'), content_type=ChunkType.IMAGE),
 
             # rm
-            Chunk(content=''.encode('utf-8'), file_name='/fake/path', extra_description='image 2'.encode('utf-8'), content_type=config.ChunkType.TEXT),
+            Chunk(content=''.encode('utf-8'), file_name='/fake/path', extra_description='image 2'.encode('utf-8'), content_type=ChunkType.TEXT),
 
             # keep
-            Chunk(content=''.encode('utf-8'), file_name='/fake/path', extra_description='table 1: should keep'.encode('utf-8'), content_type=config.ChunkType.TABLE),
+            Chunk(content=''.encode('utf-8'), file_name='/fake/path', extra_description='table 1: should keep'.encode('utf-8'), content_type=ChunkType.TABLE),
 
             # rm
-            Chunk(content=''.encode('utf-8'), file_name='/fake/path', extra_description='table 2'.encode('utf-8'), content_type=config.ChunkType.TABLE),
+            Chunk(content=''.encode('utf-8'), file_name='/fake/path', extra_description='table 2'.encode('utf-8'), content_type=ChunkType.TABLE),
         ]
 
         parser = PDFParser()

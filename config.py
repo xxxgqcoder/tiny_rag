@@ -3,17 +3,8 @@ import logging
 import os
 import json
 import re
-from strenum import StrEnum
 
 from utils import get_project_base_directory, init_root_logger, run_once
-
-
-# ============================================================================ #
-class ChunkType(StrEnum):
-    TEXT = "text"
-    AUDIO = "audio"
-    IMAGE = "image"
-    TABLE = "table"
 
 
 @run_once

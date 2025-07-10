@@ -44,7 +44,7 @@ def get_job_executor():
 def format_reference_info(reference_meta: Dict[str, str], answer: str) -> str:
     formatted_reference_info = "\n\n"
 
-    answer = re.sub(f"<think>.*</think>", "", answer)
+    answer = re.sub(r"<think>[.\S\s]*</think>", "", answer)
 
     reference = re.findall(r"##[0-9]+@@", answer)
     ref_ids = {}

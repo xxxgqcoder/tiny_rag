@@ -21,8 +21,3 @@ CHAT_MODEL_URL=http://host.docker.internal:11434
 
 # the chat model name
 CHAT_MODEL_NAME='qwen3:30b-a3b'
-
-# ============================================================================ #
-# other
-# The local time zone.
-TIMEZONE='Asia/Shanghai'

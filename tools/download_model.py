@@ -3,8 +3,7 @@ import shutil
 import requests
 import json
 from typing import Any
-
-from huggingface_hub import snapshot_download
+from pathlib import Path
 
 from huggingface_hub import snapshot_download as hf_snapshot_download
 from modelscope import snapshot_download as ms_snapshot_download
@@ -62,7 +61,70 @@ def download_json(url: str) -> Any:
     return response.json()
 
 
+def download_mineru_model(project_dir: str):
+    # donwnload model
+    model_paths = [
+        ModelPath.doclayout_yolo,
+        ModelPath.yolo_v8_mfd,
+        ModelPath.unimernet_small,
+        ModelPath.pytorch_paddle,
+        ModelPath.layout_reader,
+        ModelPath.slanet_plus,
+    ]
+    downloaded_model_dir = ""
+    for model_path in model_paths:
+        print(f"downloading model from: {model_path}")
+        downloaded_model_dir = download_model(model_path, repo_mode='pipeline')
+    print(f'donwloaded model path: {downloaded_model_dir}')
+
+    # parse repo name
+    hf_cache_dir = os.path.join(os.path.expanduser('~'), '.cache/huggingface/hub')
+    relative_model_dir = downloaded_model_dir[len(hf_cache_dir):].lstrip('/')
+    path_abs = Path(relative_model_dir)
+    repo_name = path_abs.parts[0]
+    print(f'downloaded repo name: {repo_name}')
+
+    # copy model
+    target_dir = os.path.join(project_dir, 'assets/MinerU/', repo_name)
+    if os.path.exists(target_dir):
+        shutil.rmtree(target_dir)
+    os.makedirs(target_dir, exist_ok=True)
+    shutil.copytree(
+        src=os.path.join(hf_cache_dir, repo_name),
+        dst=target_dir,
+        dirs_exist_ok=True,
+        symlinks=True,
+    )
+    print(f'copy model from {os.path.join(hf_cache_dir, repo_name)} to {target_dir}')
+
+    # modify json config file
+    json_url = 'https://gcore.jsdelivr.net/gh/opendatalab/MinerU@master/mineru.template.json'
+    config_file_name = 'magic-pdf.json'
+    config_filep_path = os.path.join(project_dir, "assets/MinerU", config_file_name)
+    json_modification = {
+        'models-dir': {
+            "pipeline": "<project_root_dir>/assets/MinerU/",
+        },
+        "consecutive_block_num": 8,
+        "block_overlap_num": 3,
+    }
+    data = download_json(json_url)
+
+    for key, value in json_modification.items():
+        if key in data:
+            if isinstance(data[key], dict):
+                data[key].update(value, )
+            else:
+                data[key] = value
+
+    with open(config_filep_path, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=4)
+        print(f'save modified config file to path: {config_filep_path}')
+
+
 def download_bge_m3_model(project_dir: str):
+    from huggingface_hub import snapshot_download
+
     patterns = [
         "*.pt",
         "*.json",
@@ -96,57 +158,6 @@ def download_bge_m3_model(project_dir: str):
     print(f'MinerU config save to {config_file}')
 
 
-def download_mineru_model(project_dir: str):
-    # donwnload model
-    model_paths = [
-        ModelPath.doclayout_yolo,
-        ModelPath.yolo_v8_mfd,
-        ModelPath.unimernet_small,
-        ModelPath.pytorch_paddle,
-        ModelPath.layout_reader,
-        ModelPath.slanet_plus,
-    ]
-    downloaded_model_dir = ""
-    for model_path in model_paths:
-        print(f"downloading model from: {model_path}")
-        downloaded_model_dir = download_model(model_path, repo_mode='pipeline')
-
-    print(f'donwloaded model path: {downloaded_model_dir}')
-
-    # copy model
-    target_dir = os.path.join(project_dir, 'assets/MinerU/models')
-    shutil.copytree(
-        src=downloaded_model_dir + "/models",
-        dst=target_dir,
-        dirs_exist_ok=True,
-    )
-    print(f'copy model from {downloaded_model_dir} to {target_dir}')
-
-    # modify json config file
-    json_url = 'https://gcore.jsdelivr.net/gh/opendatalab/MinerU@master/mineru.template.json'
-    config_file_name = 'magic-pdf.json'
-    config_filep_path = os.path.join(project_dir, "assets/MinerU", config_file_name)
-    json_modification = {
-        'models-dir': {
-            "pipeline": "<project_root_dir>/assets/MinerU/models",
-        },
-        "consecutive_block_num": 8,
-        "block_overlap_num": 3,
-    }
-    data = download_json(json_url)
-
-    for key, value in json_modification.items():
-        if key in data:
-            if isinstance(data[key], dict):
-                data[key].update(value, )
-            else:
-                data[key] = value
-
-    with open(config_filep_path, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=4)
-        print(f'save modified config file to path: {config_filep_path}')
-
-
 if __name__ == '__main__':
     file_dir = os.path.abspath(os.path.dirname(os.path.realpath(__file__)))
     project_dir = os.path.realpath(file_dir + "/..")
@@ -155,5 +166,5 @@ if __name__ == '__main__':
     download_mineru_model(project_dir)
     print(f'finish downloading MinerU model')
 
-    # download_bge_m3_model(project_dir)
-    # print(f'finish downloading BGE-M3 model')
+    download_bge_m3_model(project_dir)
+    print(f'finish downloading BGE-M3 model')
