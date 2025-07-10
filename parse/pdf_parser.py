@@ -249,6 +249,15 @@ class PDFParser(Parser):
             if content['type'] == 'table':
                 return 'table_body' in content
             return True
+        
+        def _format_caption(caption: Any) -> str:
+            """
+            Format caption as text.
+            """
+            if isinstance(caption, list):
+                ret = "\n".join([str(e) for e in caption])
+                return ret
+            return str(caption)
 
         chunks = []
         for content in content_list:
@@ -269,8 +278,8 @@ class PDFParser(Parser):
             # iamge content
             elif content['type'] in ['image']:
                 texts = [
-                    str(content.get('img_caption', '')),
-                    str(content.get('img_footnote', '')),
+                    _format_caption(content.get('img_caption', '')),
+                    _format_caption(content.get('img_footnote', '')),
                 ]
                 extra_description = self.strip_text_content(texts)
                 if len(extra_description) == 0:
@@ -292,8 +301,8 @@ class PDFParser(Parser):
             # table content
             elif content['type'] in ['table']:
                 texts = [
-                    str(content.get('table_caption', '')),
-                    str(content.get('table_footnote', '')),
+                    _format_caption(content.get('table_caption', '')),
+                    _format_caption(content.get('table_footnote', '')),
                 ]
                 extra_description = self.strip_text_content(texts)
                 if len(extra_description) == 0:
