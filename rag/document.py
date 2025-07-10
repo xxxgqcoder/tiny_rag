@@ -105,9 +105,17 @@ def process_new_file(file_path: str) -> Dict[str, bool]:
     for chunk in chunks:
         if chunk.content_type != ChunkType.TEXT:
             continue
-        estimated_token_num = estimate_token_num(chunk.content.decode('utf-8'))[0]
+
+        content = chunk.content.decode('utf-8')
+        estimated_token_num = estimate_token_num(content)[0]
+        if estimated_token_num > config.MAX_TOKEN_NUM:
+            truncate_ratio = float(config.MAX_TOKEN_NUM / estimated_token_num)
+            logging.info(f'estimated token num ({estimated_token_num}) exceed max token num ({config.MAX_TOKEN_NUM}), prompt byte num: {len(content)}, truncated by ratio: {truncate_ratio}')
+            content = content[:int(len(content) * truncate_ratio)]
+            logging.info(f'truncated byte num: {len(content)}')
+
         prompt = _prompt_text_summary.format(
-            content=chunk.content,
+            content=content,
             max_token_num=int(estimated_token_num * 0.1),
         )
         summary = chat_model.instant_chat(
