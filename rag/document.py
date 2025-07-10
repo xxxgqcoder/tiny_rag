@@ -16,9 +16,13 @@ from .db import get_vector_db, get_rational_db
 from .llm import get_chat_model
 
 _prompt_text_summary = """"
-/no_think summarize below content, use no more than {max_token_num} words.
+/no think summarize below content, use no more than {max_token_num} words.
+
+below is the content
 
 {content}
+
+above is the content
 """
 
 _prompt_image_summary = """
