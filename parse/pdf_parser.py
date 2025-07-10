@@ -233,6 +233,15 @@ class PDFParser(Parser):
             if content['type'] == 'table':
                 return 'table_body' in content
             return True
+        
+        def _format_caption(caption: Any) -> str:
+            """
+            Format caption as text.
+            """
+            if isinstance(caption, list):
+                ret = "\n".join([str(e) for e in caption])
+                return ret
+            return str(caption)
 
         def _format_caption(caption: Any) -> str:
             """
