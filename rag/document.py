@@ -228,7 +228,7 @@ def ignore_file(file_path: str):
         return True
 
     # ignore non-supported file postfix
-    postifx = file_name.split('.')[-1]
+    postifx = file_name.rsplit('.', 1)[-1]
     if postifx not in ['pdf', 'docx', 'ppt', 'md', 'txt']:
         return True
 
