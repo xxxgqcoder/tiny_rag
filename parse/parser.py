@@ -53,11 +53,15 @@ class Chunk:
         if self.content_type == ChunkType.TEXT:
             return self.content.decode('utf-8')
         elif self.content_type == ChunkType.IMAGE:
-            return 'content is image, below is the image description:\n' \
-                + self.extra_description.decode('utf-8') \
+            return "content is image.\n\n" \
+                + "below is the image description:\n\n" \
+                + self.extra_description.decode('utf-8') + "\n\n" \
                 + f"content url: {self.content_url}"
         elif self.content_type == ChunkType.TABLE:
-            return self.extra_description.decode('utf-8') \
+            return "content is table.\n\n" \
+                + "below is the table decsription:\n\n" \
+                + self.extra_description.decode('utf-8') + "\n\n" \
+                + "below is table content:\n\n" \
                 + self.content.decode('utf-8')
         else:
             return ""
