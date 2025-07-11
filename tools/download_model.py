@@ -77,25 +77,25 @@ def download_mineru_model(project_dir: str):
         downloaded_model_dir = download_model(model_path, repo_mode='pipeline')
     print(f'donwloaded model path: {downloaded_model_dir}')
 
-    # parse repo name
-    hf_cache_dir = os.path.join(os.path.expanduser('~'), '.cache/huggingface/hub')
-    relative_model_dir = downloaded_model_dir[len(hf_cache_dir):].lstrip('/')
-    path_abs = Path(relative_model_dir)
-    repo_name = path_abs.parts[0]
-    print(f'downloaded repo name: {repo_name}')
+    # # parse repo name
+    # hf_cache_dir = os.path.join(os.path.expanduser('~'), '.cache/huggingface/hub')
+    # relative_model_dir = downloaded_model_dir[len(hf_cache_dir):].lstrip('/')
+    # path_abs = Path(relative_model_dir)
+    # repo_name = path_abs.parts[0]
+    # print(f'downloaded repo name: {repo_name}')
 
     # copy model
-    target_dir = os.path.join(project_dir, 'assets/MinerU/', repo_name)
+    target_dir = os.path.join(project_dir, 'assets/MinerU/')
     if os.path.exists(target_dir):
         shutil.rmtree(target_dir)
     os.makedirs(target_dir, exist_ok=True)
     shutil.copytree(
-        src=os.path.join(hf_cache_dir, repo_name),
+        src=downloaded_model_dir,
         dst=target_dir,
         dirs_exist_ok=True,
-        symlinks=True,
+        symlinks=False,
     )
-    print(f'copy model from {os.path.join(hf_cache_dir, repo_name)} to {target_dir}')
+    print(f'copy model from {downloaded_model_dir} to {target_dir}')
 
     # modify json config file
     json_url = 'https://gcore.jsdelivr.net/gh/opendatalab/MinerU@master/mineru.template.json'
