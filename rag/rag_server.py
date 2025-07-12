@@ -174,10 +174,10 @@ def chat_completion():
     model = get_chat_model()
     vector_db = get_vector_db()
 
-    message = [{'role': m['role'], 'content': m['content']} for m in history if m['role'] != 'system']
+    messages = [{'role': m['role'], 'content': m['content']} for m in history if m['role'] != 'system']
 
     # get last 3 questions and query db to fetch related chunks, assemble the chunks as system kwnowledge base
-    user_questions = [m['content'] for m in message if m['role'] == 'user'][-3:]
+    user_questions = [m['content'] for m in messages if m['role'] == 'user'][-3:]
     chunks = []
     for question in user_questions:
         ret = vector_db.search(query=question, params={'limit': 4})
@@ -192,14 +192,14 @@ def chat_completion():
                 + f'---- {_content_divider} ' \
                 + _promot_citation
 
-    message.insert(0, {'role': 'system', 'content': prompt})
+    messages.insert(0, {'role': 'system', 'content': prompt})
 
     final_ans = ''
 
     def stream():
         nonlocal model, final_ans
         try:
-            for ans in model.chat(history=message, gen_conf=config.CHAT_GEN_CONF):
+            for ans in model.chat(history=messages, gen_conf=config.CHAT_GEN_CONF):
                 if isinstance(ans, int):
                     break
                 # append to previous ans
