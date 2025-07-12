@@ -13,6 +13,7 @@ from flask import (
 )
 
 import config
+from rag.document import get_rational_db
 from .llm import get_chat_model
 from .db import get_vector_db
 from parse.parser import Chunk, ChunkType
@@ -243,6 +244,7 @@ def search():
     - `query`: query content, container one of below keys:
         - `uuid`: list of uuids.
         - `question`: user question in natural language.
+        - `file_name`: file name to search.
         
     Output json:
     - `code`: 0 for success.
@@ -253,21 +255,35 @@ def search():
     logging.info(f'**DEBUG** search: request.json={json.dumps(request.json, indent=4, ensure_ascii=False)}')
 
     vector_db = get_vector_db()
+    sql_db = get_rational_db()
 
     req = request.json
     query = req['query']
+    ret_chunks =  []
     if query.get('uuid', None):
         uuids = query.get('uuid')
         ret_chunks = vector_db.get(keys=uuids)
     elif query.get('question', None):
         question = query.get('question')
         ret_chunks = vector_db.search(query=question, params={'limit': 4})
+    elif query.get('file_name', None):
+        file_name = query.get('file_name')
+        record = sql_db.get_document(name=file_name)
+        if not record:
+            ret_chunks = []
+        else:
+            logging.info(f"get chunk content by id: {record['chunks']}")
+            ret_chunks = vector_db.get(keys=record['chunks'])
+    else:
+        pass
+
 
     response = {
         'code': 0,
         'data': [],
     }
     for chunk in ret_chunks:
+        print(chunk.uuid)
         if chunk.content_type in ChunkType.TEXT:
             response['data'].append({
                 'uuid': chunk.uuid,
@@ -284,7 +300,5 @@ def search():
                 'content_type': str(chunk.content_type),
                 'content_url': format_host_url(chunk.content_url) if chunk.content_url else "",
             })
-
-    logging.info(f'search response: {json.dumps(response, indent=4)}')
 
     return jsonify(response)

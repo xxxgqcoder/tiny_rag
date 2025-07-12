@@ -209,7 +209,7 @@ class MilvusLiteDB(VectorDB):
             output_fields=['uuid', 'content', 'meta'],
         )
 
-        ret_chunks = []
+        all_chunks = {}
         for ret in res:
             meta = ret['meta']
             try:
@@ -232,8 +232,9 @@ class MilvusLiteDB(VectorDB):
             )
             # NOTE: set uuid instead of auto generating
             chunk.uuid = uuid
-            ret_chunks.append(chunk)
+            all_chunks[chunk.uuid] = chunk
 
+        ret_chunks = [all_chunks[uuid] for uuid in keys if uuid in all_chunks]
         return ret_chunks
 
 
