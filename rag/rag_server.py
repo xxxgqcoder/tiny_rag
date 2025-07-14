@@ -259,7 +259,7 @@ def search():
 
     req = request.json
     query = req['query']
-    ret_chunks =  []
+    ret_chunks = []
     if query.get('uuid', None):
         uuids = query.get('uuid')
         ret_chunks = vector_db.get(keys=uuids)
@@ -277,13 +277,11 @@ def search():
     else:
         pass
 
-
     response = {
         'code': 0,
         'data': [],
     }
     for chunk in ret_chunks:
-        print(chunk.uuid)
         if chunk.content_type in ChunkType.TEXT:
             response['data'].append({
                 'uuid': chunk.uuid,

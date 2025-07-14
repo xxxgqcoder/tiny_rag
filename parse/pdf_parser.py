@@ -39,31 +39,6 @@ class PDFParser(Parser):
         os.environ["MINERU_MODEL_SOURCE"] = 'local'
 
         return
-    
-        # # MinerU defaults to load model weight from huggingface cache dir, move model weights to it.
-        # hf_cache_dir = os.path.join(os.path.expanduser('~'), '.cache/huggingface/hub')
-        # if os.path.exists(hf_cache_dir):
-        #     logging.info(f'huggingface cache dir exist, ignore')
-        #     dir_content = os.listdir(hf_cache_dir)
-        #     logging.info(f'huggingface cache dir content: {dir_content}')
-        #     return
-        
-        # minuer_config = None
-        # with open(config.PDF_PARSER_CONFIG_PATH, 'r') as f:
-        #     minuer_config = json.load(f)
-        # model_dir = minuer_config['models-dir']['pipeline']
-        # logging.info(f'MinerU original model directory: {model_dir}')
-
-        # repo_name = [p for p in os.listdir(model_dir) if os.path.isdir(os.path.join(model_dir, p))][0]
-        # logging.info(f'MinerU repo name: {repo_name}')
-
-        # target_dir = hf_cache_dir
-        # os.makedirs(target_dir, exist_ok=True)
-        # shutil.move(
-        #     src=os.path.join(model_dir, repo_name),
-        #     dst=target_dir,
-        # )
-        # logging.info(f'MinerU: finish moving from {os.path.join(model_dir, repo_name)} to {target_dir}')
 
     def parse(
         self,
