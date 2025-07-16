@@ -41,16 +41,6 @@ def init_root_logger(
     logger.setLevel(level=logging.INFO)
     logging.captureWarnings(True)
 
-    #  # log to file
-    # handler1 = RotatingFileHandler(log_path, maxBytes=10 * 1024 * 1024, backupCount=5)
-    # handler1.setFormatter(formatter)
-    # handler1.setLevel(logging.INFO)
-    # logger.addHandler(handler1)
-
-    # logger.setLevel(level=logging.INFO)
-
-    # logging.captureWarnings(True)
-
 
 def safe_strip(d: Any) -> str:
     """
