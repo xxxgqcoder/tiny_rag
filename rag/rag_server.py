@@ -13,26 +13,23 @@ from flask import (
 )
 
 import config
-from rag.document import get_rational_db
-from .llm import get_chat_model
+from .document import get_rational_db
+from .llm import get_chat_model, estimate_token_num, assemble_knowledge_base, format_host_url
 from .db import get_vector_db
 from parse.parser import Chunk, ChunkType
-from utils import estimate_token_num
 
 bp = Blueprint('rag', __name__, url_prefix='/')
 
 _prompt_system = """
-you are a knowledge assistance, please use below knowledge to answer user questions.
+You are a knowledge assistance, please use below knowledge to answer user questions.
 If user questions are not included in knowledge, you must reply with "not found in knowledgebase".
 
 
-Below is the knowledge base
-
+Below is the knowledge base:
 
 {knowledge_base}
 
-
-Above is the knowledge base
+Above is the knowledge base.
 """
 
 _promot_citation = """
@@ -65,7 +62,7 @@ Document: Elon Musk's Tweet Ignites Dogecoin's Future In Public Services
 ID: 3
 The market is heating up after Elon Musk's announcement about Dogecoin. Is this a new era for crypto?...
 
-      The above is the knowledge base.
+The above is the knowledge base.
 
 <USER>: What's the Elon's view on dogecoin?
 
@@ -79,70 +76,6 @@ Overall, while Musk enjoys Dogecoin and often promotes it, he also warns against
 _content_divider = "\n\n"
 
 
-def format_host_url(content_url: str) -> str:
-    if len(content_url) == 0:
-        return None
-    file_name = os.path.basename(content_url)
-    ret = os.path.join(config.HOST_RAG_FILE_DIR, 'tiny_rag_parsed_assets', file_name)
-    return ret
-
-
-def assemble_knowledge_base(chunks: list[Chunk]) -> Tuple[str, Dict[str, Any]]:
-    """
-    Assemble knowledge in chunk and return formatted knowledge base.
-    Returns:
-    - knowledge base: formated knowledge base.
-        format: 
-    - A dict of reference id to chunk meta, key is reference id within current knowledge base.
-    """
-    # dedup chunks
-    deduped_chunk = {}
-    for chunk in chunks:
-        if chunk.uuid not in deduped_chunk:
-            deduped_chunk[chunk.uuid] = chunk
-
-    # document name to chunks mapping
-    document2chunks = {}
-    for _, chunk in deduped_chunk.items():
-        if chunk.file_name not in document2chunks:
-            document2chunks[chunk.file_name] = []
-        document2chunks[chunk.file_name].append(chunk)
-
-    knowledge_base = []
-    chunk_idx = 0  # reference index within current knowledge base
-    refid2meta = {}  # reference index to chunk meta info
-    for file_name, chunks in document2chunks.items():
-        knowledge_base.append(f"Document: {file_name}{_content_divider}")
-        knowledge_base.append(f'Relevant fragments as following:{_content_divider}')
-        for chunk in chunks:
-            content = ""
-            if chunk.content_type in [ChunkType.TEXT]:
-                content = chunk.content.decode('utf-8')
-            else:
-                content = chunk.extra_description.decode('utf-8')
-
-            # trim llm summary
-            content = re.sub(r"<summary>[.\s\S]*</summary>", "", content)
-            knowledge_base.append(f"ID:{chunk_idx}\n{content}")
-
-            tokens = estimate_token_num(content)[-1]
-
-            refid2meta[chunk_idx] = {
-                'uuid': chunk.uuid,
-                'file_name': chunk.file_name,
-                'content_type': chunk.content_type,
-                'content_url': format_host_url(chunk.content_url),
-                'chunk_begin_digest': tokens[:12],
-                'chunk_end_digest': tokens[-12:],
-            }
-
-            chunk_idx += 1
-
-    knowledge_base = _content_divider.join(knowledge_base)
-
-    return knowledge_base, refid2meta
-
-
 @bp.route('/chat_completion', methods=['POST'])
 def chat_completion():
     """
@@ -152,7 +85,6 @@ def chat_completion():
             `assistant` represents LLM response, `system` represents system context
             setting.
         - `content`: the chat message.
-
 
     Output json:
     - `code`: 0 for success.
@@ -189,7 +121,7 @@ def chat_completion():
     logging.info('=' * 120)
 
     prompt = _prompt_system.format(knowledge_base=knowledge_base) \
-                + f'---- {_content_divider} ' \
+                + f"\n{'-' * 8}\n" \
                 + _promot_citation
 
     messages.insert(0, {'role': 'system', 'content': prompt})
@@ -241,10 +173,11 @@ def chat_completion():
 def search():
     """
     Input json:
-    - `query`: query content, container one of below keys:
+    - `query`: query content, contains one of below keys:
         - `uuid`: list of uuids.
         - `question`: user question in natural language.
         - `file_name`: file name to search.
+    - `config`: a dict contains search config.
         
     Output json:
     - `code`: 0 for success.
@@ -258,14 +191,15 @@ def search():
     sql_db = get_rational_db()
 
     req = request.json
-    query = req['query']
+    query = req.get('query', {})
+    config = req.get('config', {'limit': 4})
     ret_chunks = []
     if query.get('uuid', None):
         uuids = query.get('uuid')
         ret_chunks = vector_db.get(keys=uuids)
     elif query.get('question', None):
         question = query.get('question')
-        ret_chunks = vector_db.search(query=question, params={'limit': 4})
+        ret_chunks = vector_db.search(query=question, params=config)
     elif query.get('file_name', None):
         file_name = query.get('file_name')
         record = sql_db.get_document(name=file_name)
@@ -282,21 +216,13 @@ def search():
         'data': [],
     }
     for chunk in ret_chunks:
-        if chunk.content_type in ChunkType.TEXT:
-            response['data'].append({
-                'uuid': chunk.uuid,
-                'file_name': chunk.file_name,
-                'content': chunk.content.decode('utf-8'),
-                'content_type': str(chunk.content_type),
-                'content_url': format_host_url(chunk.content_url) if chunk.content_url else "",
-            })
-        else:
-            response['data'].append({
-                'uuid': chunk.uuid,
-                'file_name': chunk.file_name,
-                'content': chunk.extra_description.decode('utf-8'),
-                'content_type': str(chunk.content_type),
-                'content_url': format_host_url(chunk.content_url) if chunk.content_url else "",
-            })
+        response['data'].append({
+            'uuid': chunk.uuid,
+            'file_name': chunk.file_name,
+            'content': chunk.content.decode('utf-8'),
+            'extra_description': chunk.extra_description.decode('utf-8'),
+            'content_type': str(chunk.content_type),
+            'content_url': format_host_url(chunk.content_url),
+        })
 
     return jsonify(response)
