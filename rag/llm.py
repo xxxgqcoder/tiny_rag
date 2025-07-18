@@ -264,7 +264,7 @@ def assemble_knowledge_base(chunks: list[Chunk]) -> Tuple[str, Dict[str, Any]]:
 
             tokens = estimate_token_num(content)[-1]
 
-            refid2meta[chunk_idx] = {
+            refid2meta[str(chunk_idx)] = {
                 'uuid': chunk.uuid,
                 'file_name': chunk.file_name,
                 'content_type': chunk.content_type,
@@ -278,3 +278,30 @@ def assemble_knowledge_base(chunks: list[Chunk]) -> Tuple[str, Dict[str, Any]]:
     knowledge_base = _content_divider.join(knowledge_base)
 
     return knowledge_base, refid2meta
+
+
+def format_reference_info(reference_meta: Dict[str, str], answer: str) -> str:
+    formatted_reference_info = "\n\n"
+
+    answer = re.sub(r"<think>[.\S\s]*</think>", "", answer)
+
+    reference = re.findall(r"##[0-9]+@@", answer)
+    ref_ids = {}
+    for ref in reference:
+        ref_id = ref.strip("##").strip("@@")
+        ref_ids[ref_id] = True
+
+    for ref_id in sorted([ref_id for ref_id in ref_ids]):
+        ref_info = ''
+        meta = reference_meta[ref_id]
+        ref_info += f"<reference ID={ref_id}>,"
+        ref_info += "file=" + meta['file_name'] + ','
+        if meta['content_url']:
+            ref_info += "url=" + meta['content_url'] + ","
+
+        chunk_begin_digest = " ".join(meta['chunk_begin_digest'])
+        chunk_end_digest = " ".join(meta['chunk_end_digest'])
+        ref_info += "ref content=" + f"{chunk_begin_digest} ... {chunk_end_digest}"
+        formatted_reference_info += ref_info + "\n\n"
+
+    return formatted_reference_info
