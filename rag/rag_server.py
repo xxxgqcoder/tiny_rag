@@ -14,7 +14,7 @@ from flask import (
 
 import config
 from .document import get_rational_db
-from .llm import get_chat_model, estimate_token_num, assemble_knowledge_base, format_host_url
+from .llm import get_chat_model, estimate_token_num, assemble_knowledge_base, format_host_url, max_token_truncate
 from .db import get_vector_db
 from .prompt import prompt_system, promot_citation
 from parse.parser import Chunk, ChunkType
@@ -54,7 +54,13 @@ def chat_completion():
     model = get_chat_model()
     vector_db = get_vector_db()
 
+    # assemble history
     messages = [{'role': m['role'], 'content': m['content']} for m in history if m['role'] != 'system']
+    messages.reverse()
+    messages_content = [msg['content'] for msg in messages]
+    idx = max_token_truncate(messages_content, int(0.8 * config.MAX_TOKEN_NUM))
+    messages = messages[:idx + 1]
+    messages.reverse()
 
     # get last 3 questions and query db to fetch related chunks, assemble the chunks as system kwnowledge base
     user_questions = [m['content'] for m in messages if m['role'] == 'user'][-3:]
@@ -66,7 +72,7 @@ def chat_completion():
     knowledge_base, refid2meta = assemble_knowledge_base(chunks)
 
     logging.info(f'**DEBUG** chat_completion, knowledge_base = \n{knowledge_base}')
-    logging.info('=' * 120)
+    logging.info('-' * 80)
 
     prompt = prompt_system.format(knowledge_base=knowledge_base) \
                 + f"\n{'-' * 8}\n" \
