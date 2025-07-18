@@ -7,7 +7,6 @@ from typing import List, Dict, Any, Optional
 
 import requests
 
-import openai
 from pydantic import BaseModel
 from autogen_core import (
     DefaultTopicId,
@@ -33,8 +32,12 @@ model_client = OllamaChatCompletionClient(model='qwen3:30b-a3b', host='http://12
 
 from rag.llm import max_token_truncate, assemble_knowledge_base
 from parse.parser import Chunk, ChunkType
+from config import MAX_TOKEN_NUM
 
-max_token_num = 80 * 1024
+
+def agent_log(content: str) -> str:
+    return '\n' + '-' * 80 + '\n\n' + content + '\n\n' + '-' * 80 + '\n\n'
+
 
 # ------------------------------------------------------------------------------
 # Messages
@@ -58,6 +61,10 @@ class SearchRequest(BaseModel):
     query: List[str]  # list of queries to execute
 
 
+class GenerationRequest(BaseModel):
+    pass
+
+
 # ------------------------------------------------------------------------------
 # Agents
 # Query master
@@ -77,14 +84,13 @@ class QueryMasterAgent(RoutedAgent):
 
     @message_handler
     async def handle_chat_message(self, message: ChatMessage, ctx: MessageContext) -> None:
-        logging.info(f'{self.id.type} handle group chat message, message content:\n{message.body}')
+        logging.info(agent_log(f'{self.id.type} handle chat message, message content:\n{message.body}'))
 
         if isinstance(message.body, SystemMessage):
+            # insert or update system message
             if len(self._chat_history) > 0 and isinstance(self._chat_history[0].body, SystemMessage):
-                # update system messages
                 self._chat_history[0] = message
             else:
-                # insert new system message
                 self._chat_history.insert(0, message)
             return
 
@@ -93,6 +99,7 @@ class QueryMasterAgent(RoutedAgent):
             self._chat_history.append(message)
             return
 
+        # append user message to chat history
         self._chat_history.append(message)
 
         _parse_prompt = """You are a query understanding agent in a research conversation and working with other agents. Your role is to parse user query and determine what to do next given conversation history.
@@ -150,7 +157,7 @@ Below is user original query:
                 continue
             conversation = f"Role: {msg.source}\nContent:\n{msg.content}" + f"\n{'-' * 8}\n"
             history_conversation.append(conversation)
-        idx = max_token_truncate(history_conversation, max_token_num=int(max_token_num * 0.8))
+        idx = max_token_truncate(history_conversation, max_token_num=int(MAX_TOKEN_NUM * 0.8))
         history_conversation = history_conversation[:idx + 1]
         history_conversation.reverse()
 
@@ -163,9 +170,9 @@ Below is user original query:
             [SystemMessage(content=prompt)],
             cancellation_token=ctx.cancellation_token,
         )
-        logging.info(f'{self.id.type}: query response:\n{completion.content}')
+        logging.info(agent_log(f'{self.id.type}: query response:\n{completion.content}'))
         reduced_completion_content = re.sub(r"<think>[.\S\s]*</think>", "", completion.content).strip()
-        logging.info(f'{self.id.type}: reduced query response:\n{reduced_completion_content}')
+        logging.info(agent_log(f'{self.id.type}: reduced query response:\n{reduced_completion_content}'))
 
         # next action
         parse_result = json.loads(reduced_completion_content)
@@ -176,7 +183,10 @@ Below is user original query:
         )
 
         if query_parse_result.action == 'context_sufficient':
-            logging.info(f'{self.id.type}: model thinks context is sufficient, continue')
+            logging.info(agent_log(f'{self.id.type}: model thinks context is sufficient, trigger answer generation'))
+            # TODO: trigger answer generation
+            # self.publish_message()
+
             return
         elif query_parse_result.action == 'query':
             await self.publish_message(
@@ -209,8 +219,8 @@ class QueryRewriterAgent(RoutedAgent):
     @message_handler
     async def handle_chat_message(self, message: ChatMessage, ctx: MessageContext) -> None:
         if isinstance(message.body, UserMessage):
-            # rewriter only care user messages
-            logging.info(f'{self.id.type}: append group chat user message:\n{message.body}')
+            # rewriter only considers user messages
+            logging.info(agent_log(f'{self.id.type}: append user chat message:\n{message.body}'))
             self._user_query_history.append(message)
 
     @message_handler
@@ -218,7 +228,8 @@ class QueryRewriterAgent(RoutedAgent):
         logging.info(f'{self.id.type}: handle query rewrite message:\n{message}')
 
         _query_rewrite_prompt = """
-You are a search assistant. Your goal is to generate sophisticated and diverse search queries. These queries are intended for an advanced automated research tool capable of analyzing complex results, expand topics based on user query and synthesizing information.
+You are a search assistant. Your goal is to generate sophisticated and diverse search queries.
+These queries are intended for an advanced automated research tool capable of analyzing complex results, expand topics based on user query and synthesizing information.
 
 Below is history user queries:
 
@@ -268,7 +279,7 @@ Above is the original query.
 
             query = f"Query: {msg.body.content}\n" + f"{'-' * 8}\n"
             history_queries.append(query)
-        idx = max_token_truncate(history_queries, max_token_num=int(max_token_num * 0.8))
+        idx = max_token_truncate(history_queries, max_token_num=int(MAX_TOKEN_NUM * 0.8))
         history_queries = history_queries[:idx + 1]
         history_queries.reverse()
 
@@ -278,12 +289,11 @@ Above is the original query.
             original_query=message.original_query,
             history_queries='\n'.join(history_queries),
         )
-        logging.info(f'{self.id.type}: system prompt:\n{prompt}')
         completion = await self._model_client.create([SystemMessage(content=prompt)], cancellation_token=ctx.cancellation_token)
-        logging.info(f'{self.id.type}: rewrite query response:\n{completion.content}')
+        logging.info(agent_log(f'{self.id.type}: rewrite query response:\n{completion.content}'))
 
         reduced_completion_content = re.sub(r'<think>[.\s\S]*</think>', '', completion.content)
-        logging.info(f'{self.id.type}: reduced comletion content:\n{reduced_completion_content}')
+        logging.info(agent_log(f'{self.id.type}: reduced comletion content:\n{reduced_completion_content}'))
 
         query = json.loads(reduced_completion_content)
         query_msg = SearchRequest(query=query.get('query', []))
@@ -298,7 +308,7 @@ Above is the original query.
 # ------------------------------------------------------------------------------
 # knowledge base search agent
 class SearchAgent(RoutedAgent):
-    """Agent handling user input query"""
+    """Agent that searches knowledge base using query"""
 
     def __init__(
         self,
@@ -337,8 +347,8 @@ class SearchAgent(RoutedAgent):
                 content_type=ChunkType(dataload.get('content_type', None)),
                 file_name=dataload.get('file_name', None),
                 content_url=dataload.get('content_url', None),
-                content=dataload.get('content', bytes('', encoding='utf-8')).encode('utf-8', errors='ignore'),
-                extra_description=dataload.get('extra_description', bytes('', encoding='utf-8')).encode('utf-8', errors='ignore'),
+                content=dataload.get('content', ''.encode('utf-8')).encode('utf-8', errors='ignore'),
+                extra_description=dataload.get('extra_description', ''.encode('utf-8')).encode('utf-8', errors='ignore'),
             )
             # NOTE: set uuid instead of auto generating
             chunk.uuid = dataload.get('uuid', None)
@@ -348,7 +358,7 @@ class SearchAgent(RoutedAgent):
 
     @message_handler
     async def handle_search_message(self, message: SearchRequest, ctx: MessageContext) -> None:
-        logging.info(f'{self.id.type}: handle search request:\n{message}')
+        logging.info(agent_log(f'{self.id.type}: handle search request:\n{message}'))
 
         all_chunks = []
         for query in message.query:
@@ -357,16 +367,109 @@ class SearchAgent(RoutedAgent):
 
         # assemble knowledge base
         knowledge_base, refid2meta = assemble_knowledge_base(all_chunks)
-        logging.info(f'{self.id.type}: knowledge base:\n{knowledge_base}')
-        logging.info(f'{self.id.type}: reference meta:\n{json.dumps(refid2meta, indent=4)}')
+        logging.info(agent_log(f'{self.id.type}: knowledge base:\n{knowledge_base}'))
+        logging.info(agent_log(f'{self.id.type}: reference meta:\n{json.dumps(refid2meta, indent=4)}'))
 
         # publish system knowledge base update message
+        logging.info(agent_log(f'{self.id.type}: publish system message'))
         await self.publish_message(
             message=ChatMessage(body=SystemMessage(content=knowledge_base), meta=refid2meta),
             topic_id=DefaultTopicId(type=self._chat_topic_type),
         )
 
-        # TODO: trigger LLM answer generation
+        # trigger LLM answer generation
+        logging.info(agent_log(f'{self.id.type}: publish answer generation message'))
+        await self.publish_message(
+            message=GenerationRequest(),
+            topic_id=DefaultTopicId(type=self._chat_topic_type),
+        )
+
+
+# ------------------------------------------------------------------------------
+# Response generation
+class GeneratorAgent(RoutedAgent):
+    """Agent that generates answer using system knowledge and history messages."""
+
+    def __init__(
+        self,
+        description: str,
+        model_client: ChatCompletionClient,
+        chat_topic_type: str,
+    ) -> None:
+        super().__init__(description=description)
+        self._description = description
+        self._model_client = model_client
+        self._chat_topic_type = chat_topic_type
+        self._chat_history: List[LLMMessage] = []
+
+    @message_handler
+    async def handle_chat_message(self, message: ChatMessage, ctx: MessageContext) -> None:
+        logging.info(f'{self.id.type} handle chat message, message content:\n{message.body}')
+
+        # update system knowledge message
+        if isinstance(message.body, SystemMessage):
+            if len(self._chat_history) > 0 and isinstance(self._chat_history[0].body, SystemMessage):
+                # update system messages
+                self._chat_history[0] = message
+            else:
+                # insert new system message
+                self._chat_history.insert(0, message)
+            return
+
+        # append agent message / user message
+        self._chat_history.append(message)
+
+    @message_handler
+    async def handle_generation_request(self, message: GenerationRequest, ctx: MessageContext) -> None:
+        logging.info(agent_log(f'{self.id.type} handle generation request, message content:\n{message}'))
+
+        from rag.prompt import prompt_system, promot_citation
+
+        # assemble knwoledge base and history
+        knowledge_base_msg = None
+        for msg in self._chat_history:
+            if isinstance(msg.body, SystemMessage):
+                knowledge_base_msg = msg
+                break
+
+        knowledge_base = knowledge_base_msg.body.content
+        refid2meta = knowledge_base_msg.meta
+        knowledge_base_prompt= prompt_system.format(knowledge_base=knowledge_base) \
+                            + f"\n{'-' * 8}\n" \
+                            + promot_citation
+
+        # conversations
+        conversations = []
+        conversation_content = []
+        for i in range(len(self._chat_history) - 1, -1, -1):
+            msg: ChatMessage = self._chat_history[i]
+            if isinstance(msg.body, SystemMessage):
+                continue
+            conversations.append(msg.body)
+            conversation_content.append(msg.body.content)
+
+        idx = max_token_truncate(conversation_content, int(0.6 * MAX_TOKEN_NUM))
+        conversations = conversations[:idx + 1]
+        conversations.reverse()
+
+        # get model response
+        completion = await self._model_client.create(
+            [SystemMessage(content=knowledge_base_prompt)] + conversations,
+            cancellation_token=ctx.cancellation_token,
+        )
+        logging.info(agent_log(f'{self.id.type}: model completion result:\n{completion.content}'))
+        logging.info(agent_log(f'{self.id.type}: reference meta:\n{refid2meta}'))
+
+        # print response
+        from rag.llm import format_reference_info
+        formatted_ref = format_reference_info(refid2meta, completion.content)
+        logging.info(agent_log(f'{self.id.type} formatted reference data:\n{formatted_ref}'))
+
+        # publish assistance message
+        await self.publish_message(
+            message=ChatMessage(body=AssistantMessage(content=knowledge_base, source='Assistant')),
+            topic_id=DefaultTopicId(type=self._chat_topic_type),
+        )
 
 
 # ------------------------------------------------------------------------------
@@ -378,16 +481,15 @@ async def main():
 
     # topic type as agent type
     chat_topic_type = 'group_chat'
-    query_master_desc = "Query parser for parsing user query input"
+    query_master_desc = "Query master for prediction next action on user input"
 
     query_rewriter_topic_type = 'query_rewriter'
     query_rewriter_desc = 'Rewrite user query'
 
     search_topic_type = 'query_search'
-    search_desc = 'search knowledge base and return result'
+    search_desc = 'Search knowledge base and return result'
 
-    system_knowledge_topic_type = 'system_knowledge'
-    system_knowledge_desc = 'system_knowledge'
+    generator_desc = 'Answer generator'
 
     # query master
     query_master_type = await QueryMasterAgent.register(
@@ -399,7 +501,7 @@ async def main():
             query_rewriter_topic_type=query_rewriter_topic_type,
         ),
     )
-    # listen to `group_chat_topic_type`
+    # listen to `chat_topic_type`
     await runtime.add_subscription(TypeSubscription(topic_type=chat_topic_type, agent_type=query_master_type.type))
 
     # query rewriter
@@ -413,7 +515,7 @@ async def main():
             search_topic_type=search_topic_type,
         ),
     )
-    # listen to `group_chat_topic_type` and `query_rewriter_topic_type`
+    # listen to `chat_topic_type` and `query_rewriter_topic_type`
     await runtime.add_subscription(TypeSubscription(topic_type=chat_topic_type, agent_type=query_rewriter_type.type))
     await runtime.add_subscription(TypeSubscription(topic_type=query_rewriter_topic_type, agent_type=query_rewriter_type.type))
 
@@ -423,7 +525,7 @@ async def main():
         search_topic_type,  # topic type as agent type
         lambda: SearchAgent(
             model_client=model_client,
-            description=query_rewriter_desc,
+            description=search_desc,
             search_server_url="http://127.0.0.1:4567/search",
             search_config={'limit': 2},
             chat_topic_type=chat_topic_type,
@@ -431,6 +533,19 @@ async def main():
     )
     # listen to search_topic_type topic
     await runtime.add_subscription(TypeSubscription(topic_type=search_topic_type, agent_type=search_type.type))
+
+    # generator agent
+    generator_type = await GeneratorAgent.register(
+        runtime,
+        'generator_agent',
+        lambda: GeneratorAgent(
+            model_client=model_client,
+            description=generator_desc,
+            chat_topic_type=chat_topic_type,
+        ),
+    )
+    # listen to `chat_topic_type`.
+    await runtime.add_subscription(TypeSubscription(topic_type=chat_topic_type, agent_type=generator_type.type))
 
     # start the conversation
     runtime.start()
