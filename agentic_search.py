@@ -3,7 +3,10 @@ import string
 import uuid
 import logging
 import re
+import os
+import time
 from typing import List, Dict, Any, Optional
+from concurrent.futures import ThreadPoolExecutor
 
 import requests
 
@@ -28,12 +31,22 @@ from autogen_core.models import (
 
 from autogen_ext.models.ollama import OllamaChatCompletionClient
 
-model_client = OllamaChatCompletionClient(model='qwen3:30b-a3b', host='http://127.0.0.1:11434')
+from rich.console import Console
+from rich.markdown import Markdown
+from prompt_toolkit import prompt
+from prompt_toolkit import PromptSession
 
 from rag.llm import max_token_truncate, assemble_knowledge_base
 from parse.parser import Chunk, ChunkType
 
+chat_host = 'http://127.0.0.1:11434'
+search_host = 'http://127.0.0.1:4567/search'
+chat_model = 'qwen3:30b-a3b'
+
 max_token_num = 80 * 1024
+is_generating = False
+
+model_client = OllamaChatCompletionClient(model=chat_model, host=chat_host)
 
 
 def agent_log(content: str) -> str:
@@ -77,11 +90,13 @@ class QueryMasterAgent(RoutedAgent):
         description: str,
         model_client: ChatCompletionClient,
         query_rewriter_topic_type: str,
+        chat_topic_type: str,
     ) -> None:
         super().__init__(description=description)
         self._model_client = model_client
         self._chat_history: List[LLMMessage] = []
         self._query_rewriter_topic_type = query_rewriter_topic_type
+        self._chat_topic_type = chat_topic_type
 
     @message_handler
     async def handle_chat_message(self, message: ChatMessage, ctx: MessageContext) -> None:
@@ -185,9 +200,10 @@ Below is user original query:
 
         if query_parse_result.action == 'context_sufficient':
             logging.info(agent_log(f'{self.id.type}: model thinks context is sufficient, trigger answer generation'))
-            # TODO: trigger answer generation
-            # self.publish_message()
-
+            await self.publish_message(
+                message=GenerationRequest(),
+                topic_id=DefaultTopicId(type=self._chat_topic_type),
+            )
             return
         elif query_parse_result.action == 'query':
             await self.publish_message(
@@ -458,13 +474,21 @@ class GeneratorAgent(RoutedAgent):
             [SystemMessage(content=knowledge_base_prompt)] + conversations,
             cancellation_token=ctx.cancellation_token,
         )
-        print(agent_log(f'{self.id.type}: model completion result:\n{completion.content}'))
         logging.info(agent_log(f'{self.id.type}: reference meta:\n{refid2meta}'))
 
         # print response
+        # reset global generating flag
+        global is_generating
+        is_generating = False
+
+        print('', end='\r', flush=True)
+        print('', end='\r', flush=True)
+        Console().print(Markdown(completion.content))
+
+        # print reference
         from rag.llm import format_reference_info
         formatted_ref = format_reference_info(refid2meta, completion.content)
-        print(agent_log(f'{self.id.type} formatted reference data:\n{formatted_ref}'))
+        Console().print(Markdown(formatted_ref))
 
         # publish assistance message
         await self.publish_message(
@@ -474,6 +498,51 @@ class GeneratorAgent(RoutedAgent):
 
 
 # ------------------------------------------------------------------------------
+
+_job_executor = None
+
+
+def get_job_executor():
+    global _job_executor
+    if _job_executor is None:
+        # NOTE: set only 1 thread to force sequencial job schedule.
+        _job_executor = ThreadPoolExecutor(max_workers=1)
+
+    return _job_executor
+
+
+def parse_user_instruct(user_input: str) -> None | str:
+    user_input = user_input.strip()
+    if len(user_input) == 0:
+        return
+
+    if user_input in ['?', '/help']:
+        print("""Help info:
+/help: show help info.
+/exit: exit and save conversation as json.
+""")
+    elif user_input == '/exit':
+        print('byte:)')
+        os._exit(0)
+
+    else:
+        return user_input.strip()
+
+
+def print_loading_mark():
+    global is_generating
+
+    loading_mark = ['-', '\\', '|', '/']
+    idx = 0
+    while True:
+        if is_generating:
+            ch = loading_mark[idx % len(loading_mark)]
+            idx = (idx + 1) % len(loading_mark)
+            print(ch, end='\r', flush=True)
+
+        time.sleep(0.05)
+
+
 async def main():
     # NOTE: re-init root logger
     import utils
@@ -481,9 +550,15 @@ async def main():
     from utils import init_root_logger
     init_root_logger('agent_run', need_stream=False)
 
+    global is_generating
+    is_generating = False
+    job_executor = get_job_executor()
+    job_executor.submit(print_loading_mark)
+
+    # register agents
     runtime = SingleThreadedAgentRuntime()
 
-    # topic type as agent type
+    # topics and agent description
     chat_topic_type = 'group_chat'
     query_master_desc = "Query master for prediction next action on user input"
 
@@ -503,6 +578,7 @@ async def main():
             model_client=model_client,
             description=query_master_desc,
             query_rewriter_topic_type=query_rewriter_topic_type,
+            chat_topic_type=chat_topic_type,
         ),
     )
     # listen to `chat_topic_type`
@@ -530,7 +606,7 @@ async def main():
         lambda: SearchAgent(
             model_client=model_client,
             description=search_desc,
-            search_server_url="http://127.0.0.1:4567/search",
+            search_server_url=search_host,
             search_config={'limit': 4},
             chat_topic_type=chat_topic_type,
         ),
@@ -552,17 +628,36 @@ async def main():
     await runtime.add_subscription(TypeSubscription(topic_type=chat_topic_type, agent_type=generator_type.type))
 
     # start the conversation
+    Console().print(Markdown('-' * 4))
+
+    input_placeholder = 'type <esc> then <enter> to finish'
     runtime.start()
     session_id = str(uuid.uuid4())
-    await runtime.publish_message(
-        ChatMessage(
-            body=UserMessage(content="what is large language model ?", source="User"),
-            meta=None,
-        ),
-        TopicId(type=chat_topic_type, source=session_id),
-    )
-    await runtime.stop_when_idle()
-    await model_client.close()
+    session = PromptSession()
+    while True:
+        try:
+            # get user input
+            user_input = await session.prompt_async(">>", multiline=True, placeholder=input_placeholder)
+            user_input = parse_user_instruct(user_input=user_input)
+            logging.info(f'begin to process user input: {user_input}')
+
+            is_generating = True
+            await runtime.publish_message(
+                ChatMessage(
+                    body=UserMessage(content=user_input, source="User"),
+                    meta=None,
+                ),
+                TopicId(type=chat_topic_type, source=session_id),
+            )
+            while is_generating:
+                await asyncio.sleep(0.5)
+
+            Console().print(Markdown('-' * 4))
+
+        except KeyboardInterrupt:
+            os._exit(0)
+        except EOFError:
+            os._exit(0)
 
 
 import asyncio
