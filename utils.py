@@ -6,17 +6,19 @@ import xxhash
 from typing import Any, Tuple, Dict
 from logging.handlers import RotatingFileHandler
 
-initialized_root_logger = False
-
 
 def get_project_base_directory():
     project_base = os.path.abspath(os.path.dirname(os.path.realpath(__file__)))
     return project_base
 
 
+initialized_root_logger = False
+
+
 def init_root_logger(
     logfile_basename: str,
     log_format: str = "%(asctime)-15s %(levelname)-4s %(filename)s:%(lineno)d: %(message)s",
+    need_stream: bool = True,
 ):
     global initialized_root_logger
     if initialized_root_logger:
@@ -34,9 +36,10 @@ def init_root_logger(
     handler1.setFormatter(formatter)
     logger.addHandler(handler1)
 
-    handler2 = logging.StreamHandler()
-    handler2.setFormatter(formatter)
-    logger.addHandler(handler2)
+    if need_stream:
+        handler2 = logging.StreamHandler()
+        handler2.setFormatter(formatter)
+        logger.addHandler(handler2)
 
     logger.setLevel(level=logging.INFO)
     logging.captureWarnings(True)

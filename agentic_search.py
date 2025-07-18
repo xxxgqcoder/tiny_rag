@@ -32,7 +32,8 @@ model_client = OllamaChatCompletionClient(model='qwen3:30b-a3b', host='http://12
 
 from rag.llm import max_token_truncate, assemble_knowledge_base
 from parse.parser import Chunk, ChunkType
-from config import MAX_TOKEN_NUM
+
+max_token_num = 80 * 1024
 
 
 def agent_log(content: str) -> str:
@@ -157,7 +158,7 @@ Below is user original query:
                 continue
             conversation = f"Role: {msg.source}\nContent:\n{msg.content}" + f"\n{'-' * 8}\n"
             history_conversation.append(conversation)
-        idx = max_token_truncate(history_conversation, max_token_num=int(MAX_TOKEN_NUM * 0.8))
+        idx = max_token_truncate(history_conversation, max_token_num=int(max_token_num * 0.8))
         history_conversation = history_conversation[:idx + 1]
         history_conversation.reverse()
 
@@ -279,7 +280,7 @@ Above is the original query.
 
             query = f"Query: {msg.body.content}\n" + f"{'-' * 8}\n"
             history_queries.append(query)
-        idx = max_token_truncate(history_queries, max_token_num=int(MAX_TOKEN_NUM * 0.8))
+        idx = max_token_truncate(history_queries, max_token_num=int(max_token_num * 0.8))
         history_queries = history_queries[:idx + 1]
         history_queries.reverse()
 
@@ -448,7 +449,7 @@ class GeneratorAgent(RoutedAgent):
             conversations.append(msg.body)
             conversation_content.append(msg.body.content)
 
-        idx = max_token_truncate(conversation_content, int(0.6 * MAX_TOKEN_NUM))
+        idx = max_token_truncate(conversation_content, int(0.6 * max_token_num))
         conversations = conversations[:idx + 1]
         conversations.reverse()
 
@@ -457,13 +458,13 @@ class GeneratorAgent(RoutedAgent):
             [SystemMessage(content=knowledge_base_prompt)] + conversations,
             cancellation_token=ctx.cancellation_token,
         )
-        logging.info(agent_log(f'{self.id.type}: model completion result:\n{completion.content}'))
+        print(agent_log(f'{self.id.type}: model completion result:\n{completion.content}'))
         logging.info(agent_log(f'{self.id.type}: reference meta:\n{refid2meta}'))
 
         # print response
         from rag.llm import format_reference_info
         formatted_ref = format_reference_info(refid2meta, completion.content)
-        logging.info(agent_log(f'{self.id.type} formatted reference data:\n{formatted_ref}'))
+        print(agent_log(f'{self.id.type} formatted reference data:\n{formatted_ref}'))
 
         # publish assistance message
         await self.publish_message(
@@ -474,8 +475,11 @@ class GeneratorAgent(RoutedAgent):
 
 # ------------------------------------------------------------------------------
 async def main():
+    # NOTE: re-init root logger
+    import utils
+    utils.initialized_root_logger = False
     from utils import init_root_logger
-    init_root_logger('agent_run')
+    init_root_logger('agent_run', need_stream=False)
 
     runtime = SingleThreadedAgentRuntime()
 
@@ -494,7 +498,7 @@ async def main():
     # query master
     query_master_type = await QueryMasterAgent.register(
         runtime,
-        chat_topic_type,  # topic type as agent type
+        'query_master',
         lambda: QueryMasterAgent(
             model_client=model_client,
             description=query_master_desc,
@@ -527,7 +531,7 @@ async def main():
             model_client=model_client,
             description=search_desc,
             search_server_url="http://127.0.0.1:4567/search",
-            search_config={'limit': 2},
+            search_config={'limit': 4},
             chat_topic_type=chat_topic_type,
         ),
     )
