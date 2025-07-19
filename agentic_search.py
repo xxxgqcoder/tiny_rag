@@ -50,8 +50,20 @@ is_generating = False
 model_client = OllamaChatCompletionClient(model=chat_model, host=chat_host)
 
 
-def agent_log(content: str) -> str:
+# ------------------------------------------------------------------------------
+# Util funcs
+def _agent_log(content: str) -> str:
     return '\n' + '-' * 80 + '\n\n' + content + '\n\n' + '-' * 80 + '\n\n'
+
+
+def _escape_markdown(text: str) -> str:
+    if text is None:
+        return text
+
+    text = re.sub(r"<(.?)", r"&lt;\1", text)
+    text = re.sub(r"(.?)>", r"\1&gt;", text)
+
+    return text
 
 
 # ------------------------------------------------------------------------------
@@ -503,13 +515,13 @@ class GeneratorAgent(RoutedAgent):
         is_generating = False
 
         print('', end='\r', flush=True)
-        Console().print(Markdown(completion.content))
+        Console().print(Markdown(_escape_markdown(completion.content)))
 
         # print reference
         from rag.llm import format_reference_info
         formatted_ref = format_reference_info(refid2meta, completion.content)
         logging.info(f'{self.id.type}: formatted reference data: {pretty_format(formatted_ref, indent=1)}')
-        Console().print(Markdown(formatted_ref))
+        Console().print(Markdown(_escape_markdown(formatted_ref)))
 
         # publish assistance message
         await self.publish_message(
