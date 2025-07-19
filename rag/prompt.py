@@ -1,5 +1,4 @@
-prompt_system = """
-You are a knowledge assistance, please use below knowledge to answer user questions.
+prompt_system = """You are a knowledge assistance, please use below knowledge to answer user questions.
 If user questions are not included in knowledge, you must reply with "not found in knowledgebase".
 
 
@@ -10,8 +9,7 @@ Below is the knowledge base:
 Above is the knowledge base.
 """
 
-promot_citation = """
-# Citation requirements:
+promot_citation = """# Citation requirements:
 - Inserts CITATIONS in format '##i@@ ##j@@' where i,j are the ID of the content you are citing and encapsulated with '##' and '@@'.
 - Inserts the CITATION symbols at the end of a sentence, AND NO MORE than 4 citations.
 - DO NOT insert CITATION in the answer if the content is not from retrieved chunks.
