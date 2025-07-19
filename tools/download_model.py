@@ -77,13 +77,6 @@ def download_mineru_model(project_dir: str):
         downloaded_model_dir = download_model(model_path, repo_mode='pipeline')
     print(f'donwloaded model path: {downloaded_model_dir}')
 
-    # # parse repo name
-    # hf_cache_dir = os.path.join(os.path.expanduser('~'), '.cache/huggingface/hub')
-    # relative_model_dir = downloaded_model_dir[len(hf_cache_dir):].lstrip('/')
-    # path_abs = Path(relative_model_dir)
-    # repo_name = path_abs.parts[0]
-    # print(f'downloaded repo name: {repo_name}')
-
     # copy model
     target_dir = os.path.join(project_dir, 'assets/MinerU/')
     if os.path.exists(target_dir):
