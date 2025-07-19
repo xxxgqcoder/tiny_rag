@@ -38,6 +38,7 @@ from prompt_toolkit import PromptSession
 
 from rag.llm import max_token_truncate, assemble_knowledge_base
 from parse.parser import Chunk, ChunkType
+from utils import pretty_format
 
 chat_host = 'http://127.0.0.1:11434'
 search_host = 'http://127.0.0.1:4567/search'
@@ -100,7 +101,8 @@ class QueryMasterAgent(RoutedAgent):
 
     @message_handler
     async def handle_chat_message(self, message: ChatMessage, ctx: MessageContext) -> None:
-        logging.info(agent_log(f'{self.id.type} handle chat message, message content:\n{message.body}'))
+        logging.info(f'{self.id.type}:' + '-' * 80)
+        logging.info(f'{self.id.type} handle chat message:\n{pretty_format(message, indent=1)}')
 
         if isinstance(message.body, SystemMessage):
             # insert or update system message
@@ -118,7 +120,8 @@ class QueryMasterAgent(RoutedAgent):
         # append user message to chat history
         self._chat_history.append(message)
 
-        _parse_prompt = """You are a query understanding agent in a research conversation and working with other agents. Your role is to parse user query and determine what to do next given conversation history.
+        _parse_prompt = """You are a query understanding agent in a research conversation and working with other agents. 
+Your role is to parse user query and determine what to do next given conversation history.
 
 Below is history conversations:
 
@@ -163,7 +166,7 @@ Below is user original query:
 {user_query}
 """
 
-        # format history conversation
+        # assemble conversation history
         history_conversation = []
         for i in range(len(self._chat_history) - 2, -1, -1):
             # ignore last message because it's user input query
@@ -171,7 +174,7 @@ Below is user original query:
             if isinstance(msg, SystemMessage):
                 # ignore system message cause it's knowledge in use.
                 continue
-            conversation = f"Role: {msg.source}\nContent:\n{msg.content}" + f"\n{'-' * 8}\n"
+            conversation = f"Role: {msg.source}\n\nContent:\n{msg.content}" + f"\n{'-' * 8}\n\n"
             history_conversation.append(conversation)
         idx = max_token_truncate(history_conversation, max_token_num=int(max_token_num * 0.8))
         history_conversation = history_conversation[:idx + 1]
@@ -182,13 +185,19 @@ Below is user original query:
             history_conversation="\n".join(history_conversation),
             user_query=message.body.content,
         )
+        logging.info(f'{self.id.type}:' + '-' * 80)
+        logging.info(f'{self.id.type} intent identify prompt:\n{pretty_format(prompt, indent=1)}')
+
         completion = await self._model_client.create(
             [SystemMessage(content=prompt)],
             cancellation_token=ctx.cancellation_token,
         )
-        logging.info(agent_log(f'{self.id.type}: query response:\n{completion.content}'))
+        logging.info(f'{self.id.type}:' + '-' * 80)
+        logging.info(f'{self.id.type}: completion response:\n{pretty_format(completion, indent=1)}')
+
         reduced_completion_content = re.sub(r"<think>[.\S\s]*</think>", "", completion.content).strip()
-        logging.info(agent_log(f'{self.id.type}: reduced query response:\n{reduced_completion_content}'))
+        logging.info(f'{self.id.type}:' + '-' * 80)
+        logging.info(f'{self.id.type}: reduced query response:\n{pretty_format(reduced_completion_content, indent=1)}')
 
         # next action
         parse_result = json.loads(reduced_completion_content)
@@ -199,7 +208,8 @@ Below is user original query:
         )
 
         if query_parse_result.action == 'context_sufficient':
-            logging.info(agent_log(f'{self.id.type}: model thinks context is sufficient, trigger answer generation'))
+            logging.info(f'{self.id.type}:' + '-' * 80)
+            logging.info(f'{self.id.type}: model thinks context is sufficient, trigger answer generation')
             await self.publish_message(
                 message=GenerationRequest(),
                 topic_id=DefaultTopicId(type=self._chat_topic_type),
@@ -237,15 +247,16 @@ class QueryRewriterAgent(RoutedAgent):
     async def handle_chat_message(self, message: ChatMessage, ctx: MessageContext) -> None:
         if isinstance(message.body, UserMessage):
             # rewriter only considers user messages
-            logging.info(agent_log(f'{self.id.type}: append user chat message:\n{message.body}'))
+            logging.info(f'{self.id.type}:' + '-' * 80)
+            logging.info(f'{self.id.type}: append user chat message:\n{pretty_format(message, indent=1)}')
             self._user_query_history.append(message)
 
     @message_handler
     async def handle_query_parse_result_message(self, message: QueryParseResult, ctx: MessageContext) -> None:
-        logging.info(f'{self.id.type}: handle query rewrite message:\n{message}')
+        logging.info(f'{self.id.type}:' + '-' * 80)
+        logging.info(f'{self.id.type}: handle query rewrite message:\n{pretty_format(message, indent=1)}')
 
-        _query_rewrite_prompt = """
-You are a search assistant. Your goal is to generate sophisticated and diverse search queries.
+        _query_rewrite_prompt = """You are a search assistant. Your goal is to generate sophisticated and diverse search queries.
 These queries are intended for an advanced automated research tool capable of analyzing complex results, expand topics based on user query and synthesizing information.
 
 Below is history user queries:
@@ -306,18 +317,23 @@ Above is the original query.
             original_query=message.original_query,
             history_queries='\n'.join(history_queries),
         )
+        logging.info(f'{self.id.type}:' + '-' * 80)
+        logging.info(f'{self.id.type}: query rewrite prompt:\n{pretty_format(prompt, indent=1)}')
+
         completion = await self._model_client.create([SystemMessage(content=prompt)], cancellation_token=ctx.cancellation_token)
-        logging.info(agent_log(f'{self.id.type}: rewrite query response:\n{completion.content}'))
+        logging.info(f'{self.id.type}:' + '-' * 80)
+        logging.info(f'{self.id.type}: completion response:\n{pretty_format(completion, indent=1)}')
 
         reduced_completion_content = re.sub(r'<think>[.\s\S]*</think>', '', completion.content)
-        logging.info(agent_log(f'{self.id.type}: reduced comletion content:\n{reduced_completion_content}'))
+        logging.info(f'{self.id.type}:' + '-' * 80)
+        logging.info(f'{self.id.type}: reduced comletion content:\n{pretty_format(reduced_completion_content, indent=1)}')
 
         query = json.loads(reduced_completion_content)
-        query_msg = SearchRequest(query=query.get('query', []))
+        search_request = SearchRequest(query=query.get('query', []))
 
         # publish query rewrite result
         await self.publish_message(
-            message=query_msg,
+            message=search_request,
             topic_id=DefaultTopicId(type=self._search_topic_type),
         )
 
@@ -375,7 +391,8 @@ class SearchAgent(RoutedAgent):
 
     @message_handler
     async def handle_search_message(self, message: SearchRequest, ctx: MessageContext) -> None:
-        logging.info(agent_log(f'{self.id.type}: handle search request:\n{message}'))
+        logging.info(f'{self.id.type}:' + '-' * 80)
+        logging.info(f'{self.id.type}: handle search request:\n{pretty_format(message, indent=1)}')
 
         all_chunks = []
         for query in message.query:
@@ -384,18 +401,17 @@ class SearchAgent(RoutedAgent):
 
         # assemble knowledge base
         knowledge_base, refid2meta = assemble_knowledge_base(all_chunks)
-        logging.info(agent_log(f'{self.id.type}: knowledge base:\n{knowledge_base}'))
-        logging.info(agent_log(f'{self.id.type}: reference meta:\n{json.dumps(refid2meta, indent=4)}'))
+        logging.info(f'{self.id.type}:' + '-' * 80)
+        logging.info(f'{self.id.type}: knowledge base:\n{pretty_format(knowledge_base, indent=1)}')
+        logging.info(f'{self.id.type}: reference meta:\n{pretty_format(refid2meta, indent=1)}')
 
         # publish system knowledge base update message
-        logging.info(agent_log(f'{self.id.type}: publish system message'))
         await self.publish_message(
             message=ChatMessage(body=SystemMessage(content=knowledge_base), meta=refid2meta),
             topic_id=DefaultTopicId(type=self._chat_topic_type),
         )
 
         # trigger LLM answer generation
-        logging.info(agent_log(f'{self.id.type}: publish answer generation message'))
         await self.publish_message(
             message=GenerationRequest(),
             topic_id=DefaultTopicId(type=self._chat_topic_type),
@@ -421,7 +437,8 @@ class GeneratorAgent(RoutedAgent):
 
     @message_handler
     async def handle_chat_message(self, message: ChatMessage, ctx: MessageContext) -> None:
-        logging.info(f'{self.id.type} handle chat message, message content:\n{message.body}')
+        logging.info(f'{self.id.type}:' + '-' * 80)
+        logging.info(f'{self.id.type} handle chat message:\n{pretty_format(message, indent=1)}')
 
         # update system knowledge message
         if isinstance(message.body, SystemMessage):
@@ -438,7 +455,8 @@ class GeneratorAgent(RoutedAgent):
 
     @message_handler
     async def handle_generation_request(self, message: GenerationRequest, ctx: MessageContext) -> None:
-        logging.info(agent_log(f'{self.id.type} handle generation request, message content:\n{message}'))
+        logging.info(f'{self.id.type}:' + '-' * 80)
+        logging.info(f'{self.id.type} handle generation request:\n{pretty_format(message, indent=1)}')
 
         from rag.prompt import prompt_system, promot_citation
 
@@ -455,7 +473,11 @@ class GeneratorAgent(RoutedAgent):
                             + f"\n{'-' * 8}\n" \
                             + promot_citation
 
-        # conversations
+        logging.info(f'{self.id.type}:' + '-' * 80)
+        logging.info(f'{self.id.type}: knowledge base prompt:\n{pretty_format(knowledge_base_prompt, indent=1)}')
+        logging.info(f'{self.id.type}: reference meta:\n{pretty_format(refid2meta, indent=1)}')
+
+        # assemble history conversations
         conversations = []
         conversation_content = []
         for i in range(len(self._chat_history) - 1, -1, -1):
@@ -474,7 +496,6 @@ class GeneratorAgent(RoutedAgent):
             [SystemMessage(content=knowledge_base_prompt)] + conversations,
             cancellation_token=ctx.cancellation_token,
         )
-        logging.info(agent_log(f'{self.id.type}: reference meta:\n{refid2meta}'))
 
         # print response
         # reset global generating flag
@@ -482,17 +503,17 @@ class GeneratorAgent(RoutedAgent):
         is_generating = False
 
         print('', end='\r', flush=True)
-        print('', end='\r', flush=True)
         Console().print(Markdown(completion.content))
 
         # print reference
         from rag.llm import format_reference_info
         formatted_ref = format_reference_info(refid2meta, completion.content)
+        logging.info(f'{self.id.type}: formatted reference data: {pretty_format(formatted_ref, indent=1)}')
         Console().print(Markdown(formatted_ref))
 
         # publish assistance message
         await self.publish_message(
-            message=ChatMessage(body=AssistantMessage(content=knowledge_base, source='Assistant')),
+            message=ChatMessage(body=AssistantMessage(content=completion.content, source='Assistant')),
             topic_id=DefaultTopicId(type=self._chat_topic_type),
         )
 
@@ -502,7 +523,10 @@ class GeneratorAgent(RoutedAgent):
 _job_executor = None
 
 
-def get_job_executor():
+def get_job_executor() -> ThreadPoolExecutor:
+    """
+    Get a job executor for print loading mark.
+    """
     global _job_executor
     if _job_executor is None:
         # NOTE: set only 1 thread to force sequencial job schedule.
@@ -516,7 +540,7 @@ def parse_user_instruct(user_input: str) -> None | str:
     if len(user_input) == 0:
         return
 
-    if user_input in ['?', '/help']:
+    if user_input.lower() in ['?', '/help', '/h']:
         print("""Help info:
 /help: show help info.
 /exit: exit and save conversation as json.
@@ -529,7 +553,7 @@ def parse_user_instruct(user_input: str) -> None | str:
         return user_input.strip()
 
 
-def print_loading_mark():
+def print_loading_mark() -> None:
     global is_generating
 
     loading_mark = ['-', '\\', '|', '/']

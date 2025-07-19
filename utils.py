@@ -3,7 +3,9 @@ import os
 import traceback
 import time
 import xxhash
-from typing import Any, Tuple, Dict
+import re
+import math
+from typing import Any, Tuple, Dict, List
 from logging.handlers import RotatingFileHandler
 
 
@@ -165,3 +167,79 @@ def time_it(func):
         return ret
 
     return wrapper
+
+
+def pretty_format(obj: Any, indent=0, text_column_num=160) -> str:
+    """
+    Format object as string with layered structure.
+
+    Args:
+    - indent: int, initial indent (how many tabs).
+    - text_column_num: int, maximum column number of each line.
+
+    Returns:
+    - formatted string.
+    """
+    if obj is None:
+        return ""
+
+    def _divide_text(text: str) -> List[str]:
+        block_num = math.ceil(len(text) / text_column_num)
+        ret = []
+        for i in range(block_num):
+            segment = text[i * text_column_num:(i + 1) * text_column_num]
+            ret.append(segment)
+        return ret
+
+    def _format(obj: Any, level: int) -> str:
+        if obj is None:
+            return ""
+        level_prefix = '\t' * level
+        cur_layer = []
+
+        # number
+        if isinstance(obj, int) or isinstance(obj, float):
+            return level_prefix + str(obj)
+
+        # str
+        if isinstance(obj, str):
+            obj = re.sub("\n", " ", obj)
+            content = _divide_text(obj)
+            content = [level_prefix + e for e in content]
+            return '\n'.join(content)
+
+        # dict
+        if isinstance(obj, dict):
+            for k, v in obj.items():
+                k = re.sub("\n", ' ', k)
+                cur_layer.append(level_prefix + f"{k}: {type(v)}")
+                ret = _format(v, level + 1)
+                cur_layer.append(ret)
+            return "\n".join(cur_layer)
+
+        # list
+        if isinstance(obj, list):
+            if all([type(e) is type(obj[0]) for e in obj]):
+                # list is isomorphic
+                if isinstance(obj[0], str) or isinstance(obj[0], int) or isinstance(obj[0], float):
+                    content = str(obj)
+                    content = _divide_text(content)
+                    content = [level_prefix + e for e in content]
+                    return '\n'.join(content)
+
+            # list is heterogeneous or list element is not elementary python type
+            for v in obj:
+                ret = _format(v, level + 1)
+                cur_layer.append(ret)
+            return "\n".join(cur_layer)
+
+        # regular object
+        for k, v in obj.__dict__.items():
+            k = re.sub("\n", ' ', k)
+            cur_layer.append(level_prefix + f"{k}: {type(v)}")
+            ret = _format(v, level + 1)
+            cur_layer.append(ret)
+
+        return "\n".join(cur_layer)
+
+    return _format(obj, level=indent)
