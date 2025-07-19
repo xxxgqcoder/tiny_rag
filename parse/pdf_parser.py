@@ -36,25 +36,9 @@ class PDFParser(Parser):
 
         # set environment variable for magic_pdf to load config json file
         os.environ["MINERU_TOOLS_CONFIG_JSON"] = config.PDF_PARSER_CONFIG_PATH
+        os.environ["MINERU_MODEL_SOURCE"] = 'local'
 
-        # MinerU defaults to load model weight from huggingface cache dir, move model weights to it.
-        hf_cache_dir = os.path.join(os.path.expanduser('~'), '.cache/huggingface/hub')
-        minuer_config = None
-        with open(config.PDF_PARSER_CONFIG_PATH, 'r')  as f:
-            minuer_config = json.load(f)
-        model_dir = minuer_config['models-dir']['pipeline']
-        logging.info(f'MinerU original model directory: {model_dir}')
-        
-        repo_name = [p for p in os.listdir(model_dir) if os.path.isdir(os.path.join(model_dir, p))][0]
-        logging.info(f'MinerU repo name: {repo_name}')
-
-        target_dir = hf_cache_dir
-        os.makedirs(target_dir, exist_ok=True)
-        shutil.move(
-            src=os.path.join(model_dir, repo_name),
-            dst=target_dir,
-        )
-        logging.info(f'MinerU: finish moving from {os.path.join(model_dir, repo_name)} to {target_dir}')
+        return
 
     def parse(
         self,
@@ -250,6 +234,15 @@ class PDFParser(Parser):
                 return 'table_body' in content
             return True
 
+        def _format_caption(caption: Any) -> str:
+            """
+            Format caption as text.
+            """
+            if isinstance(caption, list):
+                ret = "\n".join([str(e) for e in caption])
+                return ret
+            return str(caption)
+
         chunks = []
         for content in content_list:
             if not _is_valid_content(content):
@@ -269,8 +262,8 @@ class PDFParser(Parser):
             # iamge content
             elif content['type'] in ['image']:
                 texts = [
-                    str(content.get('img_caption', '')),
-                    str(content.get('img_footnote', '')),
+                    _format_caption(content.get('img_caption', '')),
+                    _format_caption(content.get('img_footnote', '')),
                 ]
                 extra_description = self.strip_text_content(texts)
                 if len(extra_description) == 0:
@@ -292,8 +285,8 @@ class PDFParser(Parser):
             # table content
             elif content['type'] in ['table']:
                 texts = [
-                    str(content.get('table_caption', '')),
-                    str(content.get('table_footnote', '')),
+                    _format_caption(content.get('table_caption', '')),
+                    _format_caption(content.get('table_footnote', '')),
                 ]
                 extra_description = self.strip_text_content(texts)
                 if len(extra_description) == 0:

@@ -2,12 +2,11 @@ import logging
 import os
 import traceback
 import time
-from typing import Any, Tuple
-from logging.handlers import RotatingFileHandler
-
 import xxhash
-
-initialized_root_logger = False
+import re
+import math
+from typing import Any, Tuple, Dict, List
+from logging.handlers import RotatingFileHandler
 
 
 def get_project_base_directory():
@@ -15,9 +14,13 @@ def get_project_base_directory():
     return project_base
 
 
+initialized_root_logger = False
+
+
 def init_root_logger(
     logfile_basename: str,
-    log_format: str = "%(asctime)-15s %(levelname)-8s %(process)d %(message)s",
+    log_format: str = "%(asctime)-15s %(levelname)-4s %(filename)s:%(lineno)d: %(message)s",
+    need_stream: bool = True,
 ):
     global initialized_root_logger
     if initialized_root_logger:
@@ -35,37 +38,13 @@ def init_root_logger(
     handler1.setFormatter(formatter)
     logger.addHandler(handler1)
 
-    handler2 = logging.StreamHandler()
-    handler2.setFormatter(formatter)
-    logger.addHandler(handler2)
+    if need_stream:
+        handler2 = logging.StreamHandler()
+        handler2.setFormatter(formatter)
+        logger.addHandler(handler2)
 
+    logger.setLevel(level=logging.INFO)
     logging.captureWarnings(True)
-
-    LOG_LEVELS = os.environ.get("LOG_LEVELS", "")
-    pkg_levels = {}
-    for pkg_name_level in LOG_LEVELS.split(","):
-        terms = pkg_name_level.split("=")
-        if len(terms) != 2:
-            continue
-        pkg_name, pkg_level = terms[0], terms[1]
-        pkg_name = pkg_name.strip()
-        pkg_level = logging.getLevelName(pkg_level.strip().upper())
-        if not isinstance(pkg_level, int):
-            pkg_level = logging.INFO
-        pkg_levels[pkg_name] = logging.getLevelName(pkg_level)
-
-    for pkg_name in ['peewee', 'pdfminer']:
-        if pkg_name not in pkg_levels:
-            pkg_levels[pkg_name] = logging.getLevelName(logging.WARNING)
-    if 'root' not in pkg_levels:
-        pkg_levels['root'] = logging.getLevelName(logging.INFO)
-
-    for pkg_name, pkg_level in pkg_levels.items():
-        pkg_logger = logging.getLogger(pkg_name)
-        pkg_logger.setLevel(pkg_level)
-
-    msg = f"{logfile_basename} log path: {log_path}, log levels: {pkg_levels}"
-    logger.info(msg)
 
 
 def safe_strip(d: Any) -> str:
@@ -177,7 +156,6 @@ def estimate_token_num(text: str) -> Tuple[int, list[str]]:
     return int(token_num), token_buffer
 
 
-# util funcs
 def time_it(func):
 
     def wrapper(*kargs, **kwargs):
@@ -191,5 +169,77 @@ def time_it(func):
     return wrapper
 
 
-if __name__ == '__main__':
-    print(get_project_base_directory())
+def pretty_format(obj: Any, indent=0, text_column_num=160) -> str:
+    """
+    Format object as string with layered structure.
+
+    Args:
+    - indent: int, initial indent (how many tabs).
+    - text_column_num: int, maximum column number of each line.
+
+    Returns:
+    - formatted string.
+    """
+    if obj is None:
+        return ""
+
+    def _divide_text(text: str) -> List[str]:
+        block_num = math.ceil(len(text) / text_column_num)
+        ret = []
+        for i in range(block_num):
+            segment = text[i * text_column_num:(i + 1) * text_column_num]
+            ret.append(segment)
+        return ret
+
+    def _format(obj: Any, level: int) -> str:
+        if obj is None:
+            return ""
+        level_prefix = '\t' * level
+        cur_layer = []
+
+        # number
+        if isinstance(obj, int) or isinstance(obj, float):
+            return level_prefix + str(obj)
+
+        # str
+        if isinstance(obj, str):
+            obj = re.sub("\n", " ", obj)
+            content = _divide_text(obj)
+            content = [level_prefix + e for e in content]
+            return '\n'.join(content)
+
+        # dict
+        if isinstance(obj, dict):
+            for k, v in obj.items():
+                k = re.sub("\n", ' ', k)
+                cur_layer.append(level_prefix + f"{k}: {type(v)}")
+                ret = _format(v, level + 1)
+                cur_layer.append(ret)
+            return "\n".join(cur_layer)
+
+        # list
+        if isinstance(obj, list):
+            if all([type(e) is type(obj[0]) for e in obj]):
+                # list is isomorphic
+                if isinstance(obj[0], str) or isinstance(obj[0], int) or isinstance(obj[0], float):
+                    content = str(obj)
+                    content = _divide_text(content)
+                    content = [level_prefix + e for e in content]
+                    return '\n'.join(content)
+
+            # list is heterogeneous or list element is not elementary python type
+            for v in obj:
+                ret = _format(v, level + 1)
+                cur_layer.append(ret)
+            return "\n".join(cur_layer)
+
+        # regular object
+        for k, v in obj.__dict__.items():
+            k = re.sub("\n", ' ', k)
+            cur_layer.append(level_prefix + f"{k}: {type(v)}")
+            ret = _format(v, level + 1)
+            cur_layer.append(ret)
+
+        return "\n".join(cur_layer)
+
+    return _format(obj, level=indent)

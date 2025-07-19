@@ -17,7 +17,7 @@ jupyterlab_git==0.51.1
 kiwisolver==1.4.8
 matplotlib==3.10.0
 milvus-lite==2.4.12
-mineru==2.0.6
+mineru==2.1.0
 numpy==1.26.4
 ollama==0.4.9
 omegaconf==2.3.0

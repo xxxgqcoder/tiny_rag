@@ -1,13 +1,16 @@
 import logging
 import traceback
+import re
+import os
 
-from typing import Union, Dict, List, Any, Generator
+from typing import Union, Dict, List, Any, Generator, Tuple
 from abc import ABC, abstractmethod
 
 from ollama import Client as OllamaClient
 
 import config
 from utils import singleton, estimate_token_num
+from parse.parser import Chunk, ChunkType
 
 
 class ChatModel(ABC):
@@ -186,3 +189,119 @@ def get_chat_model(name: str = 'Ollama') -> ChatModel:
         ollama_host=config.CHAT_MODEL_URL,
         ollama_model_name=config.CHAT_MODEL_NAME,
     )
+
+
+def format_host_url(content_url: str) -> str:
+    if content_url is None or len(content_url) == 0:
+        return None
+    if content_url.startswith(config.HOST_RAG_FILE_DIR):
+        return content_url
+    file_name = os.path.basename(content_url)
+    ret = os.path.join(config.HOST_RAG_FILE_DIR, 'tiny_rag_parsed_assets', file_name)
+    return ret
+
+
+def max_token_truncate(history: list[str], max_token_num: int) -> int:
+    """
+    Truncate by max token num. Return index such that token num of history[:index + 1] <= max_token_num
+
+    Args:
+    - history: a list of string.
+    - max_token_num: maximum token num.
+    """
+    total_token_num = 0
+    index = 0
+    for i, msg in enumerate(history):
+        token_num, _ = estimate_token_num(msg)
+        if total_token_num + token_num >= max_token_num:
+            break
+        else:
+            index = i
+    return index
+
+
+def assemble_knowledge_base(chunks: list[Chunk]) -> Tuple[str, Dict[str, Any]]:
+    """
+    Assemble knowledge in chunk and return formatted knowledge base.
+
+    Args:
+    - chunks: chunks used to format knowledge base.
+
+    Returns:
+    - knowledge base: formated knowledge base.
+    - A dict of reference id to chunk meta, key is reference id within current knowledge base.
+    """
+    _content_divider = '\n\n'
+    # dedup chunks
+    deduped_chunk = {}
+    for chunk in chunks:
+        if chunk.uuid not in deduped_chunk:
+            deduped_chunk[chunk.uuid] = chunk
+
+    # document name to chunks mapping
+    document2chunks = {}
+    for _, chunk in deduped_chunk.items():
+        if chunk.file_name not in document2chunks:
+            document2chunks[chunk.file_name] = []
+        document2chunks[chunk.file_name].append(chunk)
+
+    knowledge_base = []
+    chunk_idx = 0  # reference index within current knowledge base
+    refid2meta = {}  # reference index to chunk meta info
+    for file_name, chunks in document2chunks.items():
+        knowledge_base.append(f"Document: {file_name}{_content_divider}")
+        knowledge_base.append(f'Relevant fragments as following:{_content_divider}')
+        for chunk in chunks:
+            content = ""
+            if chunk.content_type in [ChunkType.TEXT]:
+                content = chunk.content.decode('utf-8')
+            else:
+                content = chunk.extra_description.decode('utf-8')
+
+            # trim llm summary if any
+            content = re.sub(r"<summary>[.\s\S]*</summary>", "", content)
+            knowledge_base.append(f"ID:{chunk_idx}\n{content}")
+
+            tokens = estimate_token_num(content)[-1]
+
+            refid2meta[str(chunk_idx)] = {
+                'uuid': chunk.uuid,
+                'file_name': chunk.file_name,
+                'content_type': chunk.content_type,
+                'content_url': format_host_url(chunk.content_url),
+                'chunk_begin_digest': tokens[:6],
+                'chunk_end_digest': tokens[-6:],
+            }
+
+            chunk_idx += 1
+
+    knowledge_base = _content_divider.join(knowledge_base)
+
+    return knowledge_base, refid2meta
+
+
+def format_reference_info(reference_meta: Dict[str, str], answer: str) -> str:
+    formatted_reference_info = "\n\n"
+
+    answer = re.sub(r"<think>[.\S\s]*</think>", "", answer)
+
+    reference = re.findall(r"##[0-9]+@@", answer)
+    ref_ids = {}
+    for ref in reference:
+        ref_id = ref.strip("##").strip("@@")
+        ref_ids[ref_id] = True
+
+    for ref_id in sorted([ref_id for ref_id in ref_ids]):
+        ref_info = ''
+        meta = reference_meta[ref_id]
+        ref_info += f"<reference ID={ref_id}>,"
+        ref_info += "file=" + meta['file_name'] + ','
+        if meta['content_url']:
+            ref_info += "url=" + meta['content_url'] + ","
+
+        chunk_begin_digest = " ".join(meta['chunk_begin_digest'])
+        chunk_end_digest = " ".join(meta['chunk_end_digest'])
+        ref_info += "ref content=" + f"{chunk_begin_digest} ... {chunk_end_digest}"
+        formatted_reference_info += ref_info + "\n\n"
+
+    return formatted_reference_info

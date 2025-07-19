@@ -12,8 +12,8 @@ from prompt_toolkit import prompt
 from strenum import StrEnum
 
 import config
-from utils import logging_exception
-from utils import singleton
+from utils import logging_exception, singleton
+from rag.llm import format_reference_info
 
 
 class Role(StrEnum):
@@ -39,33 +39,6 @@ def get_job_executor():
         job_executor = ThreadPoolExecutor(max_workers=1)
 
     return job_executor
-
-
-def format_reference_info(reference_meta: Dict[str, str], answer: str) -> str:
-    formatted_reference_info = "\n\n"
-
-    answer = re.sub(r"<think>[.\S\s]*</think>", "", answer)
-
-    reference = re.findall(r"##[0-9]+@@", answer)
-    ref_ids = {}
-    for ref in reference:
-        ref_id = ref.strip("##").strip("@@")
-        ref_ids[ref_id] = True
-
-    for ref_id in sorted([ref_id for ref_id in ref_ids]):
-        ref_info = ''
-        meta = reference_meta[ref_id]
-        ref_info += f"<reference ID={ref_id}>,"
-        ref_info += "file=" + meta['file_name'] + ','
-        if meta['content_url']:
-            ref_info += "url=" + meta['content_url'] + ","
-
-        chunk_begin_digest = " ".join(meta['chunk_begin_digest'])
-        chunk_end_digest = " ".join(meta['chunk_end_digest'])
-        ref_info += "ref content=" + f"{chunk_begin_digest} ... {chunk_end_digest}"
-        formatted_reference_info += ref_info + "\n\n"
-
-    return formatted_reference_info
 
 
 def generate_response() -> requests.models.Response:
