@@ -132,51 +132,52 @@ class QueryMasterAgent(RoutedAgent):
         # append user message to chat history
         self._chat_history.append(message)
 
-        _parse_prompt = """You are a query understanding agent in a research conversation and working with other agents. 
-Your role is to parse user query and determine what to do next given conversation history.
+        _parse_prompt = """
+        You are a query understanding agent in a research conversation and working with other agents. 
+        Your role is to parse user query and determine what to do next given conversation history.
 
-Below is history conversations:
+        Below is history conversations:
 
-{history_conversation}
+        {history_conversation}
 
-Above is history conversations.
+        Above is history conversations.
 
-Instructions:
-- User query may not necessary trigger query action when history information is sufficient. In this case you can just return 'context_sufficient'.
-- If current context is not sufficient to answer user question, you need to return `query`.
-
-
-Format:
-- Format your response as a JSON object with ALL two of these exact keys:
-    - "rational": "Brief explanation of why the action is necessary.",
-    - "action": "next action item."
-
-Below is fist output example given original query:
-
-Original query: What is RoPE positional encoding.
-
-{{
-    "rational": "No related content found for user .",
-    "action": "query"
-}}
-
-Above is first output example given original query:
+        Instructions:
+        - User query may not necessary trigger query action when history information is sufficient. In this case you can just return 'context_sufficient'.
+        - If current context is not sufficient to answer user question, you need to return `query`.
 
 
-Below is second output example given original query:
+        Format:
+        - Format your response as a JSON object with ALL two of these exact keys:
+            - "rational": "Brief explanation of why the action is necessary.",
+            - "action": "next action item."
 
-Original query: What is the difference between RoPE positional encoding and absolute postional encoding.
+        Below is fist output example given original query:
 
-{{
-    "rational": "Context is sufficient to answer user query.",
-    "action": "context_sufficient"
-}}
+        Original query: What is RoPE positional encoding.
 
-Above is second output example given original query:
+        {{
+            "rational": "No related content found for user .",
+            "action": "query"
+        }}
 
-Below is user original query:
-{user_query}
-"""
+        Above is first output example given original query:
+
+
+        Below is second output example given original query:
+
+        Original query: What is the difference between RoPE positional encoding and absolute postional encoding.
+
+        {{
+            "rational": "Context is sufficient to answer user query.",
+            "action": "context_sufficient"
+        }}
+
+        Above is second output example given original query:
+
+        Below is user original query:
+        {user_query}
+        """
 
         # assemble conversation history
         history_conversation = []
@@ -268,47 +269,49 @@ class QueryRewriterAgent(RoutedAgent):
         logging.info(f'{self.id.type}:' + '-' * 80)
         logging.info(f'{self.id.type}: handle query rewrite message:\n{pretty_format(message, indent=1)}')
 
-        _query_rewrite_prompt = """You are a search assistant. Your goal is to generate sophisticated and diverse search queries.
-These queries are intended for an advanced automated research tool capable of analyzing complex results, expand topics based on user query and synthesizing information.
+        _query_rewrite_prompt = """
+        You are a search assistant. Your goal is to generate sophisticated and diverse search queries.
+        These queries are intended for an advanced automated research tool capable of analyzing complex results, expand topics based on user query and synthesizing information.
 
-Below is history user queries:
+        Below is history user queries:
 
-{history_queries}
+        {history_queries}
 
-Above is history user queries.
-
-
-Instructions:
-- Always prefer a single search query, only add another query if the original question requests multiple aspects or elements and one query is not enough.
-- Each query should focus on one specific aspect of the original question.
-- Don't produce more than {num_queries} queries.
-- Queries should be diverse, if the topic is broad, generate more than 1 query.
-- Don't generate multiple similar queries, one is enough.
-
-Format:
-- Format your response as a JSON object with ALL two of these exact keys:
-   - "rational": Brief explanation of why these queries are relevant
-   - "query": A list of search queries
+        Above is history user queries.
 
 
-Below is one output example given original query:
+        Instructions:
+        - Always prefer a single search query, only add another query if the original question requests multiple aspects or elements and one query is not enough.
+        - Each query should focus on one specific aspect of the original question.
+        - Don't produce more than {num_queries} queries.
+        - Queries should be diverse, if the topic is broad, generate more than 1 query.
+        - Don't generate multiple similar queries, one is enough.
 
-Original query: What revenue grew more last year apple stock or the number of people buying an iphone
-
-{{
-    "rational": "To answer this comparative growth question accurately, we need specific data points on Apple's stock performance and iPhone sales metrics. These queries target the precise financial information needed: company revenue trends, product-specific unit sales figures, and stock price movement over the same fiscal period for direct comparison.",
-    "query": ["Apple total revenue growth fiscal year 2024", "iPhone unit sales growth fiscal year 2024", "Apple stock price growth fiscal year 2024"],
-}}
-
-Above is one output example given original query.
+        Format:
+        - Format your response as a JSON object with ALL two of these exact keys:
+        - "rational": Brief explanation of why these queries are relevant
+        - "query": A list of search queries
 
 
-Below is the original query:
+        Below is one output example given original query:
 
-{original_query}
+        Original query: What revenue grew more last year apple stock or the number of people buying an iphone
 
-Above is the original query.
-"""
+        {{
+            "rational": "To answer this comparative growth question accurately, we need specific data points on Apple's stock performance and iPhone sales metrics. These queries target the precise financial information needed: company revenue trends, product-specific unit sales figures, and stock price movement over the same fiscal period for direct comparison.",
+            "query": ["Apple total revenue growth fiscal year 2024", "iPhone unit sales growth fiscal year 2024", "Apple stock price growth fiscal year 2024"],
+        }}
+
+        Above is one output example given original query.
+
+
+        Below is the original query:
+
+        {original_query}
+
+        Above is the original query.
+        """
+        
         # format history queries
         history_queries = []
         for i in range(len(self._user_query_history) - 2, -1, -1):
