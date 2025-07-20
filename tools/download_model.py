@@ -10,6 +10,8 @@ from modelscope import snapshot_download as ms_snapshot_download
 from mineru.utils.enum_class import ModelPath
 
 
+# ------------------------------------------------------------------------------
+# download MinerU document parser model
 def download_model(relative_path: str, repo_mode='pipeline') -> str:
     model_source = os.getenv('MINERU_MODEL_SOURCE', "huggingface")
 
@@ -115,6 +117,8 @@ def download_mineru_model(project_dir: str):
         print(f'save modified config file to path: {config_filep_path}')
 
 
+# ------------------------------------------------------------------------------
+# download BGE m3 embedding model
 def download_bge_m3_model(project_dir: str):
     from huggingface_hub import snapshot_download
 

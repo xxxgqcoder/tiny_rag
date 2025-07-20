@@ -17,7 +17,6 @@ from .document import get_rational_db
 from .llm import get_chat_model, estimate_token_num, assemble_knowledge_base, format_host_url, max_token_truncate
 from .db import get_vector_db
 from .prompt import prompt_system, promot_citation
-from parse.parser import Chunk, ChunkType
 
 bp = Blueprint('rag', __name__, url_prefix='/')
 

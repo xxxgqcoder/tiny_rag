@@ -311,7 +311,7 @@ class QueryRewriterAgent(RoutedAgent):
 
         Above is the original query.
         """
-        
+
         # format history queries
         history_queries = []
         for i in range(len(self._user_query_history) - 2, -1, -1):
