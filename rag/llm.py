@@ -192,6 +192,15 @@ def get_chat_model(name: str = 'Ollama') -> ChatModel:
 
 
 def format_host_url(content_url: str) -> str:
+    """
+    Format content url to host machine path.
+
+    Args:
+    - content_url: content url.
+
+    Returns:
+    - formtted host machine url.
+    """
     if content_url is None or len(content_url) == 0:
         return None
     if content_url.startswith(config.HOST_RAG_FILE_DIR):
@@ -281,6 +290,16 @@ def assemble_knowledge_base(chunks: list[Chunk]) -> Tuple[str, Dict[str, Any]]:
 
 
 def format_reference_info(reference_meta: Dict[str, str], answer: str) -> str:
+    """
+    Fomat reference data in `answer`.
+
+    Args:
+    - reference_meta: reference meta info, key is reference id.
+    - answer: generated answer containing reference id.
+
+    Returns:
+    - formatted reference info.
+    """
     formatted_reference_info = "\n\n"
 
     answer = re.sub(r"<think>[.\S\s]*</think>", "", answer)
