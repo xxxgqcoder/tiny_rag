@@ -185,22 +185,13 @@ class PDFParser(Parser):
         # dump content list
         image_dir = str(os.path.basename(local_image_dir))
         content_list = pipeline_union_make(pdf_info, MakeMode.CONTENT_LIST, image_dir)
-        md_writer.write_string(
-            f"{file_name}_content_list.json",
-            json.dumps(content_list, ensure_ascii=False, indent=4),
-        )
+        md_writer.write_string(f"{file_name}_content_list.json", json.dumps(content_list, ensure_ascii=False, indent=4))
 
         # dump middle json
-        md_writer.write_string(
-            f"{file_name}_middle.json",
-            json.dumps(middle_json, ensure_ascii=False, indent=4),
-        )
+        md_writer.write_string(f"{file_name}_middle.json", json.dumps(middle_json, ensure_ascii=False, indent=4))
 
         # dump model json
-        md_writer.write_string(
-            f"{file_name}_model.json",
-            json.dumps(model_json, ensure_ascii=False, indent=4),
-        )
+        md_writer.write_string(f"{file_name}_model.json", json.dumps(model_json, ensure_ascii=False, indent=4))
 
         # parse content list to chunks
         def _load_image(p: str) -> bytes:
