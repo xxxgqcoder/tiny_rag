@@ -103,14 +103,12 @@ class PDFParser(Parser):
             - `text_level`: used in headline block.
             - `type`: block type, can be one of 'equation', 'image', 'table', 'text'.
         
-        Typical paper parsed content is organized by list of content block. Headlines
-        will stored in one separated block, with `text_level` = 1 while regular content
-        block's `text_level` key is missing. Headline blocks are followed by regular
-        content block, including `text`, `equation`, `table` and `image` (distinguished 
-        by key `type`). All captions are stored in each block's caption key, for 
-        example, caption of a parsed image is saved in `img_caption` key of the block.
+        Typical parsed paper content is organized as list of content block.
+        Headlines will stored in one separated block, with `text_level` = 1 while regular content block's `text_level` key is missing. 
+        Headline blocks are followed by regular content block, including `text`, `equation`, `table` and `image` (distinguished by key `type`). 
+        All captions are stored in each block's caption key, for example, caption of a parsed image is saved in `img_caption` key of the block.
 
-        https://github.com/opendatalab/MinerU/blob/master/demo/demo.py for more details.
+        See https://github.com/opendatalab/MinerU/blob/master/demo/demo.py for more details.
 
         Returns:
         - A list of parsed chunk.
