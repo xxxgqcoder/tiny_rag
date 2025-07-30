@@ -28,9 +28,7 @@ def chat_completion():
     """
     Input json:
     - `history`: chat history json object:
-        - `role`: one of `user` / `assistant` / `system`. `user` represents user input,
-            `assistant` represents LLM response, `system` represents system context
-            setting.
+        - `role`: one of `user` / `assistant` / `system`. `user` represents user input, `assistant` represents LLM response, `system` represents system context setting.
         - `content`: the chat message.
 
     Output json:
@@ -41,8 +39,7 @@ def chat_completion():
         - `prompt`: str, prompt used to generate the answer.
         - `reference_meta`: dict, reference id to meta info.
         
-    Return object is generated in incremental way, each returned object has
-        newly generated token appended to previous returned answer.
+    Return object is generated in incremental way, each returned object has newly generated token appended to previous returned answer.
     """
     logging.info(f'**DEBUG** chat_completion: request={request}')
     logging.info(f'**DEBUG** chat_completion: request.json={json.dumps(request.json, indent=4, ensure_ascii=False)}')

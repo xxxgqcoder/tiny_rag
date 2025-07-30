@@ -346,10 +346,10 @@ class RationalDB(ABC):
     @abstractmethod
     def insert_document(self, data: Dict[str, Any]) -> int:
         """
-        Insert document.
+        Insert a document.
 
         Returns:
-        - An int counting how many records are inserted.
+        - An int indicating how many records are inserted.
         """
         raise NotImplementedError("Not implemented")
 
@@ -360,10 +360,10 @@ class RationalDB(ABC):
     @abstractmethod
     def delete_document(self, name: str) -> int:
         """
-        Delete document.
+        Delete a document.
 
         Returns:
-        - An int counting how many records are deleted.
+        - An int indicating how many records are deleted.
         """
         raise NotImplementedError("Not implemented")
 
@@ -375,6 +375,7 @@ class SQLiteDB(RationalDB):
         """
         SQLite DB:
         Args:
+        - conn_url: connection url.
         - kwargs: should contain `document_table`.
         """
         super().__init__()
