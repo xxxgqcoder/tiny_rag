@@ -215,7 +215,7 @@ def process_delete_file(file_path: str):
     logging.info(f'delete {delete_cnt} chunks from vector db')
 
 
-def ignore_file(file_path: str):
+def ignore_file(file_path: str) -> bool:
     """
     Rules on igore file.
 
@@ -238,7 +238,7 @@ def ignore_file(file_path: str):
 _job_executor = None
 
 
-def get_job_executor():
+def get_job_executor() -> ThreadPoolExecutor:
     global _job_executor
     if _job_executor is None:
         # NOTE: set only 1 thread to force sequencial job schedule.
@@ -248,7 +248,7 @@ def get_job_executor():
 
 
 @time_it
-def on_process_new_file(file_path: str):
+def on_process_new_file(file_path: str) -> None:
     try:
         process_new_file(file_path=file_path)
     except Exception as e:
@@ -256,7 +256,7 @@ def on_process_new_file(file_path: str):
 
 
 @time_it
-def on_process_delete_file(file_path: str):
+def on_process_delete_file(file_path: str) -> None:
     try:
         process_delete_file(file_path=file_path)
     except Exception as e:
@@ -295,7 +295,7 @@ class FileHandler(FileSystemEventHandler):
 
 
 @run_once
-def initial_file_process(file_dir: str):
+def initial_file_process(file_dir: str) -> None:
     """
     Submit initial file content check.
     """
