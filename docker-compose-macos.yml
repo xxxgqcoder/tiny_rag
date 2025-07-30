@@ -3,8 +3,8 @@ services:
     image: ${IMAGE}
     container_name: tiny_rag_server
     ports:
-      - 4000:4000
-      - 4567:4567
+      - "${CHAT_SERVER_PORT:-4567}:${CHAT_SERVER_PORT:-4567}"
+      - "${DEBUG_SERVER_PORT:-4000}:${DEBUG_SERVER_PORT:-4000}"
     volumes:
       - ${HOST_RAG_LOG_DIR:-./docker/logs}:/tiny_rag/logs
       - ${HOST_RAG_FILE_DIR:-./docker/files}:/var/share/tiny_rag_files
@@ -13,8 +13,8 @@ services:
     environment:
       - TZ=${TIMEZONE:-Asia/Shanghai}
       - RAG_FILE_DIR=/var/share/tiny_rag_files # NOTE: knowledge dir used within container, regular user donot change it.
-      - CHAT_SERVER_PORT=4567
-      - DEBUG_SERVER_PORT=4000
+      - CHAT_SERVER_PORT=${CHAT_SERVER_PORT:-4567} # chat server port num
+      - DEBUG_SERVER_PORT=${DEBUG_SERVER_PORT:-4000} # debug server port num
     networks:
       - tiny_rag
     restart: on-failure
