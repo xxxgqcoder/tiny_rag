@@ -8,6 +8,8 @@ import math
 from typing import Any, Tuple, Dict, List
 from logging.handlers import RotatingFileHandler
 
+import config
+
 
 def get_project_base_directory():
     project_base = os.path.abspath(os.path.dirname(os.path.realpath(__file__)))
@@ -243,3 +245,22 @@ def pretty_format(obj: Any, indent=0, text_column_num=160) -> str:
         return "\n".join(cur_layer)
 
     return _format(obj, level=indent)
+
+
+def format_host_url(content_url: str) -> str:
+    """
+    Format content url to host machine path.
+
+    Args:
+    - content_url: content url.
+
+    Returns:
+    - formtted host machine url.
+    """
+    if content_url is None or len(content_url) == 0:
+        return None
+    if content_url.startswith(config.HOST_RAG_FILE_DIR):
+        return content_url
+    file_name = os.path.basename(content_url)
+    ret = os.path.join(config.HOST_RAG_FILE_DIR, 'tiny_rag_parsed_assets', file_name)
+    return ret

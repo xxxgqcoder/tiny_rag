@@ -4,14 +4,11 @@ import os
 import json
 import re
 
-from utils import get_project_base_directory, init_root_logger, run_once
+from utils import get_project_base_directory, run_once
 
 
 @run_once
 def init_root_config():
-    # logger
-    init_root_logger("tiny_rag")
-
     # parse environment file
     global HOST_RAG_FILE_DIR
     HOST_RAG_FILE_DIR = os.environ.get('HOST_RAG_FILE_DIR', '')

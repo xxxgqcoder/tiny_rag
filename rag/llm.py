@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from ollama import Client as OllamaClient
 
 import config
-from utils import singleton, estimate_token_num
+from utils import singleton, estimate_token_num, format_host_url
 from parse.parser import Chunk, ChunkType
 
 
@@ -37,47 +37,6 @@ class ChatModel(ABC):
             token num.
         """
         raise NotImplementedError("Not implemented")
-
-    def _calculate_dynamic_ctx(self, history: list[Dict[str, Any]]) -> int:
-        """
-        Calculate dynamic context window size
-
-        Args:
-        - history: conversation history, a list of json objects.
-
-        """
-
-        def count_tokens(text):
-            # Simple calculation: 1 token per ASCII character
-            # 2 tokens for non-ASCII characters (Chinese, Japanese, Korean, etc.)
-            total = 0
-            for char in text:
-                if ord(char) < 128:  # ASCII characters
-                    total += 1
-                else:  # Non-ASCII characters (Chinese, Japanese, Korean, etc.)
-                    total += 2
-            return total
-
-        # Calculate total tokens for all messages
-        total_tokens = 0
-        for message in history:
-            content = message.get("content", "")
-            # Calculate content tokens
-            content_tokens = count_tokens(content)
-            # Add role marker token overhead
-            role_tokens = 4
-            total_tokens += content_tokens + role_tokens
-
-        # Apply 1.2x buffer ratio
-        total_tokens_with_buffer = int(total_tokens * 1.2)
-
-        if total_tokens_with_buffer <= 8192:
-            ctx_size = 8192
-        else:
-            ctx_multiplier = (total_tokens_with_buffer // 8192) + 1
-            ctx_size = ctx_multiplier * 8192
-
-        return ctx_size
 
     @abstractmethod
     def instant_chat(
@@ -110,11 +69,10 @@ class OllamaChat(ChatModel):
         history: list[Dict[str, Any]],
         gen_conf: Dict[str, Any],
     ) -> Generator[Union[str, int], Any, Any]:
-        ctx_size = self._calculate_dynamic_ctx(history)
         if "max_tokens" in gen_conf:
             del gen_conf["max_tokens"]
 
-        options = {"num_ctx": ctx_size}
+        options = {}
         if "temperature" in gen_conf:
             options["temperature"] = gen_conf["temperature"]
         if "max_tokens" in gen_conf:
@@ -149,19 +107,11 @@ class OllamaChat(ChatModel):
         prompt: str,
         gen_conf: Dict[str, Any],
     ) -> str:
-        est_token_num = estimate_token_num(prompt)[0]
-        if est_token_num > config.MAX_TOKEN_NUM:
-            truncate_ratio = float(config.MAX_TOKEN_NUM / est_token_num)
-            logging.info(f'estimated token num exceed max token num, prompt byte num: {len(prompt)}, truncated by ratio: {truncate_ratio}')
-            prompt = prompt[:int(len(prompt) * truncate_ratio)]
-            logging.info(f'truncated byte num: {len(prompt)}')
-
         history = [{'role': 'user', 'content': prompt}]
-        ctx_size = self._calculate_dynamic_ctx(history)
         if "max_tokens" in gen_conf:
             del gen_conf["max_tokens"]
 
-        options = {"num_ctx": ctx_size}
+        options = {}
         if "temperature" in gen_conf:
             options["temperature"] = gen_conf["temperature"]
         if "max_tokens" in gen_conf:
@@ -189,25 +139,6 @@ def get_chat_model(name: str = 'Ollama') -> ChatModel:
         ollama_host=config.CHAT_MODEL_URL,
         ollama_model_name=config.CHAT_MODEL_NAME,
     )
-
-
-def format_host_url(content_url: str) -> str:
-    """
-    Format content url to host machine path.
-
-    Args:
-    - content_url: content url.
-
-    Returns:
-    - formtted host machine url.
-    """
-    if content_url is None or len(content_url) == 0:
-        return None
-    if content_url.startswith(config.HOST_RAG_FILE_DIR):
-        return content_url
-    file_name = os.path.basename(content_url)
-    ret = os.path.join(config.HOST_RAG_FILE_DIR, 'tiny_rag_parsed_assets', file_name)
-    return ret
 
 
 def max_token_truncate(history: list[str], max_token_num: int) -> int:

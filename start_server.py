@@ -9,8 +9,12 @@ from watchdog.observers import Observer
 import config
 from rag.document import FileHandler, initial_file_process
 from rag.db import create_milvus_collection, create_sqlite_table
+from utils import init_root_logger
 
 if __name__ == '__main__':
+    # root logger
+    init_root_logger('tiny_rag')
+
     # set up db
     create_milvus_collection(
         conn_url=config.MILVUS_DB_NAME,
