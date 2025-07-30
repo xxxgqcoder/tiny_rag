@@ -131,6 +131,11 @@ def download_mineru_model(project_dir: str):
                 "enable": False,
             },
         },
+        "models-dir": {
+            "pipeline": "",
+        },
+        "consecutive_block_num": 0,
+        "block_overlap_num": 0,
     }
 
     for key, value in json_modification.items():
