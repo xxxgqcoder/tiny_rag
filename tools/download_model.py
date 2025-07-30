@@ -12,7 +12,13 @@ from mineru.utils.enum_class import ModelPath
 
 # ------------------------------------------------------------------------------
 # download MinerU document parser model
-def download_model(relative_path: str, repo_mode='pipeline') -> str:
+def download_mineru_model_weight(relative_path: str, repo_mode: str = 'pipeline') -> str:
+    """
+    Download MinerU model weight.
+
+    Returns:
+    - downloaded model weight path.
+    """
     model_source = os.getenv('MINERU_MODEL_SOURCE', "huggingface")
 
     repo_mapping = {
@@ -57,13 +63,13 @@ def download_model(relative_path: str, repo_mode='pipeline') -> str:
     return cache_dir
 
 
-def download_json(url: str) -> Any:
-    response = requests.get(url)
-    response.raise_for_status()
-    return response.json()
-
-
 def download_mineru_model(project_dir: str):
+    """
+    Download mineru model and set up config file.
+
+    Args:
+    - project_dir: project root directory.
+    """
     # donwnload model
     model_paths = [
         ModelPath.doclayout_yolo,
@@ -76,7 +82,7 @@ def download_mineru_model(project_dir: str):
     downloaded_model_dir = ""
     for model_path in model_paths:
         print(f"downloading model from: {model_path}")
-        downloaded_model_dir = download_model(model_path, repo_mode='pipeline')
+        downloaded_model_dir = download_mineru_model_weight(model_path, repo_mode='pipeline')
     print(f'donwloaded model path: {downloaded_model_dir}')
 
     # copy model
@@ -93,9 +99,8 @@ def download_mineru_model(project_dir: str):
     print(f'copy model from {downloaded_model_dir} to {target_dir}')
 
     # modify json config file
-    json_url = 'https://gcore.jsdelivr.net/gh/opendatalab/MinerU@master/mineru.template.json'
     config_file_name = 'magic-pdf.json'
-    config_filep_path = os.path.join(project_dir, "assets/MinerU", config_file_name)
+    config_file_path = os.path.join(project_dir, "assets/MinerU", config_file_name)
     json_modification = {
         'models-dir': {
             "pipeline": "<project_root_dir>/assets/MinerU/",
@@ -103,7 +108,30 @@ def download_mineru_model(project_dir: str):
         "consecutive_block_num": 8,
         "block_overlap_num": 3,
     }
-    data = download_json(json_url)
+    data = {
+        "bucket_info": {
+            "bucket-name-1": ["ak", "sk", "endpoint"],
+            "bucket-name-2": ["ak", "sk", "endpoint"],
+        },
+        "latex-delimiter-config": {
+            "display": {
+                "left": "$$",
+                "right": "$$"
+            },
+            "inline": {
+                "left": "$",
+                "right": "$"
+            },
+        },
+        "llm-aided-config": {
+            "title_aided": {
+                "api_key": "your_api_key",
+                "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+                "model": "qwen2.5-32b-instruct",
+                "enable": False,
+            },
+        },
+    }
 
     for key, value in json_modification.items():
         if key in data:
@@ -112,14 +140,20 @@ def download_mineru_model(project_dir: str):
             else:
                 data[key] = value
 
-    with open(config_filep_path, 'w', encoding='utf-8') as f:
+    with open(config_file_path, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
-        print(f'save modified config file to path: {config_filep_path}')
+        print(f'save modified config file to path: {config_file_path}')
 
 
 # ------------------------------------------------------------------------------
 # download BGE m3 embedding model
 def download_bge_m3_model(project_dir: str):
+    """
+    Download bge-m3 model weight and set up config file.
+
+    Args:
+    - project_dir: project root directory.
+    """
     from huggingface_hub import snapshot_download
 
     patterns = [
