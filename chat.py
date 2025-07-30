@@ -32,7 +32,7 @@ job_executor = None
 is_generating = False
 
 
-def get_job_executor():
+def get_job_executor() -> ThreadPoolExecutor:
     global job_executor
     if job_executor is None:
         # NOTE: set only 1 thread to force sequencial job schedule.
@@ -115,7 +115,7 @@ def generate_response() -> requests.models.Response:
     print()
 
 
-def print_loading_mark():
+def print_loading_mark() -> None:
     global is_generating
 
     loading_mark = ['-', '\\', '|', '/']
@@ -129,7 +129,7 @@ def print_loading_mark():
         time.sleep(0.05)
 
 
-def parse_user_instruct(user_input: str):
+def parse_user_instruct(user_input: str) -> None:
     user_input = user_input.strip()
     if len(user_input) == 0:
         return
@@ -157,7 +157,7 @@ def parse_user_instruct(user_input: str):
         generate_response()
 
 
-def run_chat():
+def run_chat() -> None:
     global is_generating
 
     while True:
