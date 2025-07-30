@@ -37,13 +37,15 @@ if __name__ == '__main__':
 
     # http server
     # NOTE: debug=True cause milvus start failure, no idea why.
+    chart_server_port = os.environ.get('CHAT_SERVER_PORT', 4567)
+    logging.info(f'chat server port num: {chart_server_port}')
     app = Flask(__name__)
     from rag import rag_server
     app.register_blueprint(rag_server.bp)
     app.run(
         debug=False,
         host='0.0.0.0',
-        port=4567,
+        port=chart_server_port,
     )
 
     logging.info('server shutdown')

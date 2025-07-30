@@ -2,7 +2,8 @@
 set -e
 
 jupyter_log_file='.logs/jupyter.logs'
-port_num=4000
+port_num=${DEBUG_SERVER_PORT}
+echo "debug server port: ${port_num}"
 
 ps ax | grep -E "jupyter-lab --port=${port_num}" | grep -v "grep" | awk '{print $1}' | xargs -I {} kill -9 {}
 

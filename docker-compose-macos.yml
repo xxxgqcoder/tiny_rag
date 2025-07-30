@@ -13,6 +13,8 @@ services:
     environment:
       - TZ=${TIMEZONE:-Asia/Shanghai}
       - RAG_FILE_DIR=/var/share/tiny_rag_files # NOTE: knowledge dir used within container, regular user donot change it.
+      - CHAT_SERVER_PORT=4567
+      - DEBUG_SERVER_PORT=4000
     networks:
       - tiny_rag
     restart: on-failure
