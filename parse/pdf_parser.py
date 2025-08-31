@@ -162,7 +162,7 @@ class PDFParser(Parser):
             all_image_lists[0],
             all_pdf_docs[0],
             image_writer,
-            lang,
+            lang_list[0],
             ocr_enabled_list[0],
             True,
         )
@@ -233,10 +233,10 @@ class PDFParser(Parser):
         chunks = []
         for content in content_list:
             if not _is_valid_content(content):
-                logging.info(f"invalid content: {json.dumps(content, indent=4)}")
+                logging.info(f"Invalid content: {json.dumps(content, indent=4)}")
                 continue
 
-            # text content
+            # text / formula content
             if content["type"] in ["text", "equation"]:
                 text = self.strip_text_content([content["text"]])
                 chunks.append(
@@ -250,7 +250,7 @@ class PDFParser(Parser):
                     )
                 )
 
-            # iamge content
+            # image content
             elif content["type"] in ["image"]:
                 texts = [
                     _format_caption(content.get("img_caption", "")),
@@ -339,8 +339,7 @@ class PDFParser(Parser):
                 # move one step forward
                 j += 1
 
-            # inner loop ends when j == len(chunks) or len(block_buffer) == self.consecutive_block_num
-            # generate new chunk if buffer is not empty.
+            # inner loop ends when j == len(chunks) or len(block_buffer) == self.consecutive_block_num generate new chunk if buffer is not empty.
             if len(chunk_buffer) > 0:
                 texts = [chunk.content.decode("utf-8") for chunk in chunk_buffer]
                 texts = "\n\n".join(texts)
