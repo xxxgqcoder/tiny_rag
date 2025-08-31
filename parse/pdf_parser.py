@@ -8,7 +8,8 @@ from typing import Tuple, Dict, Any
 
 import config
 from utils import singleton, safe_strip, logging_exception
-from parse.parser import Parser, Chunk, ChunkType
+from parse.parser import Parser
+from common.data import Chunk, ChunkType
 
 
 @singleton
@@ -17,26 +18,29 @@ class PDFParser(Parser):
     PDF parser implementation, backed by [MinerU](https://github.com/opendatalab/MinerU).
     """
 
-    def __init__(self, ):
+    def __init__(
+        self,
+    ):
         super().__init__()
 
         with open(config.PDF_PARSER_CONFIG_PATH) as f:
             conf = json.load(f)
 
         # used in chunking, number of consecutive block to be considered as one chunk.
-        self.consecutive_block_num = conf.get('consecutive_block_num', 8)
+        self.consecutive_block_num = conf.get("consecutive_block_num", 8)
 
         # used in chunking, number of overlapped block num between two consecutive chunks.
-        self.block_overlap_num = conf.get('block_overlap_num', 3)
+        self.block_overlap_num = conf.get("block_overlap_num", 3)
 
         logging.info(f"parsr config: {json.dumps(conf, indent=4)}")
 
-        assert self.block_overlap_num < self.consecutive_block_num,\
+        assert self.block_overlap_num < self.consecutive_block_num, (
             f"block overlap num ({self.block_overlap_num}) be less than consecutive block num ({self.consecutive_block_num})"
+        )
 
         # set environment variable for magic_pdf to load config json file
         os.environ["MINERU_TOOLS_CONFIG_JSON"] = config.PDF_PARSER_CONFIG_PATH
-        os.environ["MINERU_MODEL_SOURCE"] = 'local'
+        os.environ["MINERU_MODEL_SOURCE"] = "local"
 
         return
 
@@ -51,7 +55,7 @@ class PDFParser(Parser):
         # get original chunk list
         temp_dir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
         temp_asset_dir = temp_dir.name
-        logging.info(f'temp asset directory: {temp_asset_dir}')
+        logging.info(f"temp asset directory: {temp_asset_dir}")
 
         chunks = self.parse_pdf_content(
             file_path=file_path,
@@ -75,7 +79,7 @@ class PDFParser(Parser):
 
         # merge chunk list
         merged_chunks = self.merge_chunk(chunks=self.chunks)
-        logging.info(f'{self.file_name}: total {len(merged_chunks)} chunks ')
+        logging.info(f"{self.file_name}: total {len(merged_chunks)} chunks ")
 
         temp_dir.cleanup()
         return merged_chunks
@@ -87,9 +91,9 @@ class PDFParser(Parser):
         asset_save_dir: str,
     ) -> list[Chunk]:
         """
-        Parse PDF content and return content list. The result is a list of json 
+        Parse PDF content and return content list. The result is a list of json
         oject representing a pdf content block.
-        
+
         Dict object key explanation:
             - `img_caption`: the image caption.
             - `img_footnote`:
@@ -102,10 +106,10 @@ class PDFParser(Parser):
             - `text_format`: used in latex forumla block.
             - `text_level`: used in headline block.
             - `type`: block type, can be one of 'equation', 'image', 'table', 'text'.
-        
+
         Typical parsed paper content is organized as list of content block.
-        Headlines will stored in one separated block, with `text_level` = 1 while regular content block's `text_level` key is missing. 
-        Headline blocks are followed by regular content block, including `text`, `equation`, `table` and `image` (distinguished by key `type`). 
+        Headlines will stored in one separated block, with `text_level` = 1 while regular content block's `text_level` key is missing.
+        Headline blocks are followed by regular content block, including `text`, `equation`, `table` and `image` (distinguished by key `type`).
         All captions are stored in each block's caption key, for example, caption of a parsed image is saved in `img_caption` key of the block.
 
         See https://github.com/opendatalab/MinerU/blob/master/demo/demo.py for more details.
@@ -126,7 +130,9 @@ class PDFParser(Parser):
         from mineru.utils.enum_class import MakeMode
         from mineru.backend.pipeline.pipeline_analyze import doc_analyze as pipeline_doc_analyze
         from mineru.backend.pipeline.pipeline_middle_json_mkcontent import union_make as pipeline_union_make
-        from mineru.backend.pipeline.model_json_to_middle_json import result_to_middle_json as pipeline_result_to_middle_json
+        from mineru.backend.pipeline.model_json_to_middle_json import (
+            result_to_middle_json as pipeline_result_to_middle_json,
+        )
 
         # prepare env
         try:
@@ -135,10 +141,10 @@ class PDFParser(Parser):
             pass
         os.makedirs(temp_asset_dir, exist_ok=True)
 
-        lang = 'ch'
+        lang = "ch"
         start_page_id = 0
         end_page_id = None
-        parse_method = 'auto'
+        parse_method = "auto"
 
         file_name = str(Path(file_path).stem)
         pdf_bytes = read_fn(file_path)
@@ -193,7 +199,7 @@ class PDFParser(Parser):
 
         # parse content list to chunks
         def _load_image(p: str) -> bytes:
-            with open(p, 'rb') as f:
+            with open(p, "rb") as f:
                 image_bytes = f.read()
             return image_bytes
 
@@ -203,24 +209,24 @@ class PDFParser(Parser):
 
         def _is_valid_content(content: Dict[str, Any]) -> bool:
             """
-            There are corner cases where returned blocks dont contain expected keys 
+            There are corner cases where returned blocks dont contain expected keys
             or values are empty.
 
             Returns:
             - bool: true if block is valid.
             """
             # missing key
-            if 'type' not in content:
+            if "type" not in content:
                 return False
             # text / equation
-            if content['type'] in ['text', 'equation']:
-                return 'text' in content
+            if content["type"] in ["text", "equation"]:
+                return "text" in content
             # image
-            if content['type'] == 'image':
-                return 'img_path' in content and len(content['img_path']) > 0
+            if content["type"] == "image":
+                return "img_path" in content and len(content["img_path"]) > 0
             # table
-            if content['type'] == 'table':
-                return 'table_body' in content
+            if content["type"] == "table":
+                return "table_body" in content
             return True
 
         def _format_caption(caption: Any) -> str:
@@ -244,62 +250,66 @@ class PDFParser(Parser):
         chunks = []
         for content in content_list:
             if not _is_valid_content(content):
-                logging.info(f'invalid content: {json.dumps(content, indent=4)}')
+                logging.info(f"invalid content: {json.dumps(content, indent=4)}")
                 continue
 
             # text content
-            if content['type'] in ['text', 'equation']:
-                text = self.strip_text_content([content['text']])
-                chunks.append(Chunk(
-                    content_type=ChunkType.TEXT,
-                    file_name=self.file_name,
-                    content=text.encode('utf-8', errors="ignore"),
-                    extra_description=''.encode('utf-8', errors="ignore"),
-                ))
+            if content["type"] in ["text", "equation"]:
+                text = self.strip_text_content([content["text"]])
+                chunks.append(
+                    Chunk(
+                        content_type=ChunkType.TEXT,
+                        file_name=self.file_name,
+                        content=text.encode("utf-8", errors="ignore"),
+                        extra_description="".encode("utf-8", errors="ignore"),
+                    )
+                )
 
             # iamge content
-            elif content['type'] in ['image']:
+            elif content["type"] in ["image"]:
                 texts = [
-                    _format_caption(content.get('img_caption', '')),
-                    _format_caption(content.get('img_footnote', '')),
+                    _format_caption(content.get("img_caption", "")),
+                    _format_caption(content.get("img_footnote", "")),
                 ]
                 extra_description = self.strip_text_content(texts)
                 if len(extra_description) == 0:
                     extra_description = "no caption for this image"
 
                 # NOTE: hard coded image path format
-                abs_img_path = os.path.join(temp_asset_dir, str(Path(self.file_name).stem), 'auto', content['img_path'])
+                abs_img_path = os.path.join(temp_asset_dir, str(Path(self.file_name).stem), "auto", content["img_path"])
                 _save_image(abs_img_path, asset_save_dir)
 
                 chunk = Chunk(
                     content_type=ChunkType.IMAGE,
                     file_name=self.file_name,
                     content=_load_image(abs_img_path),
-                    extra_description=(extra_description).encode('utf-8', errors="ignore"),
+                    extra_description=(extra_description).encode("utf-8", errors="ignore"),
                     content_url=os.path.join(asset_save_dir, os.path.basename(abs_img_path)),
                 )
                 chunks.append(chunk)
 
             # table content
-            elif content['type'] in ['table']:
+            elif content["type"] in ["table"]:
                 texts = [
-                    _format_caption(content.get('table_caption', '')),
-                    _format_caption(content.get('table_footnote', '')),
+                    _format_caption(content.get("table_caption", "")),
+                    _format_caption(content.get("table_footnote", "")),
                 ]
                 extra_description = self.strip_text_content(texts)
                 if len(extra_description) == 0:
                     extra_description = "no caption for this table"
 
-                abs_img_path = os.path.join(temp_asset_dir, str(Path(self.file_name).stem), 'auto', content['img_path'])
-                if content['img_path']:
+                abs_img_path = os.path.join(temp_asset_dir, str(Path(self.file_name).stem), "auto", content["img_path"])
+                if content["img_path"]:
                     _save_image(abs_img_path, asset_save_dir)
 
                 chunk = Chunk(
                     content_type=ChunkType.TABLE,
                     file_name=self.file_name,
-                    content=content['table_body'].encode('utf-8', errors="ignore"),
-                    extra_description=(extra_description).encode('utf-8', errors="ignore"),
-                    content_url=os.path.join(asset_save_dir, os.path.basename(abs_img_path)) if content['img_path'] else None,
+                    content=content["table_body"].encode("utf-8", errors="ignore"),
+                    extra_description=(extra_description).encode("utf-8", errors="ignore"),
+                    content_url=os.path.join(asset_save_dir, os.path.basename(abs_img_path))
+                    if content["img_path"]
+                    else None,
                 )
                 chunks.append(chunk)
             else:
@@ -349,13 +359,13 @@ class PDFParser(Parser):
             # inner loop ends when j == len(chunks) or len(block_buffer) == self.consecutive_block_num
             # generate new chunk if buffer is not empty.
             if len(chunk_buffer) > 0:
-                texts = [chunk.content.decode('utf-8') for chunk in chunk_buffer]
+                texts = [chunk.content.decode("utf-8") for chunk in chunk_buffer]
                 texts = "\n\n".join(texts)
                 new_chunk = Chunk(
                     content_type=ChunkType.TEXT,
                     file_name=self.file_name,
-                    content=texts.encode('utf-8', errors="ignore"),
-                    extra_description=''.encode('utf-8', errors="ignore"),
+                    content=texts.encode("utf-8", errors="ignore"),
+                    extra_description="".encode("utf-8", errors="ignore"),
                 )
                 merged_chunks.append(new_chunk)
                 chunk_buffer.clear()
@@ -374,9 +384,9 @@ class PDFParser(Parser):
             content = chunk.content
             if chunk.content_type != ChunkType.TEXT:
                 content = chunk.extra_description
-            content = safe_strip(content.decode('utf-8'))
+            content = safe_strip(content.decode("utf-8"))
             if len(content) < 1:
-                logging.info(f'{self.file_name}: remove chunk due to too short content: {str(chunk)}')
+                logging.info(f"{self.file_name}: remove chunk due to too short content: {str(chunk)}")
                 continue
 
             filtered_chunks.append(chunk)
@@ -390,7 +400,7 @@ class PDFParser(Parser):
         content = ""
         for text in texts:
             striped = safe_strip(text)
-            if len(striped) == 0 or striped == '[]':
+            if len(striped) == 0 or striped == "[]":
                 continue
             content += striped
             content += "\n\n"
