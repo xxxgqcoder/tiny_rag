@@ -35,7 +35,7 @@ class PDFParser(Parser):
         )
 
         # set environment variable for magic_pdf to load config json file
-        os.environ["MINERU_TOOLS_CONFIG_JSON"] = conf.get("mineru_tools_conf_josn", "")
+        os.environ["MINERU_TOOLS_CONFIG_JSON"] = conf.get("mineru_tools_conf_json", "")
         os.environ["MINERU_MODEL_SOURCE"] = conf.get("mineru_model_source", "local")
 
     def parse(
@@ -85,7 +85,7 @@ class PDFParser(Parser):
         asset_save_dir: str,
     ) -> list[Chunk]:
         """
-        Parse PDF content and return content list. 
+        Parse PDF content and return content list.
         The result is a list of json oject representing a pdf content block.
 
         Dict object key explanation:
@@ -176,12 +176,12 @@ class PDFParser(Parser):
 
         # dump md
         image_dir = str(os.path.basename(local_image_dir))
-        md_content_str: list[str] = pipeline_union_make(pdf_info, MakeMode.MM_MD, image_dir) # type: ignore
+        md_content_str: list[str] = pipeline_union_make(pdf_info, MakeMode.MM_MD, image_dir)  # type: ignore
         md_writer.write_string(f"{file_name}.md", str(md_content_str))
 
         # dump content list
         image_dir = str(os.path.basename(local_image_dir))
-        content_list: list[dict[str, Any]] = pipeline_union_make(pdf_info, MakeMode.CONTENT_LIST, image_dir) # type: ignore
+        content_list: list[dict[str, Any]] = pipeline_union_make(pdf_info, MakeMode.CONTENT_LIST, image_dir)  # type: ignore
         md_writer.write_string(f"{file_name}_content_list.json", json.dumps(content_list, ensure_ascii=False, indent=4))
 
         # dump middle json
