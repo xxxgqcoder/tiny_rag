@@ -1,15 +1,14 @@
-import os
-import tempfile
-import logging
-import shutil
-import pickle
 import json
-from typing import Tuple, Dict, Any
+import logging
+import os
+import shutil
+import tempfile
+from typing import Any
 
-import config
-from utils import singleton, safe_strip, logging_exception
-from parse.parser import Parser
+from common.config import TinyRAGConfig
 from common.data import Chunk, ChunkType
+from parse.parser import Parser
+from utils import safe_strip, singleton
 
 
 @singleton
@@ -23,26 +22,21 @@ class PDFParser(Parser):
     ):
         super().__init__()
 
-        with open(config.PDF_PARSER_CONFIG_PATH) as f:
+        with open(file=TinyRAGConfig.parser_config.config_file_path) as f:  # type: ignore
             conf = json.load(f)
-
         # used in chunking, number of consecutive block to be considered as one chunk.
         self.consecutive_block_num = conf.get("consecutive_block_num", 8)
-
         # used in chunking, number of overlapped block num between two consecutive chunks.
         self.block_overlap_num = conf.get("block_overlap_num", 3)
 
-        logging.info(f"parsr config: {json.dumps(conf, indent=4)}")
-
+        logging.info(f"Parsr config: {json.dumps(conf, indent=4)}")
         assert self.block_overlap_num < self.consecutive_block_num, (
             f"block overlap num ({self.block_overlap_num}) be less than consecutive block num ({self.consecutive_block_num})"
         )
 
         # set environment variable for magic_pdf to load config json file
-        os.environ["MINERU_TOOLS_CONFIG_JSON"] = config.PDF_PARSER_CONFIG_PATH
-        os.environ["MINERU_MODEL_SOURCE"] = "local"
-
-        return
+        os.environ["MINERU_TOOLS_CONFIG_JSON"] = conf.get("mineru_tools_conf_josn", "")
+        os.environ["MINERU_MODEL_SOURCE"] = conf.get("mineru_model_source", "local")
 
     def parse(
         self,
@@ -91,8 +85,8 @@ class PDFParser(Parser):
         asset_save_dir: str,
     ) -> list[Chunk]:
         """
-        Parse PDF content and return content list. The result is a list of json
-        oject representing a pdf content block.
+        Parse PDF content and return content list. 
+        The result is a list of json oject representing a pdf content block.
 
         Dict object key explanation:
             - `img_caption`: the image caption.
@@ -117,22 +111,21 @@ class PDFParser(Parser):
         Returns:
         - A list of parsed chunk.
         """
-        # NOTE: magic_pdf package uses singleton design and the model isntance is
-        # initialized when the module is imported, so postpone the import statement
-        # until parse method is called.
+        # NOTE: magic_pdf package uses singleton design and the model isntance is initialized when the module is imported,
+        # so postpone the import statement until parse method is called.
 
         import copy
         from pathlib import Path
 
+        from mineru.backend.pipeline.model_json_to_middle_json import (
+            result_to_middle_json as pipeline_result_to_middle_json,
+        )
+        from mineru.backend.pipeline.pipeline_analyze import doc_analyze as pipeline_doc_analyze
+        from mineru.backend.pipeline.pipeline_middle_json_mkcontent import union_make as pipeline_union_make
         from mineru.cli.common import convert_pdf_bytes_to_bytes_by_pypdfium2, prepare_env, read_fn
         from mineru.data.data_reader_writer import FileBasedDataWriter
         from mineru.utils.draw_bbox import draw_layout_bbox, draw_span_bbox
         from mineru.utils.enum_class import MakeMode
-        from mineru.backend.pipeline.pipeline_analyze import doc_analyze as pipeline_doc_analyze
-        from mineru.backend.pipeline.pipeline_middle_json_mkcontent import union_make as pipeline_union_make
-        from mineru.backend.pipeline.model_json_to_middle_json import (
-            result_to_middle_json as pipeline_result_to_middle_json,
-        )
 
         # prepare env
         try:
@@ -183,12 +176,12 @@ class PDFParser(Parser):
 
         # dump md
         image_dir = str(os.path.basename(local_image_dir))
-        md_content_str = pipeline_union_make(pdf_info, MakeMode.MM_MD, image_dir)
-        md_writer.write_string(f"{file_name}.md", md_content_str)
+        md_content_str: list[str] = pipeline_union_make(pdf_info, MakeMode.MM_MD, image_dir) # type: ignore
+        md_writer.write_string(f"{file_name}.md", str(md_content_str))
 
         # dump content list
         image_dir = str(os.path.basename(local_image_dir))
-        content_list = pipeline_union_make(pdf_info, MakeMode.CONTENT_LIST, image_dir)
+        content_list: list[dict[str, Any]] = pipeline_union_make(pdf_info, MakeMode.CONTENT_LIST, image_dir) # type: ignore
         md_writer.write_string(f"{file_name}_content_list.json", json.dumps(content_list, ensure_ascii=False, indent=4))
 
         # dump middle json
@@ -203,14 +196,13 @@ class PDFParser(Parser):
                 image_bytes = f.read()
             return image_bytes
 
-        def _save_image(src_path: str, dst_dir: str):
+        def _save_image(src_path: str, dst_dir: str) -> None:
             dst_path = os.path.join(dst_dir, os.path.basename(src_path))
             shutil.copyfile(src_path, dst_path)
 
-        def _is_valid_content(content: Dict[str, Any]) -> bool:
+        def _is_valid_content(content: dict[str, Any]) -> bool:
             """
-            There are corner cases where returned blocks dont contain expected keys
-            or values are empty.
+            There are corner cases where returned blocks dont contain expected keys or values are empty.
 
             Returns:
             - bool: true if block is valid.
@@ -238,15 +230,6 @@ class PDFParser(Parser):
                 return ret
             return str(caption)
 
-        def _format_caption(caption: Any) -> str:
-            """
-            Format caption as text.
-            """
-            if isinstance(caption, list):
-                ret = "\n".join([str(e) for e in caption])
-                return ret
-            return str(caption)
-
         chunks = []
         for content in content_list:
             if not _is_valid_content(content):
@@ -262,6 +245,8 @@ class PDFParser(Parser):
                         file_name=self.file_name,
                         content=text.encode("utf-8", errors="ignore"),
                         extra_description="".encode("utf-8", errors="ignore"),
+                        content_url="",
+                        uuid="",
                     )
                 )
 
@@ -285,6 +270,7 @@ class PDFParser(Parser):
                     content=_load_image(abs_img_path),
                     extra_description=(extra_description).encode("utf-8", errors="ignore"),
                     content_url=os.path.join(asset_save_dir, os.path.basename(abs_img_path)),
+                    uuid="",
                 )
                 chunks.append(chunk)
 
@@ -309,7 +295,8 @@ class PDFParser(Parser):
                     extra_description=(extra_description).encode("utf-8", errors="ignore"),
                     content_url=os.path.join(asset_save_dir, os.path.basename(abs_img_path))
                     if content["img_path"]
-                    else None,
+                    else "",
+                    uuid="",
                 )
                 chunks.append(chunk)
             else:
@@ -317,30 +304,26 @@ class PDFParser(Parser):
 
         return chunks
 
-    def merge_chunk(self, chunks: list[Chunk]) -> Chunk:
+    def merge_chunk(self, chunks: list[Chunk]) -> list[Chunk]:
         """
         Chunk parsed pdf contents.
 
-        Scan `self.consecutive_block_num` consecutive chunk and combine as one
-        chunk.
-        If image / table chunk is encountered within current consecutive chunks,
-        then make the image / table chunk as independent chunk and continue scan
-        until `self.consecutive_block_num` is met.
+        Scan `self.consecutive_block_num` consecutive chunk and combine as one chunk.
+        If image / table chunk is encountered within current consecutive chunks, then make the image / table chunk as independent chunk and continue scan until `self.consecutive_block_num` is met.
 
-        Two consecutive merged chunks have `self.block_overlap_num` overlapped chunk to
-        ensure semantic coherence.
+        Two consecutive merged chunks have `self.block_overlap_num` overlapped chunk to ensure semantic coherence.
 
         Returns:
         - List of chunks.
         """
         merged_chunks = []
         chunk_buffer = []
-        i = 0
+        i: int = 0
         # since we apply overlap,i can not exceed len(chunks) - self.block_overlap_num,
         # otherwise, infinite loop may happen.
         while i < len(chunks) - self.block_overlap_num:
             # inner loop start from current chunk
-            j = i
+            j: int = i
             while j < len(chunks) and len(chunk_buffer) < self.consecutive_block_num:
                 chunk = chunks[j]
 
@@ -366,12 +349,14 @@ class PDFParser(Parser):
                     file_name=self.file_name,
                     content=texts.encode("utf-8", errors="ignore"),
                     extra_description="".encode("utf-8", errors="ignore"),
+                    content_url="",
+                    uuid="",
                 )
                 merged_chunks.append(new_chunk)
                 chunk_buffer.clear()
 
             # start next iteration
-            i = j - self.block_overlap_num
+            i: int = j - self.block_overlap_num
 
         return merged_chunks
 

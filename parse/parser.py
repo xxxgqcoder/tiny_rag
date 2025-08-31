@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
 
+from common.data import Chunk
+
 
 class Parser(ABC):
     """
