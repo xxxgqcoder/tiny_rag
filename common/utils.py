@@ -1,10 +1,13 @@
 import logging
 import os
-import traceback
 import time
-import xxhash
-from typing import Any, Callable
+import traceback
+from collections.abc import Callable
+from datetime import datetime, timezone
 from logging.handlers import RotatingFileHandler
+from typing import Any
+
+import xxhash
 
 import config
 
@@ -84,13 +87,11 @@ def run_once(func) -> Callable[..., Any | None]:
 
 
 def now_in_utc() -> str:
-    from datetime import datetime, timezone
-
     now_utc = datetime.now(timezone.utc)
     return now_utc.strftime("%Y-%m-%d %H:%M:%S.%f")
 
 
-def get_hash64(content: bytes) -> str:
+def hash64(content: bytes) -> str:
     return xxhash.xxh64(content).hexdigest()
 
 
