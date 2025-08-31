@@ -22,7 +22,7 @@ class PDFParser(Parser):
     ):
         super().__init__()
 
-        with open(file=TinyRAGConfig.parser_config.config_file_path) as f: # type: ignore  
+        with open(file=TinyRAGConfig.parser_config.config_file_path) as f: # type: ignore
             conf = json.load(f)
         # used in chunking, number of consecutive block to be considered as one chunk.
         self.consecutive_block_num = conf.get("consecutive_block_num", 8)

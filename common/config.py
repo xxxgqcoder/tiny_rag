@@ -42,4 +42,4 @@ def from_config_file(file_path: str) -> Config:
     return None
 
 
-TinyRAGConfig: Config = from_config_file("config.json") # type: ignore
+TinyRAGConfig: Config | None = from_config_file("config.json")
