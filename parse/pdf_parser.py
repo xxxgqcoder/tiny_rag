@@ -22,7 +22,7 @@ class PDFParser(Parser):
     ):
         super().__init__()
 
-        with open(file=TinyRAGConfig.parser_config.config_file_path) as f:  # type: ignore
+        with open(file=TinyRAGConfig.parser_config.config_file_path) as f: # type: ignore  
             conf = json.load(f)
         # used in chunking, number of consecutive block to be considered as one chunk.
         self.consecutive_block_num = conf.get("consecutive_block_num", 8)
@@ -236,7 +236,7 @@ class PDFParser(Parser):
                 logging.info(f"Invalid content: {json.dumps(content, indent=4)}")
                 continue
 
-            # text / formula content
+            # text / formula
             if content["type"] in ["text", "equation"]:
                 text = self.strip_text_content([content["text"]])
                 chunks.append(
@@ -250,7 +250,7 @@ class PDFParser(Parser):
                     )
                 )
 
-            # image content
+            # image
             elif content["type"] in ["image"]:
                 texts = [
                     _format_caption(content.get("img_caption", "")),
@@ -274,7 +274,7 @@ class PDFParser(Parser):
                 )
                 chunks.append(chunk)
 
-            # table content
+            # table
             elif content["type"] in ["table"]:
                 texts = [
                     _format_caption(content.get("table_caption", "")),
@@ -355,7 +355,7 @@ class PDFParser(Parser):
                 chunk_buffer.clear()
 
             # start next iteration
-            i: int = j - self.block_overlap_num
+            i = j - self.block_overlap_num
 
         return merged_chunks
 

@@ -28,18 +28,18 @@ class ParserConfig(BaseModel):
 class Config(BaseModel):
     """Centralized configuration class for the entire Tiny RAG project."""
 
-    parser_config: ParserConfig = Field(None, description="Parser configuration.")  # type: ignore
-    sql_db_config: SQLDBConfig = Field(None, description="SQL database configuration.")  # type: ignore
-    vector_db_config: VectorDBConfig = Field(None, description="Vector database configuration.")  # type: ignore
-    embed_config: EmbedConfig = Field(None, description="Embedding configuration.")  # type: ignore
+    parser_config: ParserConfig | None = Field(None, description="Parser configuration.")
+    sql_db_config: SQLDBConfig | None = Field(None, description="SQL database configuration.")
+    vector_db_config: VectorDBConfig | None = Field(None, description="Vector database configuration.")
+    embed_config: EmbedConfig | None = Field(None, description="Embedding configuration.")
 
 
 @run_once
-def from_config_file(file_path: str) -> Config | None:
+def from_config_file(file_path: str) -> Config:
     with open(file_path, encoding="utf-8") as f:
         config_data = json.load(f)
         return Config.model_validate(config_data)
     return None
 
 
-TinyRAGConfig: Config | None = from_config_file("config.json")
+TinyRAGConfig: Config = from_config_file("config.json") # type: ignore
