@@ -61,13 +61,14 @@ def safe_strip(d: Any) -> str:
     return str(d).strip()
 
 
-def singleton(cls) -> Callable[..., Any]:
-    instances = {}
+_instances = {}
 
+
+def singleton(cls) -> Callable[..., Any]:
     def getinstance(*args, **kwargs) -> Any:
-        if cls not in instances:
-            instances[cls] = cls(*args, **kwargs)
-        return instances[cls]
+        if cls not in _instances:
+            _instances[cls] = cls(*args, **kwargs)
+        return _instances[cls]
 
     return getinstance
 

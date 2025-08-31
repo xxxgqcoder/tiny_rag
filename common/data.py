@@ -1,6 +1,8 @@
 from pydantic import BaseModel, Field, model_validator
 from strenum import StrEnum
+
 from common.utils import hash64
+
 
 class SupportedFileType(StrEnum):
     PDF = "pdf"
@@ -28,8 +30,8 @@ class Chunk(BaseModel):
     )
     uuid: str = Field("", description="unique id of the chunk")
 
-    @model_validator(mode='after')
+    @model_validator(mode="after")
     def set_uuid(self):
         if not self.uuid:
-            self.uuid = hash64(self.file_name.encode('utf-8', errors='ignore') + self.content + self.extra_description)
+            self.uuid = hash64(self.file_name.encode("utf-8", errors="ignore") + self.content + self.extra_description)
         return self
