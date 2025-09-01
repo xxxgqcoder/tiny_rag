@@ -1,43 +1,40 @@
+import json
 import os
 import shutil
-import requests
-import json
-from typing import Any
-from pathlib import Path
 
 from huggingface_hub import snapshot_download as hf_snapshot_download
-from modelscope import snapshot_download as ms_snapshot_download
 from mineru.utils.enum_class import ModelPath
+from modelscope import snapshot_download as ms_snapshot_download
 
 
 # ------------------------------------------------------------------------------
 # download MinerU document parser model
-def download_mineru_model_weight(relative_path: str, repo_mode: str = 'pipeline') -> str:
+def download_mineru_model_weight(relative_path: str, repo_mode: str = "pipeline") -> str:
     """
     Download MinerU model weight.
 
     Returns:
     - downloaded model weight path.
     """
-    model_source = os.getenv('MINERU_MODEL_SOURCE', "huggingface")
+    model_source = os.getenv("MINERU_MODEL_SOURCE", "huggingface")
 
     repo_mapping = {
-        'pipeline': {
-            'huggingface': ModelPath.pipeline_root_hf,
-            'modelscope': ModelPath.pipeline_root_modelscope,
-            'default': ModelPath.pipeline_root_hf
+        "pipeline": {
+            "huggingface": ModelPath.pipeline_root_hf,
+            "modelscope": ModelPath.pipeline_root_modelscope,
+            "default": ModelPath.pipeline_root_hf,
         },
-        'vlm': {
-            'huggingface': ModelPath.vlm_root_hf,
-            'modelscope': ModelPath.vlm_root_modelscope,
-            'default': ModelPath.vlm_root_hf
+        "vlm": {
+            "huggingface": ModelPath.vlm_root_hf,
+            "modelscope": ModelPath.vlm_root_modelscope,
+            "default": ModelPath.vlm_root_hf,
         },
     }
 
     if repo_mode not in repo_mapping:
         raise ValueError(f"Unsupported repo_mode: {repo_mode}, must be 'pipeline' or 'vlm'")
 
-    repo = repo_mapping[repo_mode].get(model_source, repo_mapping[repo_mode]['default'])
+    repo = repo_mapping[repo_mode].get(model_source, repo_mapping[repo_mode]["default"])
 
     if model_source == "huggingface":
         snapshot_download = hf_snapshot_download
@@ -48,14 +45,14 @@ def download_mineru_model_weight(relative_path: str, repo_mode: str = 'pipeline'
 
     cache_dir = None
 
-    if repo_mode == 'pipeline':
-        relative_path = relative_path.strip('/')
+    if repo_mode == "pipeline":
+        relative_path = relative_path.strip("/")
         cache_dir = snapshot_download(repo, allow_patterns=[relative_path, relative_path + "/*"])
-    elif repo_mode == 'vlm':
+    elif repo_mode == "vlm":
         if relative_path == "/":
             cache_dir = snapshot_download(repo)
         else:
-            relative_path = relative_path.strip('/')
+            relative_path = relative_path.strip("/")
             cache_dir = snapshot_download(repo, allow_patterns=[relative_path, relative_path + "/*"])
 
     if not cache_dir:
@@ -82,11 +79,11 @@ def download_mineru_model(project_dir: str):
     downloaded_model_dir = ""
     for model_path in model_paths:
         print(f"downloading model from: {model_path}")
-        downloaded_model_dir = download_mineru_model_weight(model_path, repo_mode='pipeline')
-    print(f'donwloaded model path: {downloaded_model_dir}')
+        downloaded_model_dir = download_mineru_model_weight(model_path, repo_mode="pipeline")
+    print(f"donwloaded model path: {downloaded_model_dir}")
 
     # copy model
-    target_dir = os.path.join(project_dir, 'assets/MinerU/')
+    target_dir = os.path.join(project_dir, "assets/MinerU/")
     if os.path.exists(target_dir):
         shutil.rmtree(target_dir)
     os.makedirs(target_dir, exist_ok=True)
@@ -96,13 +93,13 @@ def download_mineru_model(project_dir: str):
         dirs_exist_ok=True,
         symlinks=False,
     )
-    print(f'copy model from {downloaded_model_dir} to {target_dir}')
+    print(f"copy model from {downloaded_model_dir} to {target_dir}")
 
     # modify json config file
-    config_file_name = 'magic-pdf.json'
+    config_file_name = "magic-pdf.json"
     config_file_path = os.path.join(project_dir, "assets/MinerU", config_file_name)
     json_modification = {
-        'models-dir': {
+        "models-dir": {
             "pipeline": "<project_root_dir>/assets/MinerU/",
         },
         "consecutive_block_num": 8,
@@ -114,14 +111,8 @@ def download_mineru_model(project_dir: str):
             "bucket-name-2": ["ak", "sk", "endpoint"],
         },
         "latex-delimiter-config": {
-            "display": {
-                "left": "$$",
-                "right": "$$"
-            },
-            "inline": {
-                "left": "$",
-                "right": "$"
-            },
+            "display": {"left": "$$", "right": "$$"},
+            "inline": {"left": "$", "right": "$"},
         },
         "llm-aided-config": {
             "title_aided": {
@@ -141,13 +132,15 @@ def download_mineru_model(project_dir: str):
     for key, value in json_modification.items():
         if key in data:
             if isinstance(data[key], dict):
-                data[key].update(value, )
+                data[key].update(
+                    value,
+                )
             else:
                 data[key] = value
 
-    with open(config_file_path, 'w', encoding='utf-8') as f:
+    with open(config_file_path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
-        print(f'save modified config file to path: {config_file_path}')
+        print(f"save modified config file to path: {config_file_path}")
 
 
 # ------------------------------------------------------------------------------
@@ -168,39 +161,39 @@ def download_bge_m3_model(project_dir: str):
         "*.model",
     ]
     model_dir = snapshot_download(
-        'BAAI/bge-m3',
+        "BAAI/bge-m3",
         allow_patterns=patterns,
-        ignore_patterns=['*onnx*'],
+        ignore_patterns=["*onnx*"],
     )
-    print(f'donwloaded model_dir is: {model_dir}')
+    print(f"donwloaded model_dir is: {model_dir}")
 
     # copy model
-    target_dir = os.path.join(project_dir, 'assets/bge-m3/models')
+    target_dir = os.path.join(project_dir, "assets/bge-m3/models")
     shutil.copytree(
         src=model_dir,
         dst=target_dir,
         dirs_exist_ok=True,
     )
-    print(f'copy model from {model_dir} to {target_dir}')
+    print(f"copy model from {model_dir} to {target_dir}")
 
     # save json config
-    config_file_name = 'bge-m3.json'
+    config_file_name = "bge-m3.json"
     config_file = os.path.join(project_dir, "assets/bge-m3", config_file_name)
     config = {
         "model_name_or_path": "<project_root_dir>/assets/bge-m3/models",
     }
-    with open(config_file, 'w', encoding='utf-8') as f:
+    with open(config_file, "w", encoding="utf-8") as f:
         json.dump(config, f, ensure_ascii=False, indent=4)
-    print(f'MinerU config save to {config_file}')
+    print(f"MinerU config save to {config_file}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     file_dir = os.path.abspath(os.path.dirname(os.path.realpath(__file__)))
     project_dir = os.path.realpath(file_dir + "/..")
-    print(f'project directory: {project_dir}')
+    print(f"project directory: {project_dir}")
 
     download_mineru_model(project_dir)
-    print(f'finish downloading MinerU model')
+    print("finish downloading MinerU model")
 
     download_bge_m3_model(project_dir)
-    print(f'finish downloading BGE-M3 model')
+    print("finish downloading BGE-M3 model")
