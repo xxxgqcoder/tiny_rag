@@ -31,6 +31,11 @@ exclude = [
     "node_modules",
     "site-packages",
     "venv",
+    ".ipynb",
+]
+
+extend-exclude = [
+    "*.ipynb",
 ]
 
 # Same as Django.
@@ -45,6 +50,7 @@ target-version = "py310"
 #select = ["E4", "E7", "E9", "F"]
 select = ["E", "F", "UP", "B", "SIM", "I"]
 ignore = ["B009"]
+extend-select = ["I"]
 
 # Allow fix for all enabled rules (when `--fix`) is provided.
 fixable = ["ALL"]
