@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from common.data import Chunk
+from common.data import Content
 
 
 class Parser(ABC):
@@ -13,7 +13,7 @@ class Parser(ABC):
         self,
         file_path: str,
         asset_save_dir: str,
-    ) -> list[Chunk]:
+    ) -> list[Content]:
         """
         parse method.
 

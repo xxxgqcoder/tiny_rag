@@ -6,9 +6,9 @@ import tempfile
 from typing import Any
 
 from common.config import TinyRAGConfig
-from common.data import Chunk, ChunkType
+from common.data import Content, ContentType
+from common.utils import safe_strip, singleton
 from parse.parser import Parser
-from utils import safe_strip, singleton
 
 
 @singleton
@@ -22,17 +22,10 @@ class PDFParser(Parser):
     ):
         super().__init__()
 
-        with open(file=TinyRAGConfig.parser_config.config_file_path) as f: # type: ignore
+        with open(file=TinyRAGConfig.parser_config.config_file_path) as f:  # type: ignore
             conf = json.load(f)
-        # used in chunking, number of consecutive block to be considered as one chunk.
-        self.consecutive_block_num = conf.get("consecutive_block_num", 8)
-        # used in chunking, number of overlapped block num between two consecutive chunks.
-        self.block_overlap_num = conf.get("block_overlap_num", 3)
 
         logging.info(f"Parsr config: {json.dumps(conf, indent=4)}")
-        assert self.block_overlap_num < self.consecutive_block_num, (
-            f"block overlap num ({self.block_overlap_num}) be less than consecutive block num ({self.consecutive_block_num})"
-        )
 
         # set environment variable for magic_pdf to load config json file
         os.environ["MINERU_TOOLS_CONFIG_JSON"] = conf.get("mineru_tools_conf_json", "")
@@ -42,7 +35,7 @@ class PDFParser(Parser):
         self,
         file_path: str,
         asset_save_dir: str,
-    ) -> list[Chunk]:
+    ) -> list[Content]:
         os.makedirs(asset_save_dir, exist_ok=True)
         self.file_name = os.path.basename(file_path)
 
@@ -51,12 +44,12 @@ class PDFParser(Parser):
         temp_asset_dir = temp_dir.name
         logging.info(f"temp asset directory: {temp_asset_dir}")
 
-        chunks = self.parse_pdf_content(
+        contents = self.parse_pdf_content(
             file_path=file_path,
             temp_asset_dir=temp_asset_dir,
             asset_save_dir=asset_save_dir,
         )
-        logging.info(f"original chunk num: {len(chunks)}")
+        logging.info(f"Original content block num: {len(contents)}")
 
         # with open(os.path.join(temp_asset_dir, 'chunks.pickle'), 'wb') as f:
         #     pickle.dump(chunks, f)
@@ -65,25 +58,15 @@ class PDFParser(Parser):
         #     print(f'loading content list from {temp_asset_dir}')
         #     chunks = pickle.load(f)
 
-        self.chunks = self.filter_chunks(chunks)
-        logging.info(f"after filtering, chunk num: {len(self.chunks)}")
-
-        all_types = sorted(list(set([str(chunk.content_type) for chunk in self.chunks])))
-        logging.info(f"all parsed block types: {all_types}")
-
-        # merge chunk list
-        merged_chunks = self.merge_chunk(chunks=self.chunks)
-        logging.info(f"{self.file_name}: total {len(merged_chunks)} chunks ")
-
         temp_dir.cleanup()
-        return merged_chunks
+        return contents
 
     def parse_pdf_content(
         self,
         file_path: str,
         temp_asset_dir: str,
         asset_save_dir: str,
-    ) -> list[Chunk]:
+    ) -> list[Content]:
         """
         Parse PDF content and return content list.
         The result is a list of json oject representing a pdf content block.
@@ -230,7 +213,7 @@ class PDFParser(Parser):
                 return ret
             return str(caption)
 
-        chunks = []
+        contents = []
         for content in content_list:
             if not _is_valid_content(content):
                 logging.info(f"Invalid content: {json.dumps(content, indent=4)}")
@@ -239,14 +222,13 @@ class PDFParser(Parser):
             # text / formula
             if content["type"] in ["text", "equation"]:
                 text = self.strip_text_content([content["text"]])
-                chunks.append(
-                    Chunk(
-                        content_type=ChunkType.TEXT,
+                contents.append(
+                    Content(
+                        content_type=ContentType.TEXT,
                         file_name=self.file_name,
                         content=text.encode("utf-8", errors="ignore"),
                         extra_description="".encode("utf-8", errors="ignore"),
                         content_url="",
-                        uuid="",
                     )
                 )
 
@@ -264,15 +246,15 @@ class PDFParser(Parser):
                 abs_img_path = os.path.join(temp_asset_dir, str(Path(self.file_name).stem), "auto", content["img_path"])
                 _save_image(abs_img_path, asset_save_dir)
 
-                chunk = Chunk(
-                    content_type=ChunkType.IMAGE,
-                    file_name=self.file_name,
-                    content=_load_image(abs_img_path),
-                    extra_description=(extra_description).encode("utf-8", errors="ignore"),
-                    content_url=os.path.join(asset_save_dir, os.path.basename(abs_img_path)),
-                    uuid="",
+                contents.append(
+                    Content(
+                        content_type=ContentType.IMAGE,
+                        file_name=self.file_name,
+                        content=_load_image(abs_img_path),
+                        extra_description=extra_description.encode("utf-8", errors="ignore"),
+                        content_url=os.path.join(asset_save_dir, os.path.basename(abs_img_path)),
+                    )
                 )
-                chunks.append(chunk)
 
             # table
             elif content["type"] in ["table"]:
@@ -288,94 +270,21 @@ class PDFParser(Parser):
                 if content["img_path"]:
                     _save_image(abs_img_path, asset_save_dir)
 
-                chunk = Chunk(
-                    content_type=ChunkType.TABLE,
-                    file_name=self.file_name,
-                    content=content["table_body"].encode("utf-8", errors="ignore"),
-                    extra_description=(extra_description).encode("utf-8", errors="ignore"),
-                    content_url=os.path.join(asset_save_dir, os.path.basename(abs_img_path))
-                    if content["img_path"]
-                    else "",
-                    uuid="",
+                contents.append(
+                    Content(
+                        content_type=ContentType.TABLE,
+                        file_name=self.file_name,
+                        content=content.get("table_body", "").encode("utf-8", errors="ignore"),
+                        extra_description=extra_description.encode("utf-8", errors="ignore"),
+                        content_url=os.path.join(asset_save_dir, os.path.basename(abs_img_path))
+                        if content["img_path"]
+                        else "",
+                    )
                 )
-                chunks.append(chunk)
             else:
                 pass
 
-        return chunks
-
-    def merge_chunk(self, chunks: list[Chunk]) -> list[Chunk]:
-        """
-        Chunk parsed pdf contents.
-
-        Scan `self.consecutive_block_num` consecutive chunk and combine as one chunk.
-        If image / table chunk is encountered within current consecutive chunks, then make the image / table chunk as independent chunk and continue scan until `self.consecutive_block_num` is met.
-
-        Two consecutive merged chunks have `self.block_overlap_num` overlapped chunk to ensure semantic coherence.
-
-        Returns:
-        - List of chunks.
-        """
-        merged_chunks = []
-        chunk_buffer = []
-        i: int = 0
-        # since we apply overlap,i can not exceed len(chunks) - self.block_overlap_num,
-        # otherwise, infinite loop may happen.
-        while i < len(chunks) - self.block_overlap_num:
-            # inner loop start from current chunk
-            j: int = i
-            while j < len(chunks) and len(chunk_buffer) < self.consecutive_block_num:
-                chunk = chunks[j]
-
-                # text chunk
-                if chunk.content_type in [ChunkType.TEXT]:
-                    chunk_buffer.append(chunk)
-                # image / table chunk
-                elif chunk.content_type in [ChunkType.IMAGE, ChunkType.TABLE]:
-                    merged_chunks.append(chunk)
-                else:
-                    pass
-
-                # move one step forward
-                j += 1
-
-            # inner loop ends when j == len(chunks) or len(block_buffer) == self.consecutive_block_num generate new chunk if buffer is not empty.
-            if len(chunk_buffer) > 0:
-                texts = [chunk.content.decode("utf-8") for chunk in chunk_buffer]
-                texts = "\n\n".join(texts)
-                new_chunk = Chunk(
-                    content_type=ChunkType.TEXT,
-                    file_name=self.file_name,
-                    content=texts.encode("utf-8", errors="ignore"),
-                    extra_description="".encode("utf-8", errors="ignore"),
-                    content_url="",
-                    uuid="",
-                )
-                merged_chunks.append(new_chunk)
-                chunk_buffer.clear()
-
-            # start next iteration
-            i = j - self.block_overlap_num
-
-        return merged_chunks
-
-    def filter_chunks(self, chunks: list[Chunk]) -> list[Chunk]:
-        """
-        Filter too short chunks
-        """
-        filtered_chunks = []
-        for chunk in chunks:
-            content = chunk.content
-            if chunk.content_type != ChunkType.TEXT:
-                content = chunk.extra_description
-            content = safe_strip(content.decode("utf-8"))
-            if len(content) < 1:
-                logging.info(f"{self.file_name}: remove chunk due to too short content: {str(chunk)}")
-                continue
-
-            filtered_chunks.append(chunk)
-
-        return filtered_chunks
+        return contents
 
     def strip_text_content(self, texts: list[str]) -> str:
         """

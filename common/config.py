@@ -25,6 +25,11 @@ class ParserConfig(BaseModel):
     config_file_path: str = Field("", description="Path to the configuration file.")
 
 
+class ChunkingConfig(BaseModel):
+    consecutive_block_num: int = Field(8, description="Number of consecutive blocks to form a chunk.")
+    block_overlap_num: int = Field(3, description="Number of overlapping blocks between consecutive chunks.")
+
+
 class Config(BaseModel):
     """Centralized configuration class for the entire Tiny RAG project."""
 
@@ -32,6 +37,7 @@ class Config(BaseModel):
     sql_db_config: SQLDBConfig | None = Field(None, description="SQL database configuration.")
     vector_db_config: VectorDBConfig | None = Field(None, description="Vector database configuration.")
     embed_config: EmbedConfig | None = Field(None, description="Embedding configuration.")
+    chunking_config: ChunkingConfig | None = Field(None, description="Embedding configuration.")
 
 
 @run_once

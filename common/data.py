@@ -8,19 +8,15 @@ class SupportedFileType(StrEnum):
     PDF = "pdf"
 
 
-class ChunkType(StrEnum):
+class ContentType(StrEnum):
     TEXT = "text"
     AUDIO = "audio"
     IMAGE = "image"
     TABLE = "table"
 
 
-class Chunk(BaseModel):
-    """
-    Document chunk object. A chunk can be text paragraph, or a non-text asset, i.e., picture or audio.
-    """
-
-    content_type: ChunkType = Field(ChunkType.TEXT, description="chunk content type")
+class Content(BaseModel):
+    content_type: ContentType = Field(ContentType.TEXT, description="chunk content type")
     file_name: str = Field("", description="original file name")
     content: bytes = Field(b"", description="the content, represented in bytes")
     extra_description: bytes = Field(b"", description="content extra description")
@@ -28,6 +24,13 @@ class Chunk(BaseModel):
         "",
         description="url to the content, set when content is not suitable for directly insert into db, for example image / audio data",
     )
+
+
+class Chunk(Content):
+    """
+    Document chunk object. A chunk can be text paragraph, or a non-text asset, i.e., picture or audio.
+    """
+
     uuid: str = Field("", description="unique id of the chunk")
 
     @model_validator(mode="after")
