@@ -173,7 +173,7 @@ class PDFParser(Parser):
         # dump model json
         md_writer.write_string(f"{file_name}_model.json", json.dumps(model_json, ensure_ascii=False, indent=4))
 
-        # parse content list to chunks
+        # parse content list
         def _load_image(p: str) -> bytes:
             with open(p, "rb") as f:
                 image_bytes = f.read()
