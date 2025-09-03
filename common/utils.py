@@ -9,8 +9,6 @@ from typing import Any
 
 import xxhash
 
-import config
-
 
 def get_project_base_directory() -> str:
     project_base = os.path.abspath(os.path.dirname(os.path.realpath(__file__)))
@@ -171,22 +169,3 @@ def time_it(func):
         return ret
 
     return wrapper
-
-
-def format_host_url(content_url: str) -> str:
-    """
-    Format content url to host machine path.
-
-    Args:
-    - content_url: content url.
-
-    Returns:
-    - formtted host machine url.
-    """
-    if content_url is None or len(content_url) == 0:
-        return ""
-    if content_url.startswith(config.HOST_RAG_FILE_DIR):
-        return content_url
-    file_name = os.path.basename(content_url)
-    ret = os.path.join(config.HOST_RAG_FILE_DIR, "tiny_rag_parsed_assets", file_name)
-    return ret

@@ -16,7 +16,10 @@ class ContentType(StrEnum):
 
 
 class Content(BaseModel):
-    content_type: ContentType = Field(ContentType.TEXT, description="chunk content type")
+    """
+    Document content object.
+    """
+    content_type: ContentType = Field(ContentType.TEXT, description="content type")
     file_name: str = Field("", description="original file name")
     content: bytes = Field(b"", description="the content, represented in bytes")
     extra_description: bytes = Field(b"", description="content extra description")
