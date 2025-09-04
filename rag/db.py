@@ -1,17 +1,14 @@
-import logging
-import traceback
 import json
-import sqlite3
+import logging
 import os
-
-from typing import Union, Dict, List, Any
+import sqlite3
+import traceback
 from abc import ABC, abstractmethod
-from strenum import StrEnum
+from typing import Any
 
-import config
-from utils import singleton, run_once, time_it
-from . import get_embed_model
-from parse.parser import Chunk, ChunkType
+from common.config import TinyRAGConfig
+from common.data import Chunk, ContentType, RationalDBRecord
+from common.utils import logging_exception, run_once, singleton, time_it
 
 
 class VectorDB(ABC):
@@ -19,7 +16,7 @@ class VectorDB(ABC):
     Abstract class for vector db.
     """
 
-    def __init__(self, conn_url: str, token: str = None, **kwargs):
+    def __init__(self, conn_url: str, token: str = "", **kwargs):
         """
         Args:
         - conn_url: db connection url.
@@ -34,7 +31,7 @@ class VectorDB(ABC):
 
     # CRUD
     @abstractmethod
-    def insert(self, data: Chunk) -> int:
+    def insert(self, data: Any) -> int:
         """
         Insert or update records.
         Returns:
@@ -63,16 +60,71 @@ class VectorDB(ABC):
         raise NotImplementedError("Not implemented")
 
     @abstractmethod
-    def search(self, query: str, params: Dict[str, Any]) -> list[Chunk]:
+    def search(self, query: str, params: dict[str, Any]) -> list[Chunk]:
+        raise NotImplementedError("Not implemented")
+
+
+class RationalDB(ABC):
+    """
+    Abstract class of rational db.
+    """
+
+    @abstractmethod
+    def insert_document(self, data: RationalDBRecord) -> int:
+        """
+        Insert a document.
+
+        Args:
+        - data: data to insert.
+
+        Returns:
+        - An int indicating how many records are inserted.
+        """
+        raise NotImplementedError("Not implemented")
+
+    @abstractmethod
+    def get_document(self, name: str) -> RationalDBRecord:
+        """
+        Get a document.
+
+        Args:
+        - name: document name.
+
+        Returns:
+        - A document record.
+        """
+        raise NotImplementedError("Not implemented")
+
+    @abstractmethod
+    def delete_document(self, name: str) -> int:
+        """
+        Delete a document.
+
+        Args:
+        - name: document name.
+
+        Returns:
+        - An int indicating how many records are deleted.
+        """
+        raise NotImplementedError("Not implemented")
+
+    @abstractmethod
+    def get_all_documents(self) -> list[str]:
+        """
+        Get all documnets.
+
+        Returns:
+        - A list of document names.
+        """
         raise NotImplementedError("Not implemented")
 
 
 @singleton
 class MilvusLiteDB(VectorDB):
-
-    def __init__(self, conn_url: str, token: str = None, **kwargs):
+    def __init__(self, conn_url: str, token: str = "", **kwargs):
         super().__init__(conn_url=conn_url, token=token, **kwargs)
         from pymilvus import MilvusClient
+
         self.client = MilvusClient(conn_url)
 
     @time_it
@@ -81,32 +133,32 @@ class MilvusLiteDB(VectorDB):
         embed_model = get_embed_model(name=config.EMBED_MODEL_NAME)
         content = data.content
 
-        if data.content_type != ChunkType.TEXT:
+        if data.content_type != ContentType.TEXT:
             content = data.extra_description
-        content = content.decode('utf-8')
+        content = content.decode("utf-8")
 
         meta = {
-            'file_name': data.file_name,
-            'content_type': str(data.content_type),
+            "file_name": data.file_name,
+            "content_type": str(data.content_type),
         }
-        if data.content_type == ChunkType.IMAGE:
-            meta['content_url'] = data.content_url
-        if data.content_type == ChunkType.TABLE:
-            meta['table_content'] = data.content.decode('utf-8')
+        if data.content_type == ContentType.IMAGE:
+            meta["content_url"] = data.content_url
+        if data.content_type == ContentType.TABLE:
+            meta["table_content"] = data.content.decode("utf-8")
 
         embeddings = embed_model.encode([content])
         record = {
-            'uuid': data.uuid,
-            'content': content,
-            'meta': json.dumps(meta, indent=4),
-            'dense_vector': embeddings['dense'][0],
+            "uuid": data.uuid,
+            "content": content,
+            "meta": json.dumps(meta, indent=4),
+            "dense_vector": embeddings["dense"][0],
         }
         if config.EMBED_SPARSE_VECTOR:
-            record['sparse_vector'] = embeddings['sparse'][[0]]
+            record["sparse_vector"] = embeddings["sparse"][[0]]
 
         stats = self.client.upsert(self.collection_name, record)
-        logging.info(f'insert stats: {stats}')
-        return stats['upsert_count']
+        logging.info(f"insert stats: {stats}")
+        return stats["upsert_count"]
 
     @time_it
     def delete(self, keys: list[str]) -> Any:
@@ -114,14 +166,14 @@ class MilvusLiteDB(VectorDB):
             collection_name=self.collection_name,
             ids=keys,
         )
-        logging.info(f'delete stats: {stats}')
+        logging.info(f"delete stats: {stats}")
         return len(stats)
 
     @time_it
     def search(
         self,
         query: str,
-        params: Dict[str, Any],
+        params: dict[str, Any],
     ) -> list[Chunk]:
         """
         Run hybird search by default
@@ -135,28 +187,28 @@ class MilvusLiteDB(VectorDB):
         """
         from pymilvus import AnnSearchRequest, WeightedRanker
 
-        output_fields = ['content', 'meta', 'uuid']
-        limit = params.get('limit', 10)
+        output_fields = ["content", "meta", "uuid"]
+        limit = params.get("limit", 10)
         ranker_weights = []
-        ranker_weights.append(params.get('dense_weight', 1.0))
+        ranker_weights.append(params.get("dense_weight", 1.0))
         if config.EMBED_SPARSE_VECTOR:
-            ranker_weights.append(params.get('sparse_weight', 0.7))
+            ranker_weights.append(params.get("sparse_weight", 0.7))
 
         # embed query
         embed_model = get_embed_model(name=config.EMBED_MODEL_NAME)
         embed = embed_model.encode([query])
-        query_embed = {'dense': embed['dense'][0]}
+        query_embed = {"dense": embed["dense"][0]}
         if config.EMBED_SPARSE_VECTOR:
-            query_embed['sparse'] = embed['sparse'][[0]]
+            query_embed["sparse"] = embed["sparse"][[0]]
 
         search_reqs = []
-        query_dense_embedding = query_embed['dense']
+        query_dense_embedding = query_embed["dense"]
         dense_search_params = {"metric_type": "IP", "params": {}}
         dense_req = AnnSearchRequest([query_dense_embedding], "dense_vector", dense_search_params, limit=limit)
         search_reqs.append(dense_req)
 
         if config.EMBED_SPARSE_VECTOR:
-            query_sparse_embedding = query_embed['sparse']
+            query_sparse_embedding = query_embed["sparse"]
             sparse_search_params = {"metric_type": "IP", "params": {}}
             sparse_req = AnnSearchRequest([query_sparse_embedding], "sparse_vector", sparse_search_params, limit=limit)
             search_reqs.append(sparse_req)
@@ -174,24 +226,26 @@ class MilvusLiteDB(VectorDB):
 
         ret = []
         for hit in res[0]:
-            entity = hit['entity']
-            meta = entity['meta']
+            entity = hit["entity"]
+            meta = entity["meta"]
             try:
                 meta = json.loads(meta)
             except json.JSONDecodeError:
                 meta = {}
 
-            content_type = meta.get('content_type', 'text')
+            content_type = meta.get("content_type", "text")
             content_type = ChunkType(content_type)
-            file_name = meta.get('file_name', '')
-            content_url = meta.get('content_url', '')
-            content = entity.get('content', '')
-            uuid = entity.get('uuid', '')
+            file_name = meta.get("file_name", "")
+            content_url = meta.get("content_url", "")
+            content = entity.get("content", "")
+            uuid = entity.get("uuid", "")
             chunk = Chunk(
                 content_type=content_type,
                 file_name=file_name,
-                content=content.encode('utf-8', errors='ignore') if content_type in [ChunkType.TEXT] else "".encode("utf-8"),
-                extra_description=content.encode('utf-8', errors='ignore') if content_type not in [ChunkType.TEXT] else "".encode("utf-8"),
+                content=content.encode("utf-8", errors="ignore") if content_type in [ChunkType.TEXT] else b"",
+                extra_description=content.encode("utf-8", errors="ignore")
+                if content_type not in [ChunkType.TEXT]
+                else b"",
                 content_url=content_url,
             )
             # NOTE: set uuid instead of auto generating
@@ -206,28 +260,30 @@ class MilvusLiteDB(VectorDB):
         res = self.client.get(
             collection_name=self.collection_name,
             ids=keys,
-            output_fields=['uuid', 'content', 'meta'],
+            output_fields=["uuid", "content", "meta"],
         )
 
         all_chunks = {}
         for ret in res:
-            meta = ret['meta']
+            meta = ret["meta"]
             try:
                 meta = json.loads(meta)
             except json.JSONDecodeError:
                 meta = {}
 
-            content_type = meta.get('content_type', 'text')
+            content_type = meta.get("content_type", "text")
             content_type = ChunkType(content_type)
-            file_name = meta.get('file_name', '')
-            content_url = meta.get('content_url', '')
-            content = ret.get('content', '')
-            uuid = ret.get('uuid', '')
+            file_name = meta.get("file_name", "")
+            content_url = meta.get("content_url", "")
+            content = ret.get("content", "")
+            uuid = ret.get("uuid", "")
             chunk = Chunk(
                 content_type=content_type,
                 file_name=file_name,
-                content=content.encode('utf-8', errors='ignore') if content_type in [ChunkType.TEXT] else "".encode("utf-8"),
-                extra_description=content.encode('utf-8', errors='ignore') if content_type not in [ChunkType.TEXT] else "".encode("utf-8"),
+                content=content.encode("utf-8", errors="ignore") if content_type in [ChunkType.TEXT] else b"",
+                extra_description=content.encode("utf-8", errors="ignore")
+                if content_type not in [ChunkType.TEXT]
+                else b"",
                 content_url=content_url,
             )
             # NOTE: set uuid instead of auto generating
@@ -254,8 +310,7 @@ def create_milvus_collection(
     - collection_name: the collection name.
     - kwargs: should contain at least `dense_embed_dim` representing the embedding dim.
     """
-    from pymilvus import MilvusClient
-    from pymilvus import DataType
+    from pymilvus import DataType, MilvusClient
 
     logging.info(f"initialize milvus db: {conn_url}, token: {token}")
 
@@ -265,13 +320,13 @@ def create_milvus_collection(
     client = MilvusClient(conn_url)
 
     if client.has_collection(collection_name=collection_name):
-        logging.info(f'collection {collection_name} found in {conn_url}, skip collection creation')
-        logging.info('existing collection schema')
+        logging.info(f"collection {collection_name} found in {conn_url}, skip collection creation")
+        logging.info("existing collection schema")
         client.describe_collection(collection_name=collection_name)
         return
 
     # data schema
-    dense_embed_dim = kwargs['dense_embed_dim']
+    dense_embed_dim = kwargs["dense_embed_dim"]
     schema = client.create_schema(enable_dynamic_field=True)
 
     schema.add_field(
@@ -324,8 +379,7 @@ def create_milvus_collection(
         enable_dynamic_field=True,
     )
 
-    logging.info(f'milvus collection created: {collection_name}')
-    logging.info('collection schema')
+    logging.info(f"milvus collection created: {collection_name}")
     client.describe_collection(collection_name=collection_name)
 
     client.close()
@@ -338,40 +392,9 @@ def get_vector_db():
     )
 
 
-class RationalDB(ABC):
-    """
-    Abstract class of rational db.
-    """
-
-    @abstractmethod
-    def insert_document(self, data: Dict[str, Any]) -> int:
-        """
-        Insert a document.
-
-        Returns:
-        - An int indicating how many records are inserted.
-        """
-        raise NotImplementedError("Not implemented")
-
-    @abstractmethod
-    def get_document(self, name: str) -> Dict[str, Any]:
-        raise NotImplementedError("Not implemented")
-
-    @abstractmethod
-    def delete_document(self, name: str) -> int:
-        """
-        Delete a document.
-
-        Returns:
-        - An int indicating how many records are deleted.
-        """
-        raise NotImplementedError("Not implemented")
-
-
 @singleton
 class SQLiteDB(RationalDB):
-
-    def __init__(self, conn_url: str, token: str = None, **kwargs):
+    def __init__(self, conn_url: str, token: str = "", document_table_name: str = "", **kwargs):
         """
         SQLite DB:
         Args:
@@ -379,113 +402,96 @@ class SQLiteDB(RationalDB):
         - kwargs: should contain `document_table`.
         """
         super().__init__()
-        import sqlite3
+
         self.conn = sqlite3.connect(conn_url, check_same_thread=False)
+        self.token = token
+        self.document_table_name = document_table_name
         for k, v in kwargs.items():
             setattr(self, k, v)
 
     @time_it
-    def insert_document(self, data: Dict[str, Any]) -> int:
-        import sqlite3
+    def insert_document(self, data: RationalDBRecord) -> int:
         cur = self.conn.cursor()
-        key_col = 'name'
-
-        assert 'chunks' in data, f"chunks not found in data to insert"
-        chunks = data['chunks']
-        assert isinstance(chunks, list), f"unexpected chunk id type: {type(chunks)}, expected list of string"
-        data['chunks'] = '\x07'.join(chunks)
-
-        cur.execute(f"SELECT id FROM {self.document_table} WHERE name = ?", (data[key_col], ))
+        key_col = "name"
+        data_dict: dict[str, Any] = data.model_dump()
+        cur.execute(f"SELECT id FROM {self.document_table_name} WHERE name = ?", (data_dict[key_col],))
         record_exists = cur.fetchone() is not None
 
         try:
             if record_exists:
                 # update
-                update_query = f"UPDATE {self.document_table} SET "
+                update_query = f"UPDATE {self.document_table_name} SET "
                 update_query_values = []
-                for column, value in data.items():
+                for column, value in data_dict.items():
                     update_query += f"{column} = ?, "
                     update_query_values.append(value)
-                update_query = update_query.rstrip(', ')
+                update_query = update_query.rstrip(", ")
                 update_query += f" WHERE {key_col} = ?"
-                update_query_values.append(data[key_col])
+                update_query_values.append(data_dict[key_col])
                 cur.execute(update_query, update_query_values)
             else:
                 # insert
                 columns = []
                 values = []
-                for column, value in data.items():
+                for column, value in data_dict.items():
                     columns.append(column)
                     values.append(value)
 
-                columns = ', '.join(columns)
-                placeholders = ', '.join(['?'] * len(data))
-                insert_query = f"INSERT INTO {self.document_table} ({columns}) VALUES ({placeholders})"
+                columns = ", ".join(columns)
+                placeholders = ", ".join(["?"] * len(data_dict))
+                insert_query = f"INSERT INTO {self.document_table_name} ({columns}) VALUES ({placeholders})"
                 cur.execute(insert_query, tuple(values))
             self.conn.commit()
         except sqlite3.Error as e:
             if self.conn:
                 self.conn.rollback()
 
-            logging.info(f"Exception: {type(e).__name__} - {e}")
-
-            formatted_traceback = traceback.format_exc()
-            logging.info(formatted_traceback)
+            logging_exception(e)
             return 0
         finally:
             return 1
 
     @time_it
-    def get_document(self, name: str) -> Dict[str, Any]:
-        """
-        Return document record with below keys:
-        - name: str, document name.
-        - chunks: list of str, document parsed chunk id.
-        - created_date: str, when the record is created.
-        - content_hash: str, document content hash value.
-        """
+    def get_document(self, name: str) -> RationalDBRecord:
         cur = self.conn.cursor()
-        query = f"SELECT * FROM {self.document_table} WHERE name = ?"
+        query = f"SELECT * FROM {self.document_table_name} WHERE name = ?"
 
-        ret = cur.execute(query, (name, ))
+        ret = cur.execute(query, (name,))
         res = ret.fetchall()
         if len(res) < 1:
-            return None
+            return None  # type: ignore
         res = res[0]
-        return {
-            'name': res[1],
-            'chunks': res[2].split('\x07'),
-            'created_date': res[3],
-            'content_hash': res[4],
-        }
+        return RationalDBRecord.model_validate(
+            {
+                "name": res[1],
+                "chunk_uuids": res[2].split("\x07"),
+                "created_date": res[3],
+                "content_hash": res[4],
+            }
+        )
 
     @time_it
     def delete_document(self, name: str) -> int:
         import sqlite3
 
         cur = self.conn.cursor()
-        query = f"DELETE FROM {self.document_table} WHERE name = ?"
-        logging.info(f'delete document: {name}')
+        query = f"DELETE FROM {self.document_table_name} WHERE name = ?"
+        logging.info(f"delete document: {name}")
 
         try:
-            res = cur.execute(query, (name, ))
+            res = cur.execute(query, (name,))
             self.conn.commit()
         except sqlite3.Error as e:
             if self.conn:
                 self.conn.rollback()
-
-            logging.info(f"Initial delete fail, exception: {type(e).__name__} - {e}")
-
-            formatted_traceback = traceback.format_exc()
-            logging.info(formatted_traceback)
-
+            logging_exception(e)
             return 0
 
         finally:
             return 1
 
-    def get_all_documents(self, ) -> list[str]:
-        query = f"SELECT name FROM {self.document_table}"
+    def get_all_documents(self) -> list[str]:
+        query = f"SELECT name FROM {self.document_table_name}"
         cur = self.conn.cursor()
 
         ret = cur.execute(query, ())
@@ -499,9 +505,9 @@ class SQLiteDB(RationalDB):
 
 @run_once
 def create_sqlite_table(
-    conn_url: str = config.SQLITE_DB_NAME,
-    token: str = None,
-    table_name: str = config.SQLITE_DOCUMENT_TABLE_NAME,
+    conn_url: str = TinyRAGConfig.rational_db_config.db_name,  # type: ignore
+    token: str = "",
+    table_name: str = TinyRAGConfig.rational_db_config.document_table_name,  # type: ignore
     **kwargs,
 ) -> None:
     """
@@ -528,10 +534,10 @@ def create_sqlite_table(
     with sqlite3.connect(conn_url) as conn:
         cur = conn.cursor()
         try:
-            ret = cur.execute("SELECT name FROM sqlite_master WHERE name = ?", (table_name, ))
+            ret = cur.execute("SELECT name FROM sqlite_master WHERE name = ?", (table_name,))
             res = ret.fetchall()
             if len(res) > 0:
-                logging.info(f'table {table_name} found in {conn_url}, skip table creation')
+                logging.info(f"table {table_name} found in {conn_url}, skip table creation")
                 return
             cur.execute(sql_create_table)
             cur.execute(sql_create_index)
@@ -539,15 +545,13 @@ def create_sqlite_table(
         except sqlite3.Error as e:
             if conn:
                 conn.rollback()
-            logging.info(f"Exception: {type(e).__name__} - {e}")
-            formatted_traceback = traceback.format_exc()
-            logging.info(formatted_traceback)
+            logging_exception(e)
 
-    logging.info(f'table created {table_name}')
+    logging.info(f"table created {table_name}")
 
 
 def get_rational_db():
     return SQLiteDB(
-        conn_url=config.SQLITE_DB_NAME,
-        document_table=config.SQLITE_DOCUMENT_TABLE_NAME,
+        conn_url=TinyRAGConfig.rational_db_config.db_name,  # type: ignore
+        document_table=TinyRAGConfig.rational_db_config.document_table_name,  # type: ignore
     )

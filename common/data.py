@@ -19,6 +19,7 @@ class Content(BaseModel):
     """
     Document content object.
     """
+
     content_type: ContentType = Field(ContentType.TEXT, description="content type")
     file_name: str = Field("", description="original file name")
     content: bytes = Field(b"", description="the content, represented in bytes")
@@ -41,3 +42,12 @@ class Chunk(Content):
         if not self.uuid:
             self.uuid = hash64(self.file_name.encode("utf-8", errors="ignore") + self.content + self.extra_description)
         return self
+
+
+# rational db record
+class RationalDBRecord(BaseModel):
+    name: str = Field(..., description="document name")
+    # NOTE: recosinder this design.
+    chunk_uuids: str = Field(..., description="id list of document's chunk, separated by '\x07'")
+    created_date: str = Field(..., description="document created date")
+    content_hash: str = Field(..., description="hash of document content")
