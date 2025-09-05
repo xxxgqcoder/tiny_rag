@@ -32,6 +32,13 @@ class ChunkingConfig(BaseModel):
     block_overlap_num: int = Field(3, description="Number of overlapping blocks between consecutive chunks.")
 
 
+class ObjectStoreConfig(BaseModel):
+    conn_url: str = Field("", description="Connection URL for the object store.")
+    user: str = Field("", description="Username for the object store.")
+    token: str = Field("", description="Access token for the object store.")
+    bucket_name: str = Field("", description="Name of the bucket in the object store.")
+
+
 class Config(BaseModel):
     """Centralized configuration class for the entire Tiny RAG project."""
 
@@ -40,6 +47,7 @@ class Config(BaseModel):
     vector_db_config: VectorDBConfig | None = Field(None, description="Vector database configuration.")
     embed_config: EmbedConfig | None = Field(None, description="Embedding configuration.")
     chunking_config: ChunkingConfig | None = Field(None, description="Embedding configuration.")
+    object_store_config: ObjectStoreConfig | None = Field(None, description="Object store configuration.")
 
 
 @run_once

@@ -9,10 +9,17 @@ print(sys.path[-1])
 
 import numpy as np
 
-from common.config import RationalDBConfig, TinyRAGConfig, VectorDBConfig
+from common.config import ObjectStoreConfig, RationalDBConfig, TinyRAGConfig, VectorDBConfig
 from common.data import Chunk, ContentType, VectorDBRecord
-from rag.db import RationalDBRecord, create_vector_db_collection, get_vector_db, create_rational_db_table
-from rag.db import get_rational_db
+from rag.db import (
+    RationalDBRecord,
+    create_object_store_bucket,
+    create_rational_db_table,
+    create_vector_db_collection,
+    get_object_store,
+    get_rational_db,
+    get_vector_db,
+)
 
 
 class TestMilvusDB(unittest.TestCase):
@@ -119,6 +126,43 @@ class TestSQLiteDB(unittest.TestCase):
 
         # get total
         ret = db.get_all_documents()
+        self.assertEqual(len(ret), 0)
+
+
+class TestMinio(unittest.TestCase):
+    def test_base(self):
+        conn_url = "localhost:9000"
+        bucket_name = "test-bucket"
+        user = "minioadmin"
+        token = "minioadmin"
+
+        TinyRAGConfig.object_store_config = ObjectStoreConfig(  # type: ignore
+            conn_url=conn_url,
+            user=user,
+            token=token,
+            bucket_name=bucket_name,
+        )
+
+        # create bucket
+        create_object_store_bucket(user=user, conn_url=conn_url, token=token, bucket_name=bucket_name)
+
+        # get object store
+        store = get_object_store()
+        self.assertIsNotNone(store)
+
+        # put
+        key = "test_key"
+        data = b"test data"
+        ret = store.put(key, data)
+        self.assertEqual(ret, len(data))
+
+        # get
+        ret = store.get(key)
+        self.assertEqual(ret, data)
+
+        # delete
+        _ = store.delete(key)
+        ret = store.get(key)
         self.assertEqual(len(ret), 0)
 
 

@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field, model_validator
 from strenum import StrEnum
 from transformers.models.conditional_detr.modeling_conditional_detr import CONDITIONAL_DETR_INPUTS_DOCSTRING
 
-from common.utils import hash64
+from common.utils import hash64, now_in_utc
 
 
 class SupportedFileType(StrEnum):
@@ -55,6 +55,11 @@ class RationalDBRecord(BaseModel):
     chunk_uuids: str = Field(..., description="id list of document's chunk, separated by '\x07'")
     created_date: str = Field(..., description="document created date")
     content_hash: str = Field(..., description="hash of document content")
+
+    @model_validator(mode="after")
+    def set_created_date(self):
+        self.created_date = now_in_utc()
+        return self
 
 
 class VectorDBRecord(BaseModel):

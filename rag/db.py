@@ -1,11 +1,14 @@
+import io
 import json
 import logging
 import os
 import sqlite3
 import traceback
 from abc import ABC, abstractmethod
-from typing import Any, Dict
+from typing import Any
 
+from minio import Minio
+from minio.error import S3Error
 from pymilvus import AnnSearchRequest, DataType, MilvusClient, WeightedRanker
 
 from common.config import TinyRAGConfig
@@ -142,6 +145,56 @@ class RationalDB(ABC):
         raise NotImplementedError("Not implemented")
 
 
+class ObjectStore(ABC):
+    """
+    Abstract class of object store.
+    """
+
+    @abstractmethod
+    def get(self, key: str) -> bytes:
+        """
+        Get an object.
+
+        Args:
+        - key: object key.
+
+        Returns:
+        - The object bytes.
+        """
+        raise NotImplementedError("Not implemented")
+
+    @abstractmethod
+    def put(self, key: str, obj: bytes) -> int:
+        """
+        Put an object.
+
+        Args:
+        - key: object key.
+        - obj: object bytes.
+
+        Returns:
+        - An int indicating how many objects are put.
+        """
+        raise NotImplementedError("Not implemented")
+
+    @abstractmethod
+    def delete(self, key: str) -> int:
+        """
+        Delete an object.
+
+        Args:
+        - key: object key.
+
+        Returns:
+        - An int indicating how many objects are deleted.
+        """
+        raise NotImplementedError("Not implemented")
+
+
+# implementations
+
+
+# vector db
 @singleton
 class MilvusLiteDB(VectorDB):
     def __init__(self, conn_url: str, token: str = "", **kwargs):
@@ -336,6 +389,7 @@ def get_vector_db() -> VectorDB:
     )
 
 
+# rational db
 @singleton
 class SQLiteDB(RationalDB):
     def __init__(self, conn_url: str, token: str = "", document_table_name: str = "", **kwargs):
@@ -502,4 +556,96 @@ def get_rational_db() -> RationalDB:
     return SQLiteDB(
         conn_url=TinyRAGConfig.rational_db_config.db_name,  # type: ignore
         document_table_name=TinyRAGConfig.rational_db_config.document_table_name,  # type: ignore
+    )
+
+
+# object storage
+@singleton
+class MinioStore(ObjectStore):
+    def __init__(self, conn_url: str, user: str = "", token: str = "", bucket_name: str = "", **kwargs):
+        """
+        Minio store.
+
+        Args:
+        - conn_url: connection url.
+        - user: connection user.
+        - token: connection token.
+        - bucket_name: bucket name.
+        - kwargs: not used.
+        """
+        super().__init__()
+
+        self.client = Minio(
+            endpoint=conn_url,
+            access_key=user,
+            secret_key=token,
+            secure=False,
+        )
+
+        self.bucket_name = bucket_name
+
+    @time_it
+    def get(self, key: str) -> bytes:
+        try:
+            response = self.client.get_object(self.bucket_name, key)
+            data = response.read()
+            response.close()
+            response.release_conn()
+            return data
+        except S3Error as e:
+            logging_exception(e)
+            return b""
+
+    @time_it
+    def put(self, key: str, obj: bytes) -> int:
+        binary_io = io.BytesIO(obj)
+        try:
+            self.client.put_object(
+                bucket_name=self.bucket_name,
+                object_name=key,
+                data=binary_io,
+                length=len(obj),
+            )
+        except S3Error as e:
+            logging_exception(e)
+            return 0
+
+        return len(obj)
+
+    @time_it
+    def delete(self, key: str) -> int:
+        try:
+            self.client.remove_object(self.bucket_name, key)
+        except S3Error as e:
+            logging_exception(e)
+            return 0
+
+        return 1
+
+
+@run_once
+def create_object_store_bucket(user: str, token: str, conn_url: str, bucket_name: str) -> None:
+    """
+    Create obejct storage bucket.
+    """
+    client = Minio(
+        endpoint=conn_url,
+        access_key=user,
+        secret_key=token,
+        secure=False,
+    )
+    found = client.bucket_exists(bucket_name)
+    if not found:
+        client.make_bucket(bucket_name)
+        logging.info(f"Created bucket {bucket_name}")
+    else:
+        logging.info(f"Bucket {bucket_name} already exists")
+
+
+def get_object_store() -> ObjectStore:
+    return MinioStore(
+        conn_url=TinyRAGConfig.object_store_config.conn_url,  # type: ignore
+        user=TinyRAGConfig.object_store_config.user,  # type: ignore
+        token=TinyRAGConfig.object_store_config.token,  # type: ignore
+        bucket_name=TinyRAGConfig.object_store_config.bucket_name,  # type: ignore
     )

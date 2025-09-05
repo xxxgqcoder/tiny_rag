@@ -1,3 +1,4 @@
+import functools
 import logging
 import os
 import time
@@ -157,7 +158,8 @@ def estimate_token_num(text: str) -> tuple[int, list[str]]:
     return int(token_num), token_buffer
 
 
-def time_it(func):
+def time_it(func: Callable[..., Any]) -> Callable[..., Any]:
+    @functools.wraps(func)
     def wrapper(*kargs, **kwargs):
         begin = time.time_ns()
         ret = func(*kargs, **kwargs)
