@@ -1,5 +1,9 @@
+import uuid
+from typing import Any
+
 from pydantic import BaseModel, Field, model_validator
 from strenum import StrEnum
+from transformers.models.conditional_detr.modeling_conditional_detr import CONDITIONAL_DETR_INPUTS_DOCSTRING
 
 from common.utils import hash64
 
@@ -51,3 +55,11 @@ class RationalDBRecord(BaseModel):
     chunk_uuids: str = Field(..., description="id list of document's chunk, separated by '\x07'")
     created_date: str = Field(..., description="document created date")
     content_hash: str = Field(..., description="hash of document content")
+
+
+class VectorDBRecord(BaseModel):
+    uuid: str = Field(..., description="uuid of the chunk")
+    file_name: str = Field(..., description="original file name")
+    content_url: str = Field(..., description="url to the content")
+    embedding: list[float] = Field(..., description="embedding vector")
+    meta: dict[str, Any] = Field(..., description="meta data of the chunk")
