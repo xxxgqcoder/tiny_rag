@@ -9,6 +9,7 @@ from common.config import TinyRAGConfig
 from common.data import Content, ContentType
 from common.utils import safe_strip, singleton
 from parse.parser import Parser
+from utils import time_it
 
 
 @singleton
@@ -31,6 +32,7 @@ class PDFParser(Parser):
         os.environ["MINERU_TOOLS_CONFIG_JSON"] = conf.get("mineru_tools_conf_json", "")
         os.environ["MINERU_MODEL_SOURCE"] = conf.get("mineru_model_source", "local")
 
+    @time_it
     def parse(
         self,
         file_path: str,
