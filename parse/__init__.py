@@ -2,7 +2,7 @@ from .parser import Parser
 from .pdf_parser import PDFParser
 
 Parsers: dict[str, type[Parser]] = {
-    "MinerU": PDFParser, # type: ignore
+    "MinerU": PDFParser,  # type: ignore
 }
 
 
