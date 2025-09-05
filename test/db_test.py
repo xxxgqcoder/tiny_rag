@@ -9,6 +9,7 @@ print(sys.path[-1])
 
 import numpy as np
 
+from common.config import TinyRAGConfig, VectorDBConfig
 from common.data import Chunk, ContentType, VectorDBRecord
 from rag.db import create_vector_db_collection, get_vector_db
 
@@ -27,8 +28,6 @@ class TestMilvusDB(unittest.TestCase):
             embedding_dim=embedding_dim,
         )
 
-        from common.config import TinyRAGConfig, VectorDBConfig
-
         TinyRAGConfig.vector_db_config = VectorDBConfig(  # type: ignore
             db_name=vector_db_name,
             db_root_data_dir="",
@@ -46,6 +45,7 @@ class TestMilvusDB(unittest.TestCase):
             metadata={"key": "value"},
         )
 
+        # insert
         insert_cnt = db.insert(record1)
         self.assertEqual(insert_cnt, 1)
 
