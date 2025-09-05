@@ -9,9 +9,10 @@ print(sys.path[-1])
 
 import numpy as np
 
-from common.config import TinyRAGConfig, VectorDBConfig
+from common.config import RationalDBConfig, TinyRAGConfig, VectorDBConfig
 from common.data import Chunk, ContentType, VectorDBRecord
-from rag.db import create_vector_db_collection, get_vector_db
+from rag.db import RationalDBRecord, create_vector_db_collection, get_vector_db, create_rational_db_table
+from rag.db import get_rational_db
 
 
 class TestMilvusDB(unittest.TestCase):
@@ -19,7 +20,10 @@ class TestMilvusDB(unittest.TestCase):
         embedding_dim = 10
         collection_name = "test_milvus_collection"
         vector_db_name = "test/test_milvius.db"
-        os.remove(vector_db_name)
+        try:
+            os.remove(vector_db_name)
+        except:
+            pass
         embeding_vector = np.random.rand(embedding_dim).astype("float32").tolist()
 
         create_vector_db_collection(
@@ -64,56 +68,58 @@ class TestMilvusDB(unittest.TestCase):
         self.assertEqual(delete_cnt, 1)
 
 
-# class TestSQLiteDB(unittest.TestCase):
-#     def test_base(
-#         self,
-#     ):
-#         from rag.db import get_rational_db
-#         from start_server import create_sqlite_table
-#         from utils import get_hash64, now_in_utc
+class TestSQLiteDB(unittest.TestCase):
+    def test_base(
+        self,
+    ):
+        db_name = "test/test_sql_lite.db"
+        document_table = "document"
+        try:
+            os.remove(db_name)
+        except:
+            pass
 
-#         # create table
-#         db_name = "./test_sql_lite.db"
-#         document_table = "document"
-#         config.SQLITE_DB_NAME = db_name
-#         config.SQLITE_DOCUMENT_TABLE_NAME = document_table
-#         create_sqlite_table(
-#             conn_url=config.SQLITE_DB_NAME,
-#             table_name=config.SQLITE_DOCUMENT_TABLE_NAME,
-#         )
+        TinyRAGConfig.rational_db_config = RationalDBConfig(  # type: ignore
+            db_name=db_name,
+            document_table_name=document_table,
+        )
+        db = get_rational_db()
 
-#         db = get_rational_db()
+        file_path = "/var/share/tiny_rag_files/test_file.pdf"
+        file_name = os.path.basename(file_path)
+        chunk_uuids = ["4e03170d52fd201a", "57e68f3d1e1ebcfb"]
+        record = RationalDBRecord(
+            file_name=file_name,
+            chunk_uuids="\x07".join(chunk_uuids),
+            created_date="1",
+            content_hash="1",
+        )
+        # create table
+        create_rational_db_table(conn_url=db_name, table_name=document_table)
 
-#         # insert
-#         file_path = "/var/share/tiny_rag_files/test_file.pdf"
-#         file_name = os.path.basename(file_path)
+        # insert
+        insert_cnt = db.insert_document(record=record)
+        self.assertEqual(insert_cnt, 1)
 
-#         chunks = """
-#         4e03170d52fd201a
-#         57e68f3d1e1ebcfb
-#         """.strip().split()
+        # duplicate insert
+        insert_cnt = db.insert_document(record=record)
+        self.assertEqual(insert_cnt, 1)
 
-#         data = {
-#             "name": file_name,
-#             "chunks": chunks,
-#             "created_date": now_in_utc(),
-#             "content_hash": get_hash64(b"test"),
-#         }
+        # get
+        ret = db.get_document(file_name=file_name)
+        self.assertEqual(ret.file_name, file_name)
 
-#         insert_cnt = db.insert_document(data=data)
-#         self.assertEqual(insert_cnt, 1)
+        # get total
+        ret = db.get_all_documents()
+        self.assertEqual(len(ret), 1)
 
-#         # get
-#         ret = db.get_document(name=file_name)
-#         print(ret)
-#         self.assertEqual(ret["chunks"], chunks)
-#         self.assertEqual(ret["content_hash"], get_hash64(b"test"))
+        # delete
+        delete_cnt = db.delete_document(file_name=file_name)
+        self.assertEqual(delete_cnt, 1)
 
-#         # delete
-#         delete_cnt = db.delete_document(name=file_name)
-#         self.assertEqual(delete_cnt, 1)
-#         ret = db.get_document(name=file_name)
-#         self.assertTrue(ret is None)
+        # get total
+        ret = db.get_all_documents()
+        self.assertEqual(len(ret), 0)
 
 
 if __name__ == "__main__":

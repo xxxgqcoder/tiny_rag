@@ -50,7 +50,7 @@ class Chunk(Content):
 
 # rational db record
 class RationalDBRecord(BaseModel):
-    name: str = Field(..., description="document name")
+    file_name: str = Field(..., description="document name")
     # NOTE: recosinder this design.
     chunk_uuids: str = Field(..., description="id list of document's chunk, separated by '\x07'")
     created_date: str = Field(..., description="document created date")

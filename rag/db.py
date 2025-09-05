@@ -4,7 +4,7 @@ import os
 import sqlite3
 import traceback
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Dict
 
 from pymilvus import AnnSearchRequest, DataType, MilvusClient, WeightedRanker
 
@@ -93,7 +93,7 @@ class RationalDB(ABC):
     """
 
     @abstractmethod
-    def insert_document(self, data: RationalDBRecord) -> int:
+    def insert_document(self, record: RationalDBRecord) -> int:
         """
         Insert a document.
 
@@ -106,12 +106,12 @@ class RationalDB(ABC):
         raise NotImplementedError("Not implemented")
 
     @abstractmethod
-    def get_document(self, name: str) -> RationalDBRecord:
+    def get_document(self, file_name: str) -> RationalDBRecord:
         """
         Get a document.
 
         Args:
-        - name: document name.
+        - file_name: document file name.
 
         Returns:
         - A document record.
@@ -119,12 +119,12 @@ class RationalDB(ABC):
         raise NotImplementedError("Not implemented")
 
     @abstractmethod
-    def delete_document(self, name: str) -> int:
+    def delete_document(self, file_name: str) -> int:
         """
         Delete a document.
 
         Args:
-        - name: document name.
+        - file_name: document file name.
 
         Returns:
         - An int indicating how many records are deleted.
@@ -357,11 +357,11 @@ class SQLiteDB(RationalDB):
             setattr(self, k, v)
 
     @time_it
-    def insert_document(self, data: RationalDBRecord) -> int:
+    def insert_document(self, record: RationalDBRecord) -> int:
         cur = self.conn.cursor()
-        key_col = "name"
-        data_dict: dict[str, Any] = data.model_dump()
-        cur.execute(f"SELECT id FROM {self.document_table_name} WHERE name = ?", (data_dict[key_col],))
+        key_col = "file_name"
+        data_dict: dict[str, Any] = record.model_dump()
+        cur.execute(f"SELECT id FROM {self.document_table_name} WHERE file_name = ?", (data_dict[key_col],))
         record_exists = cur.fetchone() is not None
 
         try:
@@ -387,7 +387,8 @@ class SQLiteDB(RationalDB):
                 columns = ", ".join(columns)
                 placeholders = ", ".join(["?"] * len(data_dict))
                 insert_query = f"INSERT INTO {self.document_table_name} ({columns}) VALUES ({placeholders})"
-                cur.execute(insert_query, tuple(values))
+                ret = cur.execute(insert_query, tuple(values))
+
             self.conn.commit()
         except sqlite3.Error as e:
             if self.conn:
@@ -395,38 +396,39 @@ class SQLiteDB(RationalDB):
 
             logging_exception(e)
             return 0
-        finally:
-            return 1
+
+        return 1
 
     @time_it
-    def get_document(self, name: str) -> RationalDBRecord:
+    def get_document(self, file_name: str) -> RationalDBRecord:
         cur = self.conn.cursor()
-        query = f"SELECT * FROM {self.document_table_name} WHERE name = ?"
+        query = f"SELECT * FROM {self.document_table_name} WHERE file_name = ?"
+        print(f"query: {query}")
 
-        ret = cur.execute(query, (name,))
+        ret = cur.execute(query, (file_name,))
         res = ret.fetchall()
         if len(res) < 1:
             return None  # type: ignore
         res = res[0]
         return RationalDBRecord.model_validate(
             {
-                "name": res[1],
-                "chunk_uuids": res[2].split("\x07"),
+                "file_name": res[1],
+                "chunk_uuids": res[2],
                 "created_date": res[3],
                 "content_hash": res[4],
             }
         )
 
     @time_it
-    def delete_document(self, name: str) -> int:
+    def delete_document(self, file_name: str) -> int:
         import sqlite3
 
         cur = self.conn.cursor()
-        query = f"DELETE FROM {self.document_table_name} WHERE name = ?"
-        logging.info(f"delete document: {name}")
+        query = f"DELETE FROM {self.document_table_name} WHERE file_name = ?"
+        logging.info(f"delete document: {file_name}")
 
         try:
-            res = cur.execute(query, (name,))
+            res = cur.execute(query, (file_name,))
             self.conn.commit()
         except sqlite3.Error as e:
             if self.conn:
@@ -434,11 +436,10 @@ class SQLiteDB(RationalDB):
             logging_exception(e)
             return 0
 
-        finally:
-            return 1
+        return 1
 
     def get_all_documents(self) -> list[str]:
-        query = f"SELECT name FROM {self.document_table_name}"
+        query = f"SELECT file_name FROM {self.document_table_name}"
         cur = self.conn.cursor()
 
         ret = cur.execute(query, ())
@@ -468,13 +469,13 @@ def create_rational_db_table(
     sql_create_table = f"""
     CREATE TABLE IF NOT EXISTS {table_name} (
         id INTEGER PRIMARY KEY,
-        name TEXT NOT NULL,
-        chunks TEXT NOT NULL,
+        file_name TEXT NOT NULL,
+        chunk_uuids TEXT NOT NULL,
         created_date TEXT NOT NULL,
         content_hash TEXT NOT NULL
     )
     """
-    sql_create_index = f"CREATE INDEX idx_name ON {table_name} (name)"
+    sql_create_index = f"CREATE INDEX idx_name ON {table_name} (file_name)"
     # NOTE: assume local file path
     os.makedirs(os.path.dirname(conn_url), exist_ok=True)
 
@@ -484,7 +485,7 @@ def create_rational_db_table(
             ret = cur.execute("SELECT name FROM sqlite_master WHERE name = ?", (table_name,))
             res = ret.fetchall()
             if len(res) > 0:
-                logging.info(f"table {table_name} found in {conn_url}, skip table creation")
+                logging.info(f"Table {table_name} found in {conn_url}, skip table creation")
                 return
             cur.execute(sql_create_table)
             cur.execute(sql_create_index)
@@ -497,8 +498,8 @@ def create_rational_db_table(
     logging.info(f"table created {table_name}")
 
 
-def get_rational_db():
+def get_rational_db() -> RationalDB:
     return SQLiteDB(
         conn_url=TinyRAGConfig.rational_db_config.db_name,  # type: ignore
-        document_table=TinyRAGConfig.rational_db_config.document_table_name,  # type: ignore
+        document_table_name=TinyRAGConfig.rational_db_config.document_table_name,  # type: ignore
     )
