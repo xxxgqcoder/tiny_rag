@@ -53,9 +53,9 @@ class TestMilvusDB(unittest.TestCase):
         ret = db.get(keys=[record1.uuid])
         self.assertEqual(ret[0].uuid, record1.uuid)
 
-        # # search
-        # ret = db.search(query={"embedding": embeding_vector}, params={})
-        # self.assertEqual(ret[0].uuid, record1.uuid)
+        # search
+        ret = db.search(query={"embedding": embeding_vector}, params={})
+        self.assertEqual(ret[0].uuid, record1.uuid)
 
         # test delete
         delete_cnt = db.delete(

@@ -173,24 +173,39 @@ class MilvusLiteDB(VectorDB):
     ) -> list[VectorDBRecord]:
         output_fields = ["uuid", "file_name", "content_url", "metadata"]
         limit = params.get("limit", 100)
-        ranker_weights = []
 
-        search_reqs = []
-        for vector_col, vector in query.items():
+        if len(query) == 1:
+            vector_col = list(query.keys())[0]
+            vector = query[vector_col]
             query_dense_embedding = [vector]
-            dense_search_params = {"metric_type": "IP", "params": {}}
-            dense_req = AnnSearchRequest([query_dense_embedding], vector_col, dense_search_params, limit=limit)
-            search_reqs.append(dense_req)
-            ranker_weights.append(params.get(f"{vector_col}_weight", 1.0))
+            dense_search_params = {"metric_type": "IP"}
+            res = self.client.search(
+                collection_name=self.collection_name,
+                data=query_dense_embedding,
+                anns_field=vector_col,
+                search_params=dense_search_params,
+                limit=limit,
+                output_fields=output_fields,
+            )
+        else:
+            ranker_weights = []
+            search_reqs = []
+            for vector_col, vector in query.items():
+                query_dense_embedding = [vector]
+                dense_search_params = {"metric_type": "IP", "params": {}}
+                dense_req = AnnSearchRequest([query_dense_embedding], vector_col, dense_search_params, limit=limit)
+                search_reqs.append(dense_req)
+                ranker_weights.append(params.get(f"{vector_col}_weight", 1.0))
 
-        rerank = WeightedRanker(*ranker_weights)
-        res = self.client.hybrid_search(
-            collection_name=self.collection_name,
-            reqs=search_reqs,
-            ranker=rerank,
-            limit=limit,
-            output_fields=output_fields,
-        )
+            rerank = WeightedRanker(*ranker_weights)
+            res = self.client.hybrid_search(
+                collection_name=self.collection_name,
+                reqs=search_reqs,
+                ranker=rerank,
+                limit=limit,
+                output_fields=output_fields,
+            )
+
         if len(res) == 0:
             return []
 
@@ -201,7 +216,7 @@ class MilvusLiteDB(VectorDB):
                 uuid=entity.get("uuid", ""),
                 file_name=entity.get("file_name", ""),
                 content_url=entity.get("content_url", ""),
-                metadata=entity.get(["metadata"], {}),
+                metadata=entity.get("metadata", {}),
                 embedding=[],  # do not return embedding
             )
             ret.append(record)
