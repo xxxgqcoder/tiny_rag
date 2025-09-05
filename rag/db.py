@@ -6,8 +6,10 @@ import traceback
 from abc import ABC, abstractmethod
 from typing import Any
 
+from pymilvus import AnnSearchRequest, DataType, MilvusClient, WeightedRanker
+
 from common.config import TinyRAGConfig
-from common.data import Chunk, ContentType, RationalDBRecord
+from common.data import RationalDBRecord, VectorDBRecord
 from common.utils import logging_exception, run_once, singleton, time_it
 
 
@@ -16,7 +18,7 @@ class VectorDB(ABC):
     Abstract class for vector db.
     """
 
-    def __init__(self, conn_url: str, token: str = "", **kwargs):
+    def __init__(self, conn_url: str, token: str = "", collection_name: str = "", **kwargs):
         """
         Args:
         - conn_url: db connection url.
@@ -26,14 +28,19 @@ class VectorDB(ABC):
 
         self.conn_url = conn_url
         self.token = token
+        self.collection_name = collection_name
         for k, v in kwargs.items():
             setattr(self, k, v)
 
     # CRUD
     @abstractmethod
-    def insert(self, data: Any) -> int:
+    def insert(self, data: VectorDBRecord) -> int:
         """
         Insert or update records.
+
+        Args:
+        - data: data to insert.
+
         Returns:
         - An int of how many records are successfully insert.
         """
@@ -44,15 +51,21 @@ class VectorDB(ABC):
         """
         Delete records.
 
+        Args:
+        - keys: list of record keys to delete.
+
         Returns:
         - An int of how many records are successfully deleted.
         """
         raise NotImplementedError("Not implemented")
 
     @abstractmethod
-    def get(self, keys: list[str]) -> list[Chunk]:
+    def get(self, keys: list[str]) -> list[VectorDBRecord]:
         """
         Get records.
+
+        Args:
+        - keys: list of record keys to get.
 
         Returns:
         - A list of records
@@ -60,7 +73,17 @@ class VectorDB(ABC):
         raise NotImplementedError("Not implemented")
 
     @abstractmethod
-    def search(self, query: str, params: dict[str, Any]) -> list[Chunk]:
+    def search(self, query: dict[str, list[float]], params: dict[str, Any]) -> list[VectorDBRecord]:
+        """
+        Search records.
+
+        Args:
+        - query: query vector dict, key is the vector column, value the query vector.
+        - params: the query params.
+
+        Returns:
+        - list of quert results.
+        """
         raise NotImplementedError("Not implemented")
 
 
@@ -123,41 +146,14 @@ class RationalDB(ABC):
 class MilvusLiteDB(VectorDB):
     def __init__(self, conn_url: str, token: str = "", **kwargs):
         super().__init__(conn_url=conn_url, token=token, **kwargs)
-        from pymilvus import MilvusClient
 
         self.client = MilvusClient(conn_url)
 
     @time_it
-    def insert(self, data: Chunk) -> int:
-        # embed chunks
-        embed_model = get_embed_model(name=config.EMBED_MODEL_NAME)
-        content = data.content
-
-        if data.content_type != ContentType.TEXT:
-            content = data.extra_description
-        content = content.decode("utf-8")
-
-        meta = {
-            "file_name": data.file_name,
-            "content_type": str(data.content_type),
-        }
-        if data.content_type == ContentType.IMAGE:
-            meta["content_url"] = data.content_url
-        if data.content_type == ContentType.TABLE:
-            meta["table_content"] = data.content.decode("utf-8")
-
-        embeddings = embed_model.encode([content])
-        record = {
-            "uuid": data.uuid,
-            "content": content,
-            "meta": json.dumps(meta, indent=4),
-            "dense_vector": embeddings["dense"][0],
-        }
-        if config.EMBED_SPARSE_VECTOR:
-            record["sparse_vector"] = embeddings["sparse"][[0]]
-
+    def insert(self, data: VectorDBRecord) -> int:
+        record = data.model_dump()
         stats = self.client.upsert(self.collection_name, record)
-        logging.info(f"insert stats: {stats}")
+        logging.info(f"Upsert stats: {stats}")
         return stats["upsert_count"]
 
     @time_it
@@ -166,52 +162,26 @@ class MilvusLiteDB(VectorDB):
             collection_name=self.collection_name,
             ids=keys,
         )
-        logging.info(f"delete stats: {stats}")
+        logging.info(f"Delete stats: {stats}")
         return len(stats)
 
     @time_it
     def search(
         self,
-        query: str,
+        query: dict[str, list[float]],
         params: dict[str, Any],
-    ) -> list[Chunk]:
-        """
-        Run hybird search by default
-
-        Args:
-        - query: user query, natural language.
-        - params: the query params.
-
-        Returns:
-        - Query result
-        """
-        from pymilvus import AnnSearchRequest, WeightedRanker
-
-        output_fields = ["content", "meta", "uuid"]
-        limit = params.get("limit", 10)
+    ) -> list[VectorDBRecord]:
+        output_fields = ["uuid", "file_name", "content_url", "meta"]
+        limit = params.get("limit", 100)
         ranker_weights = []
-        ranker_weights.append(params.get("dense_weight", 1.0))
-        if config.EMBED_SPARSE_VECTOR:
-            ranker_weights.append(params.get("sparse_weight", 0.7))
-
-        # embed query
-        embed_model = get_embed_model(name=config.EMBED_MODEL_NAME)
-        embed = embed_model.encode([query])
-        query_embed = {"dense": embed["dense"][0]}
-        if config.EMBED_SPARSE_VECTOR:
-            query_embed["sparse"] = embed["sparse"][[0]]
 
         search_reqs = []
-        query_dense_embedding = query_embed["dense"]
-        dense_search_params = {"metric_type": "IP", "params": {}}
-        dense_req = AnnSearchRequest([query_dense_embedding], "dense_vector", dense_search_params, limit=limit)
-        search_reqs.append(dense_req)
-
-        if config.EMBED_SPARSE_VECTOR:
-            query_sparse_embedding = query_embed["sparse"]
-            sparse_search_params = {"metric_type": "IP", "params": {}}
-            sparse_req = AnnSearchRequest([query_sparse_embedding], "sparse_vector", sparse_search_params, limit=limit)
-            search_reqs.append(sparse_req)
+        for vector_col, vector in query.items():
+            query_dense_embedding = [vector]
+            dense_search_params = {"metric_type": "IP", "params": {}}
+            dense_req = AnnSearchRequest([query_dense_embedding], vector_col, dense_search_params, limit=limit)
+            search_reqs.append(dense_req)
+            ranker_weights.append(params.get(f"{vector_col}_weight", 1.0))
 
         rerank = WeightedRanker(*ranker_weights)
         res = self.client.hybrid_search(
@@ -233,25 +203,18 @@ class MilvusLiteDB(VectorDB):
             except json.JSONDecodeError:
                 meta = {}
 
-            content_type = meta.get("content_type", "text")
-            content_type = ChunkType(content_type)
-            file_name = meta.get("file_name", "")
-            content_url = meta.get("content_url", "")
-            content = entity.get("content", "")
             uuid = entity.get("uuid", "")
-            chunk = Chunk(
-                content_type=content_type,
+            file_name = entity.get("file_name", "")
+            content_url = entity.get("content_url", "")
+            uuid = entity.get("uuid", "")
+            record = VectorDBRecord(
+                uuid=uuid,
                 file_name=file_name,
-                content=content.encode("utf-8", errors="ignore") if content_type in [ChunkType.TEXT] else b"",
-                extra_description=content.encode("utf-8", errors="ignore")
-                if content_type not in [ChunkType.TEXT]
-                else b"",
                 content_url=content_url,
+                meta=meta,
+                embedding=[],  # do not return embedding
             )
-            # NOTE: set uuid instead of auto generating
-            chunk.uuid = uuid
-
-            ret.append(chunk)
+            ret.append(record)
 
         return ret
 
@@ -260,10 +223,10 @@ class MilvusLiteDB(VectorDB):
         res = self.client.get(
             collection_name=self.collection_name,
             ids=keys,
-            output_fields=["uuid", "content", "meta"],
+            output_fields=["uuid", "file_name", "content_url", "meta"],
         )
 
-        all_chunks = {}
+        all_records = {}
         for ret in res:
             meta = ret["meta"]
             try:
@@ -271,34 +234,27 @@ class MilvusLiteDB(VectorDB):
             except json.JSONDecodeError:
                 meta = {}
 
-            content_type = meta.get("content_type", "text")
-            content_type = ChunkType(content_type)
-            file_name = meta.get("file_name", "")
-            content_url = meta.get("content_url", "")
-            content = ret.get("content", "")
+            file_name = ret.get("file_name", "")
+            content_url = ret.get("content_url", "")
             uuid = ret.get("uuid", "")
-            chunk = Chunk(
-                content_type=content_type,
+            record = VectorDBRecord(
+                uuid=uuid,
                 file_name=file_name,
-                content=content.encode("utf-8", errors="ignore") if content_type in [ChunkType.TEXT] else b"",
-                extra_description=content.encode("utf-8", errors="ignore")
-                if content_type not in [ChunkType.TEXT]
-                else b"",
                 content_url=content_url,
+                meta=meta,
+                embedding=[],  # do not return embedding
             )
-            # NOTE: set uuid instead of auto generating
-            chunk.uuid = uuid
-            all_chunks[chunk.uuid] = chunk
+            all_records[record.uuid] = record
 
-        ret_chunks = [all_chunks[uuid] for uuid in keys if uuid in all_chunks]
-        return ret_chunks
+        ret_records = [all_records[uuid] for uuid in keys if uuid in all_records]
+        return ret_records
 
 
 @run_once
-def create_milvus_collection(
-    conn_url: str = config.MILVUS_DB_NAME,
-    token: str = None,
-    collection_name: str = config.MILVUS_COLLECTION_NAME,
+def create_vector_db_collection(
+    conn_url: str = "",
+    token: str = "",
+    collection_name: str = "",
     **kwargs,
 ) -> None:
     """
@@ -308,9 +264,8 @@ def create_milvus_collection(
     - conn_url: the milvus connection url, or db_name if deployed as lite.
     - token: connection token if any.
     - collection_name: the collection name.
-    - kwargs: should contain at least `dense_embed_dim` representing the embedding dim.
+    - kwargs: should contain `dense_embed_dim`.
     """
-    from pymilvus import DataType, MilvusClient
 
     logging.info(f"initialize milvus db: {conn_url}, token: {token}")
 
@@ -321,8 +276,6 @@ def create_milvus_collection(
 
     if client.has_collection(collection_name=collection_name):
         logging.info(f"collection {collection_name} found in {conn_url}, skip collection creation")
-        logging.info("existing collection schema")
-        client.describe_collection(collection_name=collection_name)
         return
 
     # data schema
@@ -337,9 +290,18 @@ def create_milvus_collection(
         max_length=128,
     )
     schema.add_field(
-        field_name="content",
+        field_name="file_name",
         datatype=DataType.VARCHAR,
-        max_length=65535,
+        is_primary=False,
+        auto_id=False,
+        max_length=1024,
+    )
+    schema.add_field(
+        field_name="content_url",
+        datatype=DataType.VARCHAR,
+        is_primary=False,
+        auto_id=False,
+        max_length=1024,
     )
     schema.add_field(
         field_name="meta",
@@ -347,29 +309,17 @@ def create_milvus_collection(
         nullable=True,
     )
     schema.add_field(
-        field_name="dense_vector",
+        field_name="embedding",
         datatype=DataType.FLOAT_VECTOR,
         dim=dense_embed_dim,
     )
-    if config.EMBED_SPARSE_VECTOR:
-        schema.add_field(
-            field_name="sparse_vector",
-            datatype=DataType.SPARSE_FLOAT_VECTOR,
-        )
-
     # index
     index_params = client.prepare_index_params()
     index_params.add_index(
-        field_name="dense_vector",
+        field_name="embedding",
         index_type="AUTOINDEX",
         metric_type="IP",
     )
-    if config.EMBED_SPARSE_VECTOR:
-        index_params.add_index(
-            field_name="sparse_vector",
-            index_type="SPARSE_INVERTED_INDEX",
-            metric_type="IP",
-        )
 
     # create collection
     client.create_collection(
@@ -380,15 +330,13 @@ def create_milvus_collection(
     )
 
     logging.info(f"milvus collection created: {collection_name}")
-    client.describe_collection(collection_name=collection_name)
-
     client.close()
 
 
 def get_vector_db():
     return MilvusLiteDB(
-        conn_url=config.MILVUS_DB_NAME,
-        collection_name=config.MILVUS_COLLECTION_NAME,
+        conn_url=TinyRAGConfig.vector_db_config.db_name,  # type: ignore
+        collection_name=TinyRAGConfig.vector_db_config.collection_name,  # type: ignore
     )
 
 
@@ -396,9 +344,12 @@ def get_vector_db():
 class SQLiteDB(RationalDB):
     def __init__(self, conn_url: str, token: str = "", document_table_name: str = "", **kwargs):
         """
-        SQLite DB:
+        SQLite DB.
+
         Args:
         - conn_url: connection url.
+        - token:
+        - document_table_name: document table name.
         - kwargs: should contain `document_table`.
         """
         super().__init__()
@@ -504,14 +455,14 @@ class SQLiteDB(RationalDB):
 
 
 @run_once
-def create_sqlite_table(
-    conn_url: str = TinyRAGConfig.rational_db_config.db_name,  # type: ignore
+def create_rational_db_table(
+    conn_url: str = "",
     token: str = "",
-    table_name: str = TinyRAGConfig.rational_db_config.document_table_name,  # type: ignore
+    table_name: str = "",
     **kwargs,
 ) -> None:
     """
-    Create SQLite table.
+    Create rational db table.
 
     Args:
     - conn_url: sqlite connection url. Currently only support local file path.
