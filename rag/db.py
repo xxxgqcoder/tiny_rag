@@ -7,6 +7,7 @@ import traceback
 from abc import ABC, abstractmethod
 from typing import Any
 
+import redis
 from minio import Minio
 from minio.error import S3Error
 from pymilvus import AnnSearchRequest, DataType, MilvusClient, WeightedRanker
@@ -187,6 +188,28 @@ class ObjectStore(ABC):
 
         Returns:
         - An int indicating how many objects are deleted.
+        """
+        raise NotImplementedError("Not implemented")
+
+
+class CacheDB(ABC):
+    @abstractmethod
+    def get(self, key: str) -> bytes:
+        """
+        Get an cached bytes.
+
+        Returns:
+        - The object bytes.
+        """
+        raise NotImplementedError("Not implemented")
+
+    @abstractmethod
+    def put(self, key: str, obj: bytes) -> int:
+        """
+        Put an cache bytes.
+
+        Returns:
+        - An int indicating how many bytes are put.
         """
         raise NotImplementedError("Not implemented")
 
@@ -649,4 +672,53 @@ def get_object_store() -> ObjectStore:
         user=TinyRAGConfig.object_store_config.user,  # type: ignore
         token=TinyRAGConfig.object_store_config.token,  # type: ignore
         bucket_name=TinyRAGConfig.object_store_config.bucket_name,  # type: ignore
+    )
+
+
+@singleton
+class RedisCache(CacheDB):
+    def __init__(self, conn_url: str, token: str = "", key_ttl_seconds: int = 12 * 60 * 60, **kwargs):
+        """
+        Redis cache.
+
+        Args:
+        - conn_url: connection url.
+        - token: connection token.
+        - kwargs: not used.
+        """
+        super().__init__()
+        self.key_ttl_seconds = key_ttl_seconds
+        self.conn_url = conn_url
+        self.token = token
+        self.client = redis.Redis.from_url(conn_url, password=token)  # type: ignore
+        try:
+            self.client.ping()
+        except redis.ConnectionError as e:
+            logging_exception(e)
+            raise e
+
+    @time_it
+    def get(self, key: str) -> bytes:
+        ret = self.client.get(key)
+        if ret is None:
+            return b""
+        return ret
+
+    @time_it
+    def put(self, key: str, obj: bytes) -> int:
+        ret = self.client.setex(
+            name=key,
+            time=self.key_ttl_seconds,
+            value=obj,
+        )
+        if not ret:
+            return 0
+        return len(obj)
+
+
+def get_cache_db() -> CacheDB:
+    return RedisCache(
+        conn_url=TinyRAGConfig.cache_config.conn_url,  # type: ignore
+        token=TinyRAGConfig.cache_config.token,  # type: ignore
+        key_ttl_seconds=TinyRAGConfig.cache_config.key_ttl_seconds,  # type: ignore
     )

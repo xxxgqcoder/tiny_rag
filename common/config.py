@@ -39,6 +39,12 @@ class ObjectStoreConfig(BaseModel):
     bucket_name: str = Field("", description="Name of the bucket in the object store.")
 
 
+class CacheConfig(BaseModel):
+    conn_url: str = Field("", description="Connection URL for the object store.")
+    token: str = Field("", description="Access token for the object store.")
+    key_ttl_seconds: int = Field(12 * 60 * 60, description="Access token for the object store.")
+
+
 class Config(BaseModel):
     """Centralized configuration class for the entire Tiny RAG project."""
 
@@ -48,6 +54,7 @@ class Config(BaseModel):
     embed_config: EmbedConfig | None = Field(None, description="Embedding configuration.")
     chunking_config: ChunkingConfig | None = Field(None, description="Embedding configuration.")
     object_store_config: ObjectStoreConfig | None = Field(None, description="Object store configuration.")
+    cache_config: CacheConfig | None = Field(None, description="Cache configuration.")
 
 
 @run_once
