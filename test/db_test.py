@@ -11,9 +11,8 @@ print(sys.path[-1])
 import numpy as np
 
 from common.config import CacheConfig, ObjectStoreConfig, RationalDBConfig, TinyRAGConfig, VectorDBConfig
-from common.data import Chunk, ContentType, VectorDBRecord
+from common.data import RationalDBRecord, VectorDBRecord
 from rag.db import (
-    RationalDBRecord,
     create_object_store_bucket,
     create_rational_db_table,
     create_vector_db_collection,
