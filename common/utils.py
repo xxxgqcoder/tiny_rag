@@ -6,13 +6,13 @@ import traceback
 from collections.abc import Callable
 from datetime import datetime, timezone
 from logging.handlers import RotatingFileHandler
-from typing import Any
+from typing import Any, Callable
 
 import xxhash
 
 
 def get_project_base_directory() -> str:
-    project_base = os.path.abspath(os.path.dirname(os.path.realpath(__file__)))
+    project_base = os.path.abspath(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
     return project_base
 
 

@@ -1,11 +1,13 @@
+import functools
 import io
 import json
 import logging
 import os
+import pickle
 import sqlite3
 import traceback
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Callable, TypeVar
 
 import redis
 from minio import Minio
@@ -702,7 +704,7 @@ class RedisCache(CacheDB):
         ret = self.client.get(key)
         if ret is None:
             return b""
-        return ret
+        return ret  # type: ignore
 
     @time_it
     def put(self, key: str, obj: bytes) -> int:
@@ -722,3 +724,39 @@ def get_cache_db() -> CacheDB:
         token=TinyRAGConfig.cache_config.token,  # type: ignore
         key_ttl_seconds=TinyRAGConfig.cache_config.key_ttl_seconds,  # type: ignore
     )
+
+
+T = TypeVar("T")
+
+
+def cache_it(key_generator: Callable[..., str]) -> Callable[..., Callable[..., T]]:
+    """
+    Redis cache decorator with customized key generator.
+
+    Args:
+        key_generator: Function that takes the same args as decorated function and returns cache key
+    """
+
+    def decorator(func: Callable[..., T]) -> Callable[..., T]:
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs) -> T:
+            cache_key = key_generator(*args, **kwargs)
+            redis_cache_db = get_cache_db()
+            cached_data = redis_cache_db.get(cache_key)
+            if cached_data:
+                try:
+                    return pickle.loads(cached_data)
+                except:
+                    pass
+
+            result = func(*args, **kwargs)
+            try:
+                serialized_result = pickle.dumps(result)
+                redis_cache_db.put(cache_key, serialized_result)
+            except:
+                pass
+            return result
+
+        return wrapper
+
+    return decorator

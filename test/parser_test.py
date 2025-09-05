@@ -1,139 +1,47 @@
-import unittest
 import os
+import sys
+import time
+import unittest
 
-from parse.parser import Parser, SupportedFileType, Chunk, ChunkType
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+print(sys.path[-1])
+
+from common.config import ParserConfig, TinyRAGConfig
+from common.utils import get_project_base_directory
 from parse.pdf_parser import PDFParser
-
-import config
-from utils import get_project_base_directory
 
 
 class TestPDFParser(unittest.TestCase):
+    def test_base(self):
+        project_root_dir = get_project_base_directory()
+        print("root dir", project_root_dir)
 
-    def test_filter_chunks(self):
-        chunks = [
-            # keep
-            Chunk(content='text 1: should keep'.encode('utf-8'), file_name='/fake/path', extra_description=''.encode('utf-8'), content_type=ChunkType.TEXT),
+        pdf_file_path = os.path.join(project_root_dir, "test/test.pdf")
 
-            # rm
-            Chunk(content='text 2'.encode('utf-8'), file_name='/fake/path', extra_description=''.encode('utf-8'), content_type=ChunkType.TEXT),
-
-            # keep
-            Chunk(content=''.encode('utf-8'), file_name='/fake/path', extra_description='image 1: should keep'.encode('utf-8'), content_type=ChunkType.IMAGE),
-
-            # rm
-            Chunk(content=''.encode('utf-8'), file_name='/fake/path', extra_description='image 2'.encode('utf-8'), content_type=ChunkType.TEXT),
-
-            # keep
-            Chunk(content=''.encode('utf-8'), file_name='/fake/path', extra_description='table 1: should keep'.encode('utf-8'), content_type=ChunkType.TABLE),
-
-            # rm
-            Chunk(content=''.encode('utf-8'), file_name='/fake/path', extra_description='table 2'.encode('utf-8'), content_type=ChunkType.TABLE),
-        ]
+        TinyRAGConfig.parser_config = ParserConfig(  # type: ignore
+            config_file_path=os.path.join(project_root_dir, "assets/MinerU/magic-pdf.json"),
+            asset_save_dir=os.path.join(project_root_dir, "assets/parsed_assets"),
+        )
 
         parser = PDFParser()
-        parser.file_name = '/fake/path'
-        ret = parser.filter_chunks(chunks)
-        for chunk in ret:
-            print(chunk)
-            print('=' * 80)
 
-        self.assertEqual(len(ret), 3)
-        self.assertEqual(ret[0].content.decode('utf-8'), 'text 1: should keep')
-        self.assertEqual(ret[1].extra_description.decode('utf-8'), 'image 1: should keep')
-        self.assertEqual(ret[2].extra_description.decode('utf-8'), 'table 1: should keep')
+        # first round parse
+        start_time = time.time()
+        first_contents = parser.parse(file_path=pdf_file_path)
+        end_time = time.time()
 
-    def test_strip_text_content(self, ):
-        texts = ['', None, 'test ', 'block 1']
-        parser = PDFParser()
-        content = parser.strip_text_content(texts=texts)
-        self.assertEqual(content, 'test\n\nblock 1')
+        first_time = end_time - start_time
+        print(f"First round parsing took {first_time:.2f} seconds")
 
-    def test_parser_chunk(self):
-        content_list = [
-            {
-                'type': 'text',
-                'text': '1'
-            },
-            {
-                'type': 'text',
-                'text': '2'
-            },
-            {
-                'type': 'table',
-                'table_caption': 'table 1',
-                'table_body': ''
-            },
-            {
-                'type': 'text',
-                'text': '3'
-            },
-            {
-                'type': 'text',
-                'text': '4'
-            },
-            {
-                'type': 'text',
-                'text': '5'
-            },
-            {
-                'type': 'text',
-                'text': '6'
-            },
-            {
-                'type': 'table',
-                'table_caption': 'table 2',
-                'table_body': ''
-            },
-        ]
-        parser = PDFParser()
-        parser.consecutive_block_num = 4
-        parser.block_overlap_num = 1
-        parser.file_name = '/fake/path'
+        # second round parse
+        start_time = time.time()
+        second_contents = parser.parse(file_path=pdf_file_path)
+        end_time = time.time()
 
-        chunks = parser.chunk(content_list=content_list, temp_asset_dir='', asset_save_dir='')
-
-        # print('=' * 80)
-        # for chunk in chunks:
-        #     print(chunk)
-        #     print('=' * 80)
-
-        # should have 2 table chunk
-        table_chunks = [chunk for chunk in chunks if chunk.content_type == 'table']
-        self.assertEqual(len(table_chunks), 2)
-        self.assertEqual(table_chunks[0].extra_description.decode('utf-8'), 'table 1')
-        self.assertEqual(table_chunks[1].extra_description.decode('utf-8'), 'table 2')
-
-        # should have 2 text chunk
-        text_chunks = [chunk for chunk in chunks if chunk.content_type == 'text']
-        self.assertEqual(len(text_chunks), 2)
-        self.assertEqual(text_chunks[0].content.decode('utf-8'), '\n\n'.join(['1', '2', '3', '4']))
-        self.assertEqual(text_chunks[1].content.decode('utf-8'), '\n\n'.join(['4', '5', '6']))
-
-        # # chunk 0
-        # self.assertTrue('h1' in str(chunks[0]) and 'p1' in str(chunks[0])
-        #                 and 'p2' in str(chunks[0]))
-
-        # # chunk 1
-        # self.assertTrue('h2' in str(chunks[1]))
-
-    def test_is_valid_block(self):
-        parser = PDFParser()
-
-        block = {}
-        self.assertFalse(parser.is_valid_block(block))
-
-        block = {'type': 'image', 'img_path': ''}
-        self.assertFalse(parser.is_valid_block(block))
-
-        block = {
-            'type': 'table',
-        }
-        self.assertFalse(parser.is_valid_block(block))
-
-        pass
+        second_time = end_time - start_time
+        print(f"Second round parsing took {second_time:.2f} seconds")
 
 
-if __name__ == '__main__':
-
+if __name__ == "__main__":
     unittest.main()

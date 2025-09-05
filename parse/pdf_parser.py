@@ -1,15 +1,16 @@
 import json
 import logging
 import os
+import random
 import shutil
 import tempfile
 from typing import Any
 
 from common.config import TinyRAGConfig
 from common.data import Content, ContentType
-from common.utils import safe_strip, singleton
+from common.utils import hash64, logging_exception, safe_strip, singleton, time_it
 from parse.parser import Parser
-from utils import time_it
+from rag.db import cache_it
 
 
 @singleton
@@ -32,12 +33,23 @@ class PDFParser(Parser):
         os.environ["MINERU_TOOLS_CONFIG_JSON"] = conf.get("mineru_tools_conf_json", "")
         os.environ["MINERU_MODEL_SOURCE"] = conf.get("mineru_model_source", "local")
 
+    def key_generator(self, file_path) -> str:
+        file_bytes = b""
+        try:
+            with open(file_path, "rb") as f:
+                file_bytes = f.read()
+        except:
+            return random.random().hex()
+
+        return "file_content_hash:" + hash64(file_bytes)
+
     @time_it
+    @cache_it(key_generator=key_generator)
     def parse(
         self,
         file_path: str,
-        asset_save_dir: str,
     ) -> list[Content]:
+        asset_save_dir = TinyRAGConfig.parser_config.asset_save_dir  # type: ignore
         os.makedirs(asset_save_dir, exist_ok=True)
         self.file_name = os.path.basename(file_path)
 
@@ -52,13 +64,6 @@ class PDFParser(Parser):
             asset_save_dir=asset_save_dir,
         )
         logging.info(f"Original content block num: {len(contents)}")
-
-        # with open(os.path.join(temp_asset_dir, 'chunks.pickle'), 'wb') as f:
-        #     pickle.dump(chunks, f)
-
-        # with open(os.path.join(temp_asset_dir, 'chunks.pickle'), 'rb') as f:
-        #     print(f'loading content list from {temp_asset_dir}')
-        #     chunks = pickle.load(f)
 
         temp_dir.cleanup()
         return contents

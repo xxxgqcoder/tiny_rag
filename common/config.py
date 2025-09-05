@@ -25,6 +25,7 @@ class EmbedConfig(BaseModel):
 
 class ParserConfig(BaseModel):
     config_file_path: str = Field("", description="Path to the configuration file.")
+    asset_save_dir: str = Field("parsed_assets", description="Directory for saving parsed assets.")
 
 
 class ChunkingConfig(BaseModel):
