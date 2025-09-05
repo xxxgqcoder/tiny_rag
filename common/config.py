@@ -13,6 +13,7 @@ class RationalDBConfig(BaseModel):
 
 class VectorDBConfig(BaseModel):
     db_name: str = Field("", description="Name of the vector database.")
+    collection_name: str = Field("", description="Name of the collection in the vector database.")
     db_root_data_dir: str = Field("", description="Root directory for vector database data storage.")
 
 

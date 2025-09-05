@@ -62,4 +62,4 @@ class VectorDBRecord(BaseModel):
     file_name: str = Field(..., description="original file name")
     content_url: str = Field(..., description="url to the content")
     embedding: list[float] = Field(..., description="embedding vector")
-    meta: dict[str, Any] = Field(..., description="meta data of the chunk")
+    metadata: dict[str, Any] = Field(..., description="meta data of the chunk")

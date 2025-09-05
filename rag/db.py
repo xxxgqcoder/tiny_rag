@@ -171,7 +171,7 @@ class MilvusLiteDB(VectorDB):
         query: dict[str, list[float]],
         params: dict[str, Any],
     ) -> list[VectorDBRecord]:
-        output_fields = ["uuid", "file_name", "content_url", "meta"]
+        output_fields = ["uuid", "file_name", "content_url", "metadata"]
         limit = params.get("limit", 100)
         ranker_weights = []
 
@@ -197,21 +197,11 @@ class MilvusLiteDB(VectorDB):
         ret = []
         for hit in res[0]:
             entity = hit["entity"]
-            meta = entity["meta"]
-            try:
-                meta = json.loads(meta)
-            except json.JSONDecodeError:
-                meta = {}
-
-            uuid = entity.get("uuid", "")
-            file_name = entity.get("file_name", "")
-            content_url = entity.get("content_url", "")
-            uuid = entity.get("uuid", "")
             record = VectorDBRecord(
-                uuid=uuid,
-                file_name=file_name,
-                content_url=content_url,
-                meta=meta,
+                uuid=entity.get("uuid", ""),
+                file_name=entity.get("file_name", ""),
+                content_url=entity.get("content_url", ""),
+                metadata=entity.get(["metadata"], {}),
                 embedding=[],  # do not return embedding
             )
             ret.append(record)
@@ -223,25 +213,16 @@ class MilvusLiteDB(VectorDB):
         res = self.client.get(
             collection_name=self.collection_name,
             ids=keys,
-            output_fields=["uuid", "file_name", "content_url", "meta"],
+            output_fields=["uuid", "file_name", "content_url", "metadata"],
         )
 
         all_records = {}
         for ret in res:
-            meta = ret["meta"]
-            try:
-                meta = json.loads(meta)
-            except json.JSONDecodeError:
-                meta = {}
-
-            file_name = ret.get("file_name", "")
-            content_url = ret.get("content_url", "")
-            uuid = ret.get("uuid", "")
             record = VectorDBRecord(
-                uuid=uuid,
-                file_name=file_name,
-                content_url=content_url,
-                meta=meta,
+                uuid=ret.get("uuid", ""),
+                file_name=ret.get("file_name", ""),
+                content_url=ret.get("content_url", ""),
+                metadata=ret.get("metadata", {}),
                 embedding=[],  # do not return embedding
             )
             all_records[record.uuid] = record
@@ -279,7 +260,7 @@ def create_vector_db_collection(
         return
 
     # data schema
-    dense_embed_dim = kwargs["dense_embed_dim"]
+    dense_embed_dim = kwargs["embedding_dim"]
     schema = client.create_schema(enable_dynamic_field=True)
 
     schema.add_field(
@@ -304,7 +285,7 @@ def create_vector_db_collection(
         max_length=1024,
     )
     schema.add_field(
-        field_name="meta",
+        field_name="metadata",
         datatype=DataType.JSON,
         nullable=True,
     )
@@ -333,7 +314,7 @@ def create_vector_db_collection(
     client.close()
 
 
-def get_vector_db():
+def get_vector_db() -> VectorDB:
     return MilvusLiteDB(
         conn_url=TinyRAGConfig.vector_db_config.db_name,  # type: ignore
         collection_name=TinyRAGConfig.vector_db_config.collection_name,  # type: ignore
