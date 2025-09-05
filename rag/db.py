@@ -328,7 +328,8 @@ def create_vector_db_collection(
         return
 
     # data schema
-    dense_embed_dim = kwargs["embedding_dim"]
+    dense_embed_dim = kwargs.get("embedding_dim", None)
+    assert dense_embed_dim is not None, "embedding_dim is required to create milvus collection"
     schema = client.create_schema(enable_dynamic_field=True)
 
     schema.add_field(
