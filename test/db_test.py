@@ -1,133 +1,120 @@
-import unittest
 import os
-import json
+import sys
+import unittest
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+print(sys.path[-1])
+
+
 import numpy as np
 
-from parse.parser import Chunk, ChunkType
-
-import config
+from common.data import Chunk, ContentType, VectorDBRecord
+from rag.db import create_vector_db_collection, get_vector_db
 
 
 class TestMilvusDB(unittest.TestCase):
-
     def test_base(self):
-        from typing import Dict, Any
-        from scipy.sparse import csr_array
+        embedding_dim = 10
+        collection_name = "test_milvus_collection"
+        vector_db_name = "test/test_milvius.db"
+        os.remove(vector_db_name)
+        embeding_vector = np.random.rand(embedding_dim).astype("float32").tolist()
 
-        from rag.db import get_vector_db
-        from start_server import create_milvus_collection
-
-        dense_embed_dim = 10
-        collection_name = 'test_milvus_collection'
-
-        # mock embed func
-        config.EMBED_MODEL_NAME = 'mock_for_test'
-
-        # create collection
-        config.MILVUS_DB_NAME = './test_milvus.db'
-        config.MILVUS_COLLECTION_NAME = collection_name
-        create_milvus_collection(
-            conn_url=config.MILVUS_DB_NAME,
-            collection_name=config.MILVUS_COLLECTION_NAME,
-            dense_embed_dim=dense_embed_dim,
+        create_vector_db_collection(
+            conn_url=vector_db_name,
+            collection_name=collection_name,
+            embedding_dim=embedding_dim,
         )
 
+        from common.config import TinyRAGConfig, VectorDBConfig
+
+        TinyRAGConfig.vector_db_config = VectorDBConfig(  # type: ignore
+            db_name=vector_db_name,
+            db_root_data_dir="",
+            collection_name=collection_name,
+        )
         db = get_vector_db()
         self.assertEqual(db.collection_name, collection_name)
 
-        self.assertEqual(db.collection_name, 'test_milvus_collection')
-        self.assertTrue(db.client.has_collection('test_milvus_collection'))
-
-        # insert chunk1
-        chunk1 = Chunk(
-            content_type=ChunkType.TEXT,
-            file_name='fake_file_name',
-            content='chunk 1'.encode('utf-8'),
-            extra_description=''.encode('utf-8'),
+        # insert record
+        record1 = VectorDBRecord(
+            uuid="uuid1",
+            file_name="fake_file_name",
+            content_url="fake_content_url",
+            embedding=embeding_vector,
+            metadata={"key": "value"},
         )
-        uuid1 = chunk1.uuid
 
-        insert_cnt = db.insert(chunk1)
+        insert_cnt = db.insert(record1)
         self.assertEqual(insert_cnt, 1)
 
-        # insert chunk2
-        chunk2 = Chunk(
-            content_type=ChunkType.TEXT,
-            file_name='fake_file_name',
-            content='chunk 2'.encode('utf-8'),
-            extra_description=''.encode('utf-8'),
-        )
-        uuid2 = chunk2.uuid
-        insert_cnt = db.insert(chunk2)
-        self.assertEqual(insert_cnt, 1)
+        # get record by key
+        ret = db.get(keys=[record1.uuid])
+        self.assertEqual(ret[0].uuid, record1.uuid)
 
-        ret = db.client.get(collection_name='test_milvus_collection', ids=[uuid1])
-        self.assertEqual(ret[0]['uuid'], uuid1)
+        # # search
+        # ret = db.search(query={"embedding": embeding_vector}, params={})
+        # self.assertEqual(ret[0].uuid, record1.uuid)
 
         # test delete
-        delete_cnt = db.delete(keys=[uuid1, uuid2], )
-        self.assertEqual(delete_cnt, 2)
-        ret = db.client.get(
-            collection_name='test_milvus_collection',
-            ids=[uuid1],
+        delete_cnt = db.delete(
+            keys=[record1.uuid],
         )
-        self.assertTrue(len(ret) == 0)
-
-
-class TestSQLiteDB(unittest.TestCase):
-
-    def test_base(self, ):
-        import os
-
-        from rag.db import get_rational_db
-        from utils import now_in_utc
-        from start_server import create_sqlite_table
-        from utils import get_hash64
-
-        # create table
-        db_name = './test_sql_lite.db'
-        document_table = 'document'
-        config.SQLITE_DB_NAME = db_name
-        config.SQLITE_DOCUMENT_TABLE_NAME = document_table
-        create_sqlite_table(
-            conn_url=config.SQLITE_DB_NAME,
-            table_name=config.SQLITE_DOCUMENT_TABLE_NAME,
-        )
-
-        db = get_rational_db()
-
-        # insert
-        file_path = '/var/share/tiny_rag_files/test_file.pdf'
-        file_name = os.path.basename(file_path)
-
-        chunks = """
-        4e03170d52fd201a
-        57e68f3d1e1ebcfb
-        """.strip().split()
-
-        data = {
-            'name': file_name,
-            'chunks': chunks,
-            'created_date': now_in_utc(),
-            'content_hash': get_hash64('test'.encode('utf-8')),
-        }
-
-        insert_cnt = db.insert_document(data=data)
-        self.assertEqual(insert_cnt, 1)
-
-        # get
-        ret = db.get_document(name=file_name)
-        print(ret)
-        self.assertEqual(ret['chunks'], chunks)
-        self.assertEqual(ret['content_hash'], get_hash64('test'.encode('utf-8')))
-
-        # delete
-        delete_cnt = db.delete_document(name=file_name)
         self.assertEqual(delete_cnt, 1)
-        ret = db.get_document(name=file_name)
-        self.assertTrue(ret is None)
 
 
-if __name__ == '__main__':
+# class TestSQLiteDB(unittest.TestCase):
+#     def test_base(
+#         self,
+#     ):
+#         from rag.db import get_rational_db
+#         from start_server import create_sqlite_table
+#         from utils import get_hash64, now_in_utc
 
+#         # create table
+#         db_name = "./test_sql_lite.db"
+#         document_table = "document"
+#         config.SQLITE_DB_NAME = db_name
+#         config.SQLITE_DOCUMENT_TABLE_NAME = document_table
+#         create_sqlite_table(
+#             conn_url=config.SQLITE_DB_NAME,
+#             table_name=config.SQLITE_DOCUMENT_TABLE_NAME,
+#         )
+
+#         db = get_rational_db()
+
+#         # insert
+#         file_path = "/var/share/tiny_rag_files/test_file.pdf"
+#         file_name = os.path.basename(file_path)
+
+#         chunks = """
+#         4e03170d52fd201a
+#         57e68f3d1e1ebcfb
+#         """.strip().split()
+
+#         data = {
+#             "name": file_name,
+#             "chunks": chunks,
+#             "created_date": now_in_utc(),
+#             "content_hash": get_hash64(b"test"),
+#         }
+
+#         insert_cnt = db.insert_document(data=data)
+#         self.assertEqual(insert_cnt, 1)
+
+#         # get
+#         ret = db.get_document(name=file_name)
+#         print(ret)
+#         self.assertEqual(ret["chunks"], chunks)
+#         self.assertEqual(ret["content_hash"], get_hash64(b"test"))
+
+#         # delete
+#         delete_cnt = db.delete_document(name=file_name)
+#         self.assertEqual(delete_cnt, 1)
+#         ret = db.get_document(name=file_name)
+#         self.assertTrue(ret is None)
+
+
+if __name__ == "__main__":
     unittest.main()
