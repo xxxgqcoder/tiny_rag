@@ -56,8 +56,8 @@ class TestMilvusDB(unittest.TestCase):
             metadata={"key": "value"},
         )
 
-        # insert
-        insert_cnt = db.insert(record1)
+        # upsert
+        insert_cnt = db.upsert(record1)
         self.assertEqual(insert_cnt, 1)
 
         # get record by key
@@ -105,11 +105,11 @@ class TestSQLiteDB(unittest.TestCase):
         create_rational_db_table(conn_url=db_name, table_name=document_table)
 
         # insert
-        insert_cnt = db.insert_document(record=record)
+        insert_cnt = db.upsert_document(record=record)
         self.assertEqual(insert_cnt, 1)
 
         # duplicate insert
-        insert_cnt = db.insert_document(record=record)
+        insert_cnt = db.upsert_document(record=record)
         self.assertEqual(insert_cnt, 1)
 
         # get

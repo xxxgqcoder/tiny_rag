@@ -1,9 +1,8 @@
+import json
 import os
 import sys
 import time
 import unittest
-import json
-
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -25,7 +24,7 @@ class TestPDFParser(unittest.TestCase):
             config_file_path=os.path.join(project_root_dir, "assets/MinerU/magic-pdf.json"),
             asset_save_dir=os.path.join(project_root_dir, "assets/parsed_assets"),
         )
-        TinyRAGConfig.cache_config.conn_url = "redis://localhost:6379/0" # type: ignore
+        TinyRAGConfig.cache_config.conn_url = "redis://localhost:6379/0"  # type: ignore
 
         parser = PDFParser()
 
@@ -47,7 +46,7 @@ class TestPDFParser(unittest.TestCase):
 
         for content in second_contents:
             print(json.dumps(content.model_dump(), indent=4, ensure_ascii=False))
-            print('*' * 200)
+            print("*" * 200)
 
 
 if __name__ == "__main__":
