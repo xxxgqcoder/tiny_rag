@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 
 from common.config import TinyRAGConfig
 from common.data import Chunk, Content, ContentType
-from common.utils import safe_strip
+from common.utils import safe_encode, safe_strip
 
 
 class Chunking(ABC):
@@ -89,8 +89,8 @@ class OverlapChunking(Chunking):
                     Chunk(
                         content_type=content_buffer[0].content_type,
                         file_name=content_buffer[0].file_name,
-                        content=texts.encode("utf-8", errors="ignore"),
-                        extra_description="".encode("utf-8", errors="ignore"),
+                        content=safe_encode(texts),
+                        extra_description="",
                         content_url="",
                         uuid="",
                     )
@@ -112,7 +112,7 @@ class OverlapChunking(Chunking):
             content = chunk.content
             if chunk.content_type != ContentType.TEXT:
                 content = chunk.extra_description
-            content = safe_strip(content.decode("utf-8"))
+            content = safe_strip(content)
             if len(content) < 1:
                 logging.info(f"{chunk.file_name}: remove chunk due to too short content: {str(chunk)}")
                 continue
