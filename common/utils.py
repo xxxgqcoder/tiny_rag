@@ -143,7 +143,7 @@ def run_once(func: Callable[..., T]) -> Callable[..., T]:
         Wrapped function that executes only once
     """
     if inspect.iscoroutinefunction(func):
-        return _async_run_once(func)
+        return _async_run_once(func) # type: ignore
     else:
         return _sync_run_once(func)
 
