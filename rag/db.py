@@ -40,7 +40,7 @@ class VectorDB(ABC):
 
     # CRUD
     @abstractmethod
-    def insert(self, data: VectorDBRecord) -> int:
+    def upsert(self, data: VectorDBRecord) -> int:
         """
         Insert or update records.
 
@@ -99,7 +99,7 @@ class RationalDB(ABC):
     """
 
     @abstractmethod
-    def insert_document(self, record: RationalDBRecord) -> int:
+    def upsert_document(self, record: RationalDBRecord) -> int:
         """
         Insert a document.
 
@@ -227,14 +227,14 @@ class MilvusLiteDB(VectorDB):
 
         self.client = MilvusClient(conn_url)
 
-    @time_it
-    def insert(self, data: VectorDBRecord) -> int:
+    @time_it(prefix="vector db")
+    def upsert(self, data: VectorDBRecord) -> int:
         record = data.model_dump()
         stats = self.client.upsert(self.collection_name, record)
         logging.info(f"Upsert stats: {stats}")
         return stats["upsert_count"]
 
-    @time_it
+    @time_it(prefix="vector db")
     def delete(self, keys: list[str]) -> int:
         stats = self.client.delete(
             collection_name=self.collection_name,
@@ -243,7 +243,7 @@ class MilvusLiteDB(VectorDB):
         logging.info(f"Delete stats: {stats}")
         return len(keys)
 
-    @time_it
+    @time_it(prefix="vector db")
     def search(
         self,
         query: dict[str, list[float]],
@@ -301,7 +301,7 @@ class MilvusLiteDB(VectorDB):
 
         return ret
 
-    @time_it
+    @time_it(prefix="vector db")
     def get(self, keys: list[str]) -> list[Any]:
         res = self.client.get(
             collection_name=self.collection_name,
@@ -438,8 +438,8 @@ class SQLiteDB(RationalDB):
         for k, v in kwargs.items():
             setattr(self, k, v)
 
-    @time_it
-    def insert_document(self, record: RationalDBRecord) -> int:
+    @time_it(prefix="rational db")
+    def upsert_document(self, record: RationalDBRecord) -> int:
         cur = self.conn.cursor()
         key_col = "file_name"
         data_dict: dict[str, Any] = record.model_dump()
@@ -481,7 +481,7 @@ class SQLiteDB(RationalDB):
 
         return 1
 
-    @time_it
+    @time_it(prefix="rational db")
     def get_document(self, file_name: str) -> RationalDBRecord:
         cur = self.conn.cursor()
         query = f"SELECT * FROM {self.document_table_name} WHERE file_name = ?"
@@ -500,7 +500,7 @@ class SQLiteDB(RationalDB):
             }
         )
 
-    @time_it
+    @time_it(prefix="rational db")
     def delete_document(self, file_name: str) -> int:
         import sqlite3
 
@@ -519,6 +519,7 @@ class SQLiteDB(RationalDB):
 
         return 1
 
+    @time_it(prefix="rational db")
     def get_all_documents(self) -> list[str]:
         query = f"SELECT file_name FROM {self.document_table_name}"
         cur = self.conn.cursor()
@@ -613,7 +614,7 @@ class MinioStore(ObjectStore):
 
         self.bucket_name = bucket_name
 
-    @time_it
+    @time_it(prefix="object store")
     def get(self, key: str) -> bytes:
         try:
             response = self.client.get_object(self.bucket_name, key)
@@ -627,7 +628,7 @@ class MinioStore(ObjectStore):
 
         return b""
 
-    @time_it
+    @time_it(prefix="object store")
     def put(self, key: str, obj: bytes) -> int:
         binary_io = io.BytesIO(obj)
         try:
@@ -643,7 +644,7 @@ class MinioStore(ObjectStore):
 
         return len(obj)
 
-    @time_it
+    @time_it(prefix="object store")
     def delete(self, key: str) -> int:
         try:
             self.client.remove_object(self.bucket_name, key)
@@ -704,14 +705,14 @@ class RedisCache(CacheDB):
             logging_exception(e)
             raise e
 
-    @time_it
+    @time_it(prefix="redis")
     def get(self, key: str) -> bytes:
         ret = self.client.get(key)
         if ret is None:
             return b""
         return ret  # type: ignore
 
-    @time_it
+    @time_it(prefix="redis")
     def put(self, key: str, obj: bytes) -> int:
         ret = self.client.setex(
             name=key,

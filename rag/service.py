@@ -62,8 +62,8 @@ async def health_check():
     return {"status": "healthy", "message": "Service is running"}
 
 
-@app.post("/insert_document", response_model=NewDocumentResponse)
-async def insert_document(
+@app.post("/upsert_document", response_model=NewDocumentResponse)
+async def upsert_document(
     file_name: str,
     content_hash: str,
     md_content: str,
@@ -76,7 +76,7 @@ async def insert_document(
 
     # Save to rational db
     try:
-        insert_cnt = rational_db.insert_document(
+        insert_cnt = rational_db.upsert_document(
             RationalDBRecord(
                 file_name=file_name,
                 chunk_uuids="\x07".join([chunk.uuid for chunk in chunks]),
@@ -93,7 +93,7 @@ async def insert_document(
     # Save to vector db
     try:
         for i, chunk in enumerate(chunks):
-            insert_cnt = vector_db.insert(
+            insert_cnt = vector_db.upsert(
                 VectorDBRecord(
                     uuid=chunk.uuid,
                     file_name=chunk.file_name,

@@ -158,19 +158,23 @@ def estimate_token_num(text: str) -> tuple[int, list[str]]:
     return int(token_num), token_buffer
 
 
-def time_it(func: Callable[..., Any]) -> Callable[..., Any]:
-    @functools.wraps(func)
-    def wrapper(*kargs, **kwargs):
-        begin = time.time_ns()
-        ret = func(*kargs, **kwargs)
-        elapse = (time.time_ns() - begin) // 1000000
-        logging.info(
-            f"func {func.__name__} took {elapse // 60000}min {(elapse % 60000) // 1000}sec {elapse % 60000 % 1000}ms to finish"
-        )
+def time_it(prefix: str = "") -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        @functools.wraps(func)
+        def wrapper(*kargs, **kwargs):
+            begin = time.time_ns()
+            ret = func(*kargs, **kwargs)
+            elapse = (time.time_ns() - begin) // 1000000
+            
+            func_name = f"{prefix} {func.__name__}" if prefix else func.__name__
+            logging.info(
+                f"func {func_name} took {elapse // 60000}min {(elapse % 60000) // 1000}sec {elapse % 60000 % 1000}ms to finish"
+            )
 
-        return ret
+            return ret
 
-    return wrapper
+        return wrapper
+    return decorator
 
 
 def safe_encode(text: str)-> str:
