@@ -171,3 +171,11 @@ def time_it(func: Callable[..., Any]) -> Callable[..., Any]:
         return ret
 
     return wrapper
+
+
+def safe_encode(text: str)-> str:
+    try:
+        return text.encode(encoding='utf-8', errors='ignore').decode(encoding='utf-8', errors='ignore')
+    except Exception as e:
+        logging_exception(e)
+        return ""

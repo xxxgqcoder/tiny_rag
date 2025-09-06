@@ -29,7 +29,7 @@ class Content(BaseModel):
 
     content_type: ContentType = Field(ContentType.TEXT, description="content type")
     file_name: str = Field("", description="original file name")
-    content: str = Field("", description="the content, represented in bytes")
+    content: str = Field("", description="the content, represented in string. If content type is not image / table, this field will be base64 encoded image content.")
     extra_description: str = Field("", description="content extra description")
     content_url: str = Field(
         "",
