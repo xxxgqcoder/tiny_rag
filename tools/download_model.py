@@ -189,8 +189,6 @@ def download_bge_m3_model(project_dir: str):
 
 # ------------------------------------------------------------------------------
 # download qwen3 embedding model
-
-
 def download_qwen3_embedding_model(project_dir: str):
     """
     Download qwen3 embedding model weight.
@@ -202,6 +200,24 @@ def download_qwen3_embedding_model(project_dir: str):
 
     model_dir = snapshot_download(
         "Qwen/Qwen3-Embedding-4B",
+        ignore_patterns=["*onnx*"],
+    )
+    print(f"donwloaded model_dir is: {model_dir}")
+
+
+# ------------------------------------------------------------------------------
+# download qwen3 ranker model
+def download_qwen3_ranker_model(project_dir: str):
+    """
+    Download qwen3 ranker model weight.
+
+    Args:
+    - project_dir: project root directory.
+    """
+    from huggingface_hub import snapshot_download
+
+    model_dir = snapshot_download(
+        "Qwen/Qwen3-Reranker-4B",
         ignore_patterns=["*onnx*"],
     )
     print(f"donwloaded model_dir is: {model_dir}")
@@ -220,3 +236,6 @@ if __name__ == "__main__":
 
     download_qwen3_embedding_model(project_dir)
     print("finish downloading qwen3 embedding model")
+
+    download_qwen3_ranker_model(project_dir)
+    print("finish downloading qwen3 ranker model")

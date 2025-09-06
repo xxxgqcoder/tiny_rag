@@ -127,7 +127,7 @@ class DeleteDocumentResponse(ServiceResponse):
 
 
 class SearchRequest(BaseModel):
-    query: dict[str, Any] = Field(..., description="search query, depends on the vector db implementation")
+    query: dict[str, Any] = Field(..., description="search query, key is the vector db collection column name")
     query_params: dict[str, Any] = Field(default_factory=dict, description="additional search parameters")
 
 

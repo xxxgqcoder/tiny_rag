@@ -243,9 +243,26 @@ async def delete_document(request: DeleteDocumentRequest) -> DeleteDocumentRespo
 
 @app.post("/search", response_model=SearchResponse)
 async def search(request: SearchRequest) -> SearchResponse:
+    query = request.query
+    query_params = request.query_params
+
+    records = vector_db.search(query=query, params=query_params)
+    chunks = []
+    for record in records:
+        uuid = record.uuid
+        try:
+            chunk_bytes = object_store.get(key=StorageManager.chunk_content_key(uuid))
+            if not chunk_bytes:
+                continue
+        except Exception as e:
+            logging_exception(e)
+            continue
+        chunk = Chunk.model_validate_json(chunk_bytes.decode(encoding="utf-8", errors="ignore"))
+        chunks.append(chunk)
+
     return SearchResponse(
-        code=1,
-        message="not implemented",
+        code=0,
+        message="",
         data={},
-        chunks=[],
+        chunks=chunks,
     )

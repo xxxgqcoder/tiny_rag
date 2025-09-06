@@ -4,10 +4,14 @@ search_service_port: 8080
 parser_config:
     config_file_path: /Users/xcoder/projects/tiny_rag/assets/MinerU/magic-pdf.json
 
-embeding_config:
-    embeding_model_name: qwen3
-    embeding_dim: 1024
-    embed_support_sparse_vector: false
+embedding_config:
+    embedding_model_name: qwen3
+    embedding_dim: 2560
+    embedding_support_sparse_vector: false
+    embedding_model_dir: /Users/xcoder/.cache/huggingface/hub/models--Qwen--Qwen3-Embedding-4B/snapshots/5cf2132abc99cad020ac570b19d031efec650f2b
+
+ranker_config:
+    ranker_model_dir: /Users/xcoder/.cache/huggingface/hub/models--Qwen--Qwen3-Reranker-4B/snapshots/f16fc5d5d2b9b1d0db8280929242745d79794ef5
 
 chunking_config:
     consecutive_block_num: 12
