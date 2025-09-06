@@ -50,7 +50,6 @@ def format_md_content(content_list: list[Content]) -> str:
 
 
 async def process_new_file(file_path: str):
-    """ """
     if ignore_file(file_path):
         logging.info(f"{file_path}: ignore")
         return
@@ -237,18 +236,18 @@ class FileHandler(FileSystemEventHandler):
 
 
 @run_once
-async def initial_file_process(file_dir: str) -> None:
+async def initial_file_process() -> None:
     job_executor = get_job_executor()
 
     # get all documents
     all_document = await get_all_document()
-    file_names = os.listdir(file_dir)
+    file_names = os.listdir(TinyRAGConfig.host_file_dir)
 
     # delete documents that are not found in file_dir
     to_delete = list(set(all_document.file_names) - set(file_names))  # type: ignore
     logging.info(f"Below files are founded in db but not in file folder, delete: {to_delete}")
     for file_name in to_delete:
-        job_executor.submit(on_process_delete_file, file_path=os.path.join(file_dir, file_name))
+        job_executor.submit(on_process_delete_file, file_path=os.path.join(TinyRAGConfig.host_file_dir, file_name))
 
     for file_name in file_names:
-        job_executor.submit(on_process_new_file, file_path=os.path.join(file_dir, file_name))
+        job_executor.submit(on_process_new_file, file_path=os.path.join(TinyRAGConfig.host_file_dir, file_name))

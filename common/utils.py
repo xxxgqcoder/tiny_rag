@@ -1,12 +1,10 @@
+import asyncio
 import functools
-import io
+import inspect
 import logging
 import os
-import pickle
-import sqlite3
 import time
 import traceback
-from abc import ABC, abstractmethod
 from collections.abc import Callable
 from datetime import datetime, timezone
 from logging.handlers import RotatingFileHandler
@@ -76,18 +74,78 @@ def singleton(cls) -> Callable[..., Any]:
     return getinstance
 
 
-def run_once(func) -> Callable[..., Any | None]:
-    has_run = False
-    ret = None
+T = TypeVar("T")
 
-    def wrapper(*args, **kwargs) -> Any | None:
-        nonlocal has_run, ret
-        if not has_run:
-            has_run = True
-            ret = func(*args, **kwargs)
-        return ret
+
+def _sync_run_once(func: Callable[..., T]) -> Callable[..., T]:
+    """Thread-safe run_once for synchronous functions."""
+    import threading
+
+    _called = False
+    _result = None
+    _lock = threading.Lock()
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        nonlocal _called, _result
+
+        if _called:
+            return _result
+
+        with _lock:
+            if not _called:
+                _result = func(*args, **kwargs)
+                _called = True
+
+        return _result
 
     return wrapper
+
+
+def _async_run_once(func: Callable[..., T]) -> Callable[..., T]:
+    """Async-safe run_once for coroutine functions."""
+    _called = False
+    _result = None
+    _lock = None
+
+    @functools.wraps(func)
+    async def wrapper(*args, **kwargs):
+        nonlocal _called, _result, _lock
+
+        if _called:
+            return _result
+
+        # Initialize lock lazily to avoid event loop issues
+        if _lock is None:
+            _lock = asyncio.Lock()
+
+        async with _lock:
+            if not _called:
+                _result = await func(*args, **kwargs)
+                _called = True
+
+        return _result
+
+    return wrapper
+
+
+def run_once(func: Callable[..., T]) -> Callable[..., T]:
+    """
+    Decorator that ensures a function runs only once, supporting both sync and async functions.
+
+    For sync functions: Uses threading.Lock for thread safety
+    For async functions: Uses asyncio.Lock for async safety
+
+    Args:
+        func: Function to wrap (sync or async)
+
+    Returns:
+        Wrapped function that executes only once
+    """
+    if inspect.iscoroutinefunction(func):
+        return _async_run_once(func)
+    else:
+        return _sync_run_once(func)
 
 
 def now_in_utc() -> str:

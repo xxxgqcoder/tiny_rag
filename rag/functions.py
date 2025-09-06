@@ -22,10 +22,10 @@ from common.data import (
 )
 
 _service_url = TinyRAGConfig.search_service_url
-_session = aiohttp.ClientSession()
 
 
 async def http_call(url, request: Any, out_cls) -> Any:
+    _session = aiohttp.ClientSession()
     try:
         response = await _session.post(
             url=url, json=request.model_dump() if request else "", headers={"Content-Type": "application/json"}
@@ -45,8 +45,6 @@ async def http_call(url, request: Any, out_cls) -> Any:
     except Exception as e:
         logging.error(f"Unexpected error during document upsert: {e}")
         raise
-
-    pass
 
 
 async def upsert_document(

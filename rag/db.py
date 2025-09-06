@@ -651,6 +651,7 @@ def get_object_store() -> ObjectStore:
         bucket_name=TinyRAGConfig.object_store_config.bucket_name,  # type: ignore
     )
 
+
 @singleton
 class _StorageManager:
     def document_content_key(self, content_hash: str) -> str:
