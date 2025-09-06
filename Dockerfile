@@ -63,7 +63,7 @@ COPY start_server.py .
 COPY config.yaml .
 COPY start_jupyter.sh .
 
-COPY entrypoint.sh .
+COPY docker/entrypoint.sh .
 RUN chmod +x ./entrypoint*.sh
 
 
