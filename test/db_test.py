@@ -42,7 +42,6 @@ class TestMilvusDB(unittest.TestCase):
 
         TinyRAGConfig.vector_db_config = VectorDBConfig(  # type: ignore
             db_name=vector_db_name,
-            db_root_data_dir="",
             collection_name=collection_name,
         )
         db = get_vector_db()
