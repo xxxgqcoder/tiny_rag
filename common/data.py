@@ -29,8 +29,8 @@ class Content(BaseModel):
 
     content_type: ContentType = Field(ContentType.TEXT, description="content type")
     file_name: str = Field("", description="original file name")
-    content: bytes = Field(b"", description="the content, represented in bytes")
-    extra_description: bytes = Field(b"", description="content extra description")
+    content: str = Field("", description="the content, represented in bytes")
+    extra_description: str = Field("", description="content extra description")
     content_url: str = Field(
         "",
         description="url to the content, set when content is not suitable for directly insert into db, for example image / audio data",
@@ -47,7 +47,9 @@ class Chunk(Content):
     @model_validator(mode="after")
     def set_uuid(self):
         if not self.uuid:
-            self.uuid = hash64(self.file_name.encode("utf-8", errors="ignore") + self.content + self.extra_description)
+            self.uuid = hash64(
+                (self.file_name + self.content + self.extra_description).encode("utf-8", errors="ignore")
+            )
         return self
 
 

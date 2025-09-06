@@ -100,13 +100,15 @@ async def insert_document(
                     content_url=chunk.content_url,
                     embedding=chunk_embedding[i],
                     metadata={
-                        "extra_description": chunk.extra_description.decode("utf-8", errors="ignore"),
+                        "extra_description": chunk.extra_description,
                         "content_type": str(chunk.content_type),
                     },
                 )
             )
             if insert_cnt != 1:
                 raise Exception(f"Failed to insert chunk: expected 1 record inserted, got {insert_cnt}")
+            logging.info(f"Inserted chunk to vector db: {chunk.uuid}, file_name: {file_name}")
+
     except Exception as e:
         logging_exception(e)
         return NewDocumentResponse(code=1, message="error when saving chunks to vector db, error:\n" + str(e))
@@ -122,6 +124,7 @@ async def insert_document(
             )
             if insert_byte_cnt != len(content_bytes):
                 raise Exception(f"Failed to insert md_content: expected {len(md_content)} bytes, got {insert_byte_cnt}")
+            logging.info(f"Inserted md_content: {file_name}, size: {insert_byte_cnt} bytes")
 
         # save document chunks
         for chunk in chunks:
@@ -137,6 +140,7 @@ async def insert_document(
                     raise Exception(
                         f"Failed to insert chunk content: expected {len(json_data)} bytes, got {insert_byte_cnt}"
                     )
+                logging.info(f"Inserted chunk content: {chunk.uuid}, size: {insert_byte_cnt} bytes")
 
     except Exception as e:
         logging_exception(e)
