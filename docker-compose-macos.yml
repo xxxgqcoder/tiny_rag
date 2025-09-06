@@ -23,9 +23,28 @@ services:
       - tiny_rag_redis_data:/data
     networks:
       - tiny_rag
+
+  tiny_rag:
+    image: tiny_rag:dev
+    container_name: tiny_rag
+    ports:
+      - "8080:8080"
+    environment:
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    volumes:
+      - tiny_rag_data:/var/data/tiny_rag
+    depends_on:
+      - minio
+      - redis
+    networks:
+      - tiny_rag
     
 volumes:
-  # container data persisted by local docker engine.
   tiny_rag_data:
     driver: local
   tiny_rag_minio_data:

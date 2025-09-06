@@ -1,51 +1,14 @@
 import logging
-import traceback
-import os
-import time
 
-from flask import Flask
-from watchdog.observers import Observer
+import uvicorn
 
-import config
-from rag.document import FileHandler, initial_file_process
-from rag.db import create_milvus_collection, create_sqlite_table
-from utils import init_root_logger
+from common.config import TinyRAGConfig
+from rag.service import app
 
-if __name__ == '__main__':
-    # root logger
-    init_root_logger('tiny_rag')
+if __name__ == "__main__":
+    # set up service
+    logging.info(f"Server started on port {TinyRAGConfig.search_service_port}")
+    
+    uvicorn.run(app, host="0.0.0.0", port=TinyRAGConfig.search_service_port)
 
-    # set up db
-    create_milvus_collection(
-        conn_url=config.MILVUS_DB_NAME,
-        collection_name=config.MILVUS_COLLECTION_NAME,
-        dense_embed_dim=config.EMBED_DENSE_DIM,
-    )
-    create_sqlite_table(
-        conn_url=config.SQLITE_DB_NAME,
-        table_name=config.SQLITE_DOCUMENT_TABLE_NAME,
-    )
-
-    # initial file direcory process
-    initial_file_process(config.RAG_FILE_DIR)
-
-    # start file monitor
-    event_handler = FileHandler()
-    observer = Observer()
-    observer.schedule(event_handler, config.RAG_FILE_DIR, recursive=False)
-    observer.start()
-
-    # http server
-    # NOTE: debug=True cause milvus start failure, no idea why.
-    chart_server_port = os.environ.get('CHAT_SERVER_PORT', 4567)
-    logging.info(f'chat server port num: {chart_server_port}')
-    app = Flask(__name__)
-    from rag import rag_server
-    app.register_blueprint(rag_server.bp)
-    app.run(
-        debug=False,
-        host='0.0.0.0',
-        port=chart_server_port,
-    )
-
-    logging.info('server shutdown')
+    logging.info(f"Server shut down")

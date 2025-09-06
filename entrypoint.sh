@@ -15,12 +15,6 @@ sh start_jupyter.sh
 echo 'jupyter server started'
 
 
-# replace project root directory
-sed -i -e "s%<project_root_dir>%$project_root_dir%g" assets/MinerU/magic-pdf.json
-
-sed -i -e "s%<project_root_dir>%$project_root_dir%g" assets/bge-m3/bge-m3.json
-echo "finish replace project root directory"
-
 # start python server
 python start_server.py
 

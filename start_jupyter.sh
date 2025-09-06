@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
+DEBUG_SERVER_PORT=8000
 jupyter_log_file='logs/jupyter.logs'
 port_num=${DEBUG_SERVER_PORT}
 echo "debug server port: ${port_num}"

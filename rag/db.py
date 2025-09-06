@@ -235,13 +235,13 @@ class MilvusLiteDB(VectorDB):
         return stats["upsert_count"]
 
     @time_it
-    def delete(self, keys: list[str]) -> Any:
+    def delete(self, keys: list[str]) -> int:
         stats = self.client.delete(
             collection_name=self.collection_name,
             ids=keys,
         )
         logging.info(f"Delete stats: {stats}")
-        return len(stats)
+        return len(keys)
 
     @time_it
     def search(
@@ -345,6 +345,8 @@ def create_vector_db_collection(
 
     # NOTE: assume local file path
     os.makedirs(os.path.dirname(conn_url), exist_ok=True)
+    with open(conn_url, "w+") as f:
+        pass
 
     client = MilvusClient(conn_url)
 
@@ -483,7 +485,6 @@ class SQLiteDB(RationalDB):
     def get_document(self, file_name: str) -> RationalDBRecord:
         cur = self.conn.cursor()
         query = f"SELECT * FROM {self.document_table_name} WHERE file_name = ?"
-        print(f"query: {query}")
 
         ret = cur.execute(query, (file_name,))
         res = ret.fetchall()
@@ -558,6 +559,8 @@ def create_rational_db_table(
     sql_create_index = f"CREATE INDEX idx_name ON {table_name} (file_name)"
     # NOTE: assume local file path
     os.makedirs(os.path.dirname(conn_url), exist_ok=True)
+    with open(conn_url, "w+") as f:
+        pass
 
     with sqlite3.connect(conn_url) as conn:
         cur = conn.cursor()
@@ -621,6 +624,8 @@ class MinioStore(ObjectStore):
         except S3Error as e:
             logging_exception(e)
             return b""
+
+        return b""
 
     @time_it
     def put(self, key: str, obj: bytes) -> int:
@@ -760,3 +765,15 @@ def cache_it(key_generator: Callable[..., str]) -> Callable[..., Callable[..., T
         return wrapper
 
     return decorator
+
+
+@singleton
+class _StorageManager:
+    def document_content_key(self, content_hash: str) -> str:
+        return f"document_content:{content_hash}"
+
+    def chunk_content_key(self, uuid: str) -> str:
+        return f"chunk_content:{uuid}"
+
+
+StorageManager = _StorageManager()
