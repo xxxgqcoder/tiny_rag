@@ -115,7 +115,7 @@ def process_new_file(file_path: str):
 
         prompt = _prompt_text_summary.format(
             content=content,
-            max_token_num=int(estimated_token_num * 0.2),
+            max_token_num=int(estimated_token_num * 0.1),
         )
         summary = chat_model.instant_chat(
             prompt=prompt,

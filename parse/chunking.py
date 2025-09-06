@@ -84,7 +84,7 @@ class OverlapChunking(Chunking):
 
             # inner loop ends when j == len(chunks) or len(block_buffer) == self.consecutive_block_num generate new chunk if buffer is not empty.
             if len(content_buffer) > 0:
-                texts = "\n\n".join([chunk.content.decode("utf-8") for chunk in content_buffer])
+                texts = "\n\n".join([chunk.content for chunk in content_buffer])
                 merged_chunks.append(
                     Chunk(
                         content_type=content_buffer[0].content_type,
