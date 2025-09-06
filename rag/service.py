@@ -37,7 +37,7 @@ create_rational_db_table(
 create_vector_db_collection(
     conn_url=TinyRAGConfig.vector_db_config.db_name,  # type: ignore
     collection_name=TinyRAGConfig.vector_db_config.collection_name,  # type: ignore
-    embedding_dim=TinyRAGConfig.embeding_config.embeding_dim,  # type: ignore
+    embedding_dim=TinyRAGConfig.embedding_config.embedding_dim,  # type: ignore
 )
 
 create_object_store_bucket(

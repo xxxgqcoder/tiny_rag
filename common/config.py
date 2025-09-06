@@ -19,10 +19,11 @@ class VectorDBConfig(BaseModel):
     collection_name: str = Field("", description="Name of the collection in the vector database.")
 
 
-class EmbedingConfig(BaseModel):
-    embeding_model_name: str = Field("", description="Name of the embedding model.")
-    embeding_dim: int = Field(1024, description="Dimension of the embedding vectors.")
-    embed_support_sparse_vector: bool = Field(True, description="Whether to use sparse vectors for embeddings.")
+class EmbeddingConfig(BaseModel):
+    embedding_model_name: str = Field("", description="Name of the embedding model.")
+    embedding_dim: int = Field(1024, description="Dimension of the embedding vectors.")
+    embedding_support_sparse_vector: bool = Field(True, description="Whether to use sparse vectors for embeddings.")
+    embedding_model_dir: str = Field("", description="Directory of the embedding model.")
 
 
 class ParserConfig(BaseModel):
@@ -48,6 +49,10 @@ class CacheConfig(BaseModel):
     key_ttl_seconds: int = Field(12 * 60 * 60, description="Access token for the object store.")
 
 
+class RankerConfig(BaseModel):
+    ranker_mode_dir: str = Field("", description="Directory of the ranker model.")
+
+
 class Config(YamlBaseSettings):
     """Centralized configuration class for the entire Tiny RAG project."""
 
@@ -57,10 +62,11 @@ class Config(YamlBaseSettings):
     parser_config: ParserConfig | None = Field(None, description="Parser configuration.")
     rational_db_config: RationalDBConfig | None = Field(None, description="Rational database configuration.")
     vector_db_config: VectorDBConfig | None = Field(None, description="Vector database configuration.")
-    embeding_config: EmbedingConfig | None = Field(None, description="Embedding configuration.")
+    embedding_config: EmbeddingConfig | None = Field(None, description="Embedding configuration.")
     chunking_config: ChunkingConfig | None = Field(None, description="Embedding configuration.")
     object_store_config: ObjectStoreConfig | None = Field(None, description="Object store configuration.")
     cache_config: CacheConfig | None = Field(None, description="Cache configuration.")
+    ranker_config: RankerConfig | None = Field(None, description="Ranker configuration.")
 
     model_config = SettingsConfigDict(yaml_file=(os.path.join(get_project_base_directory(), "config.yaml")))
 
