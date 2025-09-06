@@ -49,4 +49,4 @@ object_store_config:
 cache_config:
     conn_url: redis://localhost:6379/0
     token: ""
-    key_ttl_seconds: 43200
+    key_ttl_seconds: 86400
