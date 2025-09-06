@@ -343,9 +343,6 @@ def create_vector_db_collection(
 
     # NOTE: assume local file path
     os.makedirs(os.path.dirname(conn_url), exist_ok=True)
-    with open(conn_url, "w+") as f:
-        pass
-
     client = MilvusClient(conn_url)
 
     if client.has_collection(collection_name=collection_name):
@@ -355,6 +352,7 @@ def create_vector_db_collection(
     # data schema
     embedding_dim = kwargs.get("embedding_dim", None)
     assert embedding_dim is not None, "embedding_dim is required to create milvus collection"
+    logging.info(f"Embedding dim: {embedding_dim}")
     schema = client.create_schema(enable_dynamic_field=True)
 
     schema.add_field(
@@ -558,8 +556,6 @@ def create_rational_db_table(
     sql_create_index = f"CREATE INDEX idx_name ON {table_name} (file_name)"
     # NOTE: assume local file path
     os.makedirs(os.path.dirname(conn_url), exist_ok=True)
-    with open(conn_url, "w+") as f:
-        pass
 
     with sqlite3.connect(conn_url) as conn:
         cur = conn.cursor()

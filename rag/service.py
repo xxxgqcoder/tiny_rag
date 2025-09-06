@@ -10,6 +10,7 @@ from common.data import (
     DeleteDocumentResponse,
     GetAllDocumentResponse,
     GetDocumentResponse,
+    NewDocumentRequest,
     NewDocumentResponse,
     RationalDBRecord,
     SearchResponse,
@@ -63,51 +64,45 @@ async def health_check():
 
 
 @app.post("/upsert_document", response_model=NewDocumentResponse)
-async def upsert_document(
-    file_name: str,
-    content_hash: str,
-    md_content: str,
-    chunks: list[Chunk],
-    chunk_embedding: list[list[float]],
-) -> NewDocumentResponse:
+async def upsert_document(request: NewDocumentRequest) -> NewDocumentResponse:
     """
     Add new document.
     """
 
     # Save to rational db
     try:
-        insert_cnt = rational_db.upsert_document(
+        upsert_cnt = rational_db.upsert_document(
             RationalDBRecord(
-                file_name=file_name,
-                chunk_uuids="\x07".join([chunk.uuid for chunk in chunks]),
+                file_name=request.file_name,
+                chunk_uuids="\x07".join([chunk.uuid for chunk in request.chunks]),
                 created_date="",
-                content_hash=content_hash,
+                content_hash=request.content_hash,
             )
         )
-        if insert_cnt != 1:
-            raise Exception(f"Failed to insert document: expected 1 record inserted, got {insert_cnt}")
+        if upsert_cnt != 1:
+            raise Exception(f"Failed to insert document: expected 1 record inserted, got {upsert_cnt}")
     except Exception as e:
         logging_exception(e)
         return NewDocumentResponse(code=1, message="error when saving document to rational db, error:\n" + str(e))
 
     # Save to vector db
     try:
-        for i, chunk in enumerate(chunks):
-            insert_cnt = vector_db.upsert(
+        for i, chunk in enumerate(request.chunks):
+            upsert_cnt = vector_db.upsert(
                 VectorDBRecord(
                     uuid=chunk.uuid,
                     file_name=chunk.file_name,
                     content_url=chunk.content_url,
-                    embedding=chunk_embedding[i],
+                    embedding=request.chunk_embedding[i],
                     metadata={
                         "extra_description": chunk.extra_description,
                         "content_type": str(chunk.content_type),
                     },
                 )
             )
-            if insert_cnt != 1:
-                raise Exception(f"Failed to insert chunk: expected 1 record inserted, got {insert_cnt}")
-            logging.info(f"Inserted chunk to vector db: {chunk.uuid}, file_name: {file_name}")
+            if upsert_cnt != 1:
+                raise Exception(f"Failed to insert chunk: expected 1 record inserted, got {upsert_cnt}")
+            logging.info(f"Inserted chunk to vector db: {chunk.uuid}, file_name: {request.file_name}")
 
     except Exception as e:
         logging_exception(e)
@@ -116,18 +111,20 @@ async def upsert_document(
     # Save to object store
     try:
         # save document content
-        if md_content:
-            content_bytes = md_content.encode("utf-8", errors="ignore")
+        if request.md_content:
+            content_bytes = request.md_content.encode("utf-8", errors="ignore")
             insert_byte_cnt = object_store.put(
-                key=StorageManager.document_content_key(content_hash),
+                key=StorageManager.document_content_key(request.content_hash),
                 obj=content_bytes,
             )
             if insert_byte_cnt != len(content_bytes):
-                raise Exception(f"Failed to insert md_content: expected {len(md_content)} bytes, got {insert_byte_cnt}")
-            logging.info(f"Inserted md_content: {file_name}, size: {insert_byte_cnt} bytes")
+                raise Exception(
+                    f"Failed to insert md_content: expected {len(request.md_content)} bytes, got {insert_byte_cnt}"
+                )
+            logging.info(f"Inserted md_content: {request.file_name}, size: {insert_byte_cnt} bytes")
 
         # save document chunks
-        for chunk in chunks:
+        for chunk in request.chunks:
             data_dict = chunk.model_dump()
             json_data = json.dumps(data_dict, ensure_ascii=False)
             json_bytes = json_data.encode("utf-8", errors="ignore")
@@ -147,7 +144,7 @@ async def upsert_document(
         return NewDocumentResponse(code=1, message="error when saving to object store, error:\n" + str(e))
 
     return NewDocumentResponse(
-        code=0, message="success", data={"file_name": file_name, "chunks": [c.uuid for c in chunks]}
+        code=0, message="success", data={"file_name": request.file_name, "chunks": [c.uuid for c in request.chunks]}
     )
 
 

@@ -85,10 +85,19 @@ class VectorDBRecord(BaseModel):
     metadata: dict[str, Any] = Field(..., description="meta data of the chunk")
 
 
+# service request / response
 class ServiceResponse(BaseModel):
     code: int = Field(0, description="0 for success")
     message: str = Field("", description="error message if any")
     data: dict[str, Any] = Field(default_factory=dict, description="data payload")
+
+
+class NewDocumentRequest(BaseModel):
+    file_name: str = Field(..., description="original file name")
+    content_hash: str = Field(..., description="hash of document content")
+    md_content: str = Field("", description="markdown content of the document")
+    chunks: list[Chunk] = Field(..., description="list of chunks of the document")
+    chunk_embedding: list[list[float]] = Field(..., description="list of chunk embeddings")
 
 
 class NewDocumentResponse(ServiceResponse):
