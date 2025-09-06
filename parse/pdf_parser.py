@@ -8,11 +8,11 @@ import tempfile
 from encodings import base64_codec
 from typing import Any
 
+from common.cache import cache_it
 from common.config import TinyRAGConfig
 from common.data import Content, ContentType
 from common.utils import hash64, logging_exception, safe_encode, safe_strip, singleton, time_it
 from parse.parser import Parser
-from rag.db import cache_it
 
 
 @singleton
@@ -234,6 +234,8 @@ class PDFParser(Parser):
             # text / formula
             if content["type"] in ["text", "equation"]:
                 text = self.strip_text_content([content["text"]])
+                if content.get("text_level", 0) == 1:
+                    text = "# " + text  # headline level 1
                 contents.append(
                     Content(
                         content_type=ContentType.TEXT,

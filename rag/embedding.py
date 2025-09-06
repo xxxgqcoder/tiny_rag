@@ -1,10 +1,12 @@
+import random
 from abc import ABC, abstractmethod
 from typing import Any
 
 from sentence_transformers import SentenceTransformer
 
+from common.cache import cache_it
 from common.config import TinyRAGConfig
-from common.utils import singleton, time_it
+from common.utils import hash64, singleton, time_it
 
 
 class EmbeddingModel(ABC):
@@ -28,7 +30,13 @@ class Qwen3Embedding(EmbeddingModel):
         self.model_dir = model_dir
         self.model = SentenceTransformer(model_dir)
 
+    def key_generator(self, texts: list[str], **kwargs) -> str:
+        prompt_name = kwargs.get("prompt_name", "")
+        content = ",".join(texts) + prompt_name
+        return "embedding::text_hash::" + hash64(content)
+
     @time_it(prefix="Qwen3 ebmedding")
+    @cache_it(key_generator=key_generator)
     def encode(self, texts: list[str], **kwargs) -> dict[str, Any]:
         prompt_name = kwargs.get("prompt_name", None)
         embeddings = self.model.encode(texts, prompt_name=prompt_name)

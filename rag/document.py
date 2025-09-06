@@ -1,218 +1,159 @@
-import traceback
+import json
 import logging
 import os
-import json
 import shutil
-from typing import Dict, Any
+import traceback
 from concurrent.futures import ThreadPoolExecutor
+from typing import Any, Dict
 
 import watchdog.events as events
-from watchdog.events import FileSystemEventHandler, FileSystemEvent
+from watchdog.events import FileSystemEvent, FileSystemEventHandler
 
-import config
-from parse.parser import ChunkType
-from utils import now_in_utc, get_hash64, logging_exception, run_once, time_it, estimate_token_num
-from .db import get_vector_db, get_rational_db
-from .llm import get_chat_model
+from common.config import TinyRAGConfig
+from common.data import Content, ContentType, GetDocumentResponse
+from common.utils import estimate_token_num, hash64, logging_exception, run_once, time_it
+from parse import get_parser
+from parse.chunking import get_chunking
+from rag.embedding import get_embedding_model
+from rag.functions import delete_document, get_all_document, get_document, upsert_document
+from rag.llm import ChatModel, get_chat_model
 
 _prompt_text_summary = """"
-/no think summarize below content, use no more than {max_token_num} words.
+summarize below content, use no more than {max_token_num} words.
 
 below is the content
+----
 
 {content}
 
-above is the content
+----
+
+now let's tink step by step and give a concise summary.
 """
 
 _prompt_image_summary = """
 """
 
 
-def process_new_file(file_path: str) -> Dict[str, bool]:
-    """
-    Process new file, parse and save chunks into db.
-    Steps:
-    - check if file content is changed by comparing content hash against db record.
-    - clean up previous document record if any once file content change detected.
-    - run file content parse.
-    - save chunks and document record
+def format_md_content(content_list: list[Content]) -> str:
+    ret = ""
+    for content in content_list:
+        if content.content_type in ContentType.TEXT:
+            ret += content.content + "\n\n"
+        elif content.content_type in [ContentType.IMAGE, ContentType.TABLE]:
+            ret += content.content_url + "\n\n"
+            ret += content.extra_description + "\n\n"
+        else:
+            pass
 
-    Args:
-    - file_path: path to the file.
+    return ret
 
-    Returns:
-    - A list containing all successfuly inserted chunks' uuid, the order is aligned
-        with the chunks' original order in source file.
-    """
-    from parse import get_parser
-    from config import PARSED_ASSET_DATA_DIR
 
+async def process_new_file(file_path: str):
+    """ """
     if ignore_file(file_path):
-        logging.info(f'{file_path}: ignore')
+        logging.info(f"{file_path}: ignore")
         return
 
-    logging.info(f'{file_path}: process new file')
-
     parser = get_parser()
+    logging.info(f"{file_path}: begin processing")
 
-    vector_db = get_vector_db()
-    sql_db = get_rational_db()
-
-    logging.info(f'{file_path}: begin processing')
-
-    # check if file content is changed
+    # get file content hash
     file_name = os.path.basename(file_path)
-    file_bytes = None
+    file_bytes = ""
     try:
-        with open(file_path, 'rb') as f:
+        with open(file_path, "rb") as f:
             file_bytes = f.read()
     except Exception as e:
         logging_exception(e)
         return
 
     if len(file_bytes) == 0:
-        logging.info(f'{file_path}: empty content, skip')
+        logging.info(f"{file_path}: empty content, skip")
         return
 
-    file_content_hash = get_hash64(file_bytes)
-    logging.info(f'{file_path}: total {len(file_bytes)} bytes loaded, content hash: {file_content_hash}')
+    file_content_hash = hash64(file_bytes)
+    logging.info(f"{file_path}: total {len(file_bytes)} bytes loaded, content hash: {file_content_hash}")
 
     # get document record
-    document_record = sql_db.get_document(name=file_name)
-    stored_content_hash = None
-    if document_record is not None:
-        stored_content_hash = document_record['content_hash']
+    document_record: GetDocumentResponse = await get_document(file_name=file_name)
+    stored_content_hash = ""
+    try:
+        stored_content_hash = document_record.document.content_hash  # type: ignore
+    except:
+        pass
     if stored_content_hash == file_content_hash:
-        logging.info(f'{file_path}: content hash ({file_content_hash}) unchanged, ignore')
+        logging.info(f"{file_path}: content hash ({file_content_hash}) unchanged, ignore")
         return
-    logging.info(f'{file_path}: file content changed or new file')
+    logging.info(f"{file_path}: file content changed or new file")
 
     # delete document record if any
-    process_delete_file(file_path=file_path)
+    await delete_document(file_name=file_name)
 
     # parse file
-    chunks = parser.parse(
-        file_path=file_path,
-        asset_save_dir=PARSED_ASSET_DATA_DIR,
-    )
-    logging.info(f'{file_path}: total {len(chunks)} chunks')
-    if len(chunks) == 0:
+    content_list: list[Content] = parser.parse(file_path=file_path)
+    logging.info(f"{file_path}: total {len(content_list)} content")
+    if len(content_list) == 0:
         return
 
+    # chunking
+    chunker = get_chunking()
+    chunks = chunker.chunk(contents=content_list)
+    logging.info(f"{file_path}: total {len(chunks)} chunks")
+
     # add llm summary to chunk
-    chat_model = get_chat_model()
+    chat_model: ChatModel = get_chat_model()
     for chunk in chunks:
-        if chunk.content_type != ChunkType.TEXT:
+        if chunk.content_type != ContentType.TEXT:
             continue
 
-        content = chunk.content.decode('utf-8')
+        content = chunk.content
         estimated_token_num = estimate_token_num(content)[0]
-        if estimated_token_num > config.MAX_TOKEN_NUM:
-            truncate_ratio = float(config.MAX_TOKEN_NUM / estimated_token_num)
-            logging.info(f'estimated token num ({estimated_token_num}) exceed max token num ({config.MAX_TOKEN_NUM}), prompt byte num: {len(content)}, truncated by ratio: {truncate_ratio}')
-            content = content[:int(len(content) * truncate_ratio)]
-            logging.info(f'truncated byte num: {len(content)}')
+        if estimated_token_num > TinyRAGConfig.max_context_token_num:
+            truncate_ratio = float(TinyRAGConfig.max_context_token_num / estimated_token_num)
+            logging.info(
+                f"estimated token num ({estimated_token_num}) exceed max token num ({TinyRAGConfig.max_context_token_num}), prompt byte num: {len(content)}, truncated by ratio: {truncate_ratio}"
+            )
+            content = content[: int(len(content) * truncate_ratio)]
+            logging.info(f"truncated byte num: {len(content)}")
 
         prompt = _prompt_text_summary.format(
             content=content,
-            max_token_num=int(estimated_token_num * 0.1),
+            max_token_num=int(estimated_token_num * 0.2),
         )
         summary = chat_model.instant_chat(
             prompt=prompt,
-            gen_conf=config.CHAT_GEN_CONF,
+            gen_conf={},
         )
-        chunk.content += f"\n\n\n\n<summary>{summary}</summary>".encode('utf-8', errors='ignore')
+        chunk.content += f"\n\n\n\n<llm_content><summary>{summary}</summary></llm_content>"
 
-    # save parsed chunks into vector db
-    failed_chunks = []
-    success_chunks = {}
+    # embedding chunks
+    embedding_model = get_embedding_model()
+    chunk_embedding = []
     for chunk in chunks:
-        try:
-            insert_cnt = vector_db.insert(chunk)
-            if insert_cnt == 1:
-                success_chunks[chunk.uuid] = True
-            else:
-                failed_chunks.append(chunk)
+        embedding = embedding_model.encode(texts=[chunk.content], prompt_name="query")
+        chunk_embedding.append(embedding["dense"][0])
 
-        except Exception as e:
-            logging_exception(e)
-            failed_chunks.append(chunk)
+    # save to db
+    await upsert_document(
+        file_name=file_name,
+        content_hash=file_content_hash,
+        md_content=format_md_content(content_list=content_list),
+        chunks=chunks,
+        chunk_embedding=chunk_embedding,
+    )
 
-    for chunk in failed_chunks:
-        try:
-            insert_cnt = vector_db.insert(chunk)
-            if insert_cnt == 1:
-                success_chunks[chunk.uuid] = True
-        except Exception as e:
-            logging_exception(e)
-
-    logging.info(f'successfully insert {len(success_chunks)} records into vector db')
-    saved_chunks = [chunk.uuid for chunk in chunks if chunk.uuid in success_chunks]
-
-    # save document record
-    document_record = {
-        'name': os.path.basename(file_path),
-        'chunks': saved_chunks,
-        'created_date': now_in_utc(),
-        'content_hash': get_hash64(file_bytes),
-    }
-    insert_cnt = sql_db.insert_document(document_record)
-    if insert_cnt < 1:
-        logging.info(f'{file_path}: fail to insert document, retrying...')
-        sql_db.insert_document(document_record)
-
-    return saved_chunks
+    logging.info(f"{file_path}: finish processing")
 
 
-def process_delete_file(file_path: str):
-    """
-    Delete document records.
-    
-    Args:
-    - file_path: path to the file.
-    """
+async def process_delete_file(file_path: str):
     if ignore_file(file_path):
-        logging.info(f'{file_path}: ignore')
+        logging.info(f"{file_path}: ignore")
         return
-    logging.info(f'{file_path}: process delete file')
-
-    vector_db = get_vector_db()
-    sql_db = get_rational_db()
+    logging.info(f"{file_path}: process delete file")
 
     file_name = os.path.basename(file_path)
-
-    # get document record
-    document_record = sql_db.get_document(name=file_name)
-    if document_record is None:
-        logging.info(f'{file_path}: document record not found, ignore')
-        return
-    logging.info(f'{file_path}: document record: {document_record}')
-
-    # delete document record
-    delete_cnt = sql_db.delete_document(name=file_name)
-    logging.info(f'delete document record from db, delete cnt: {delete_cnt}')
-
-    # delete chunks
-    uuids = []
-    if 'chunks' in document_record and len(document_record['chunks']) > 0:
-        uuids = document_record['chunks']
-    logging.info(f'{file_path}: total {len(uuids)} chunks')
-
-    # delete image chunk
-    chunks = vector_db.get(keys=uuids)
-    for chunk in chunks:
-        try:
-            meta = json.loads(chunk['meta'])
-        except:
-            continue
-        content_url = meta.get('content_url', None)
-        if content_url and os.path.exists(content_url):
-            os.remove(content_url)
-            logging.info(f'{file_path}: remove {content_url}')
-
-    delete_cnt = vector_db.delete(keys=uuids)
-    logging.info(f'delete {delete_cnt} chunks from vector db')
+    await delete_document(file_name=file_name)
 
 
 def ignore_file(file_path: str) -> bool:
@@ -224,16 +165,19 @@ def ignore_file(file_path: str) -> bool:
     """
     file_name = os.path.basename(file_path)
     # ignore hidden file
-    if file_name.startswith('.'):
+    if file_name.startswith("."):
         return True
 
     # ignore non-supported file postfix
-    postifx = file_name.rsplit('.', 1)[-1]
-    if postifx not in ['pdf', 'docx', 'ppt', 'md', 'txt']:
+    postifx = file_name.rsplit(".", 1)[-1]
+    if postifx not in ["pdf", "docx", "ppt", "md", "txt"]:
         return True
 
     return False
 
+
+# --------------------------------------------------------------------------------------------------------
+# job executor
 
 _job_executor = None
 
@@ -247,26 +191,24 @@ def get_job_executor() -> ThreadPoolExecutor:
     return _job_executor
 
 
-@time_it
-def on_process_new_file(file_path: str) -> None:
+@time_it(prefix="process new file")
+async def on_process_new_file(file_path: str) -> None:
     try:
-        process_new_file(file_path=file_path)
+        await process_new_file(file_path=file_path)
     except Exception as e:
         logging_exception(e)
 
 
-@time_it
-def on_process_delete_file(file_path: str) -> None:
+@time_it(prefix="process delete file")
+async def on_process_delete_file(file_path: str) -> None:
     try:
-        process_delete_file(file_path=file_path)
+        await process_delete_file(file_path=file_path)
     except Exception as e:
         logging_exception(e)
 
 
 class FileHandler(FileSystemEventHandler):
-
     def on_any_event(self, event: FileSystemEvent) -> None:
-
         job_executor = get_job_executor()
         src_path = event.src_path
         dest_path = event.dest_path
@@ -295,19 +237,15 @@ class FileHandler(FileSystemEventHandler):
 
 
 @run_once
-def initial_file_process(file_dir: str) -> None:
-    """
-    Submit initial file content check.
-    """
+async def initial_file_process(file_dir: str) -> None:
     job_executor = get_job_executor()
-    sql_db = get_rational_db()
 
     # get all documents
-    all_documents = sql_db.get_all_documents()
+    all_document = await get_all_document()
     file_names = os.listdir(file_dir)
 
     # delete documents that are not found in file_dir
-    to_delete = list(set(all_documents) - set(file_names))
+    to_delete = list(set(all_document.file_names) - set(file_names))  # type: ignore
     logging.info(f"Below files are founded in db but not in file folder, delete: {to_delete}")
     for file_name in to_delete:
         job_executor.submit(on_process_delete_file, file_path=os.path.join(file_dir, file_name))
