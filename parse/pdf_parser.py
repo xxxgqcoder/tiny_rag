@@ -1,17 +1,16 @@
-from encodings import base64_codec
+import base64
 import json
 import logging
 import os
 import random
 import shutil
 import tempfile
+from encodings import base64_codec
 from typing import Any
-
-import base64
 
 from common.config import TinyRAGConfig
 from common.data import Content, ContentType
-from common.utils import hash64, logging_exception, safe_strip, singleton, time_it, safe_encode
+from common.utils import hash64, logging_exception, safe_encode, safe_strip, singleton, time_it
 from parse.parser import Parser
 from rag.db import cache_it
 
@@ -46,7 +45,7 @@ class PDFParser(Parser):
 
         return "parser::file_content_hash::" + hash64(file_bytes)
 
-    @time_it
+    @time_it("pdf parser")
     @cache_it(key_generator=key_generator)
     def parse(
         self,
@@ -188,8 +187,8 @@ class PDFParser(Parser):
             """load image as base64 encoded string"""
             with open(p, "rb") as f:
                 image_bytes = f.read()
-                base64_string = base64.b64encode(image_bytes).decode('utf-8')
-            
+                base64_string = base64.b64encode(image_bytes).decode("utf-8")
+
             return base64_string
 
         def _save_image(src_path: str, dst_dir: str) -> None:
@@ -245,7 +244,6 @@ class PDFParser(Parser):
                     )
                 )
 
-
             # image
             elif content["type"] in ["image"]:
                 texts = [
@@ -279,7 +277,7 @@ class PDFParser(Parser):
                 extra_description = self.strip_text_content(texts)
                 if len(extra_description) == 0:
                     extra_description = "no caption for this table"
-                
+
                 table_body = content.get("table_body", "")
                 extra_description += "\n\n\n\nTable content:\n" + table_body
 
