@@ -119,8 +119,9 @@ def process_new_file(file_path: str):
         )
         summary = chat_model.instant_chat(
             prompt=prompt,
-            gen_conf=TinyRAGConfig.gen_conf.model_dump(), # type: ignore
+            gen_conf=TinyRAGConfig.gen_conf.model_dump(),  # type: ignore
         )
+        # need to regenerate uuid
         chunk.content += f"\n\n\n\n<llm_content><summary>{summary}</summary></llm_content>"
         logging.info(f"{file_name}: Finish adding llm summary to chunk, summary:\n{summary}")
 
@@ -130,7 +131,9 @@ def process_new_file(file_path: str):
     for i, chunk in enumerate(chunks):
         text: str = chunk.content if chunk.content_type == ContentType.TEXT else chunk.extra_description
         token_num = estimate_token_num(text)[0]
-        logging.info(f"{file_name}: chunk {i}, byte len: {len(text)}, estimated token num: {token_num}")
+        logging.info(
+            f"{file_name}: chunk {i}, uuid: {chunk.uuid}, byte len: {len(text)}, estimated token num: {token_num}"
+        )
         embedding: dict[str, Any] = embedding_model.encode(texts=[text])
         chunk_embedding.append(embedding["dense"][0])
         logging.info(f"{file_name}: finish embedding for chunk: {i}")
@@ -253,6 +256,3 @@ def initial_file_process() -> None:
 
     for file_name in file_names:
         job_executor.submit(on_process_new_file, file_path=os.path.join(TinyRAGConfig.host_file_dir, file_name))
-
-
-

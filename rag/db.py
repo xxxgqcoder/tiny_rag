@@ -7,6 +7,7 @@ from typing import Any
 
 from minio import Minio
 from minio.error import S3Error
+from minio.helpers import ObjectWriteResult
 from pymilvus import AnnSearchRequest, DataType, MilvusClient, WeightedRanker
 
 from common.config import TinyRAGConfig
@@ -591,7 +592,7 @@ class MinioStore(ObjectStore):
             response.close()
             response.release_conn()
             return data
-        except S3Error as e:
+        except Exception as e:
             logging_exception(e)
             return b""
 
@@ -607,7 +608,7 @@ class MinioStore(ObjectStore):
                 data=binary_io,
                 length=len(obj),
             )
-        except S3Error as e:
+        except Exception as e:
             logging_exception(e)
             return 0
 
@@ -617,7 +618,7 @@ class MinioStore(ObjectStore):
     def delete(self, key: str) -> int:
         try:
             self.client.remove_object(self.bucket_name, key)
-        except S3Error as e:
+        except Exception as e:
             logging_exception(e)
             return 0
 

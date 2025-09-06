@@ -105,7 +105,6 @@ async def upsert_document(request: NewDocumentRequest) -> NewDocumentResponse:
             )
             if upsert_cnt != 1:
                 raise Exception(f"Failed to insert chunk: expected 1 record inserted, got {upsert_cnt}")
-            logging.info(f"Inserted chunk to vector db: {chunk.uuid}, file_name: {request.file_name}")
 
     except Exception as e:
         logging_exception(e)
@@ -124,23 +123,20 @@ async def upsert_document(request: NewDocumentRequest) -> NewDocumentResponse:
                 raise Exception(
                     f"Failed to insert md_content: expected {len(request.md_content)} bytes, got {insert_byte_cnt}"
                 )
-            logging.info(f"Inserted md_content: {request.file_name}, size: {insert_byte_cnt} bytes")
 
         # save document chunks
-        for chunk in request.chunks:
+        for i, chunk in enumerate(request.chunks):
             data_dict = chunk.model_dump()
             json_data = json.dumps(data_dict, ensure_ascii=False)
             json_bytes = json_data.encode("utf-8", errors="ignore")
-            if chunk.content_url and chunk.content:
-                insert_byte_cnt = object_store.put(
-                    key=StorageManager.chunk_content_key(chunk.uuid),
-                    obj=json_bytes,
+            insert_byte_cnt = object_store.put(
+                key=StorageManager.chunk_content_key(chunk.uuid),
+                obj=json_bytes,
+            )
+            if insert_byte_cnt != len(json_bytes):
+                raise Exception(
+                    f"Failed to insert chunk content: expected {len(json_data)} bytes, got {insert_byte_cnt}"
                 )
-                if insert_byte_cnt != len(json_bytes):
-                    raise Exception(
-                        f"Failed to insert chunk content: expected {len(json_data)} bytes, got {insert_byte_cnt}"
-                    )
-                logging.info(f"Inserted chunk content: {chunk.uuid}, size: {insert_byte_cnt} bytes")
 
     except Exception as e:
         logging_exception(e)

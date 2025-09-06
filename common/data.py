@@ -49,10 +49,7 @@ class Chunk(Content):
 
     @model_validator(mode="after")
     def set_uuid(self):
-        if not self.uuid:
-            self.uuid = hash64(
-                (self.file_name + self.content + self.extra_description).encode("utf-8", errors="ignore")
-            )
+        self.uuid = hash64((self.file_name + self.content + self.extra_description).encode("utf-8", errors="ignore"))
         return self
 
 
