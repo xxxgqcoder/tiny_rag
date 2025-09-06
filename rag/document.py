@@ -52,10 +52,10 @@ def process_new_file(file_path: str):
         return
 
     parser = get_parser()
-    logging.info(f"{file_path}: begin processing")
 
     # get file content hash
     file_name = os.path.basename(file_path)
+    logging.info(f"{file_name}: begin processing")
     file_bytes = ""
     try:
         with open(file_path, "rb") as f:
@@ -69,7 +69,7 @@ def process_new_file(file_path: str):
         return
 
     file_content_hash = hash64(file_bytes)
-    logging.info(f"{file_path}: total {len(file_bytes)} bytes loaded, content hash: {file_content_hash}")
+    logging.info(f"{file_name}: total {len(file_bytes)} bytes loaded, content hash: {file_content_hash}")
 
     # get document record
     document_record: GetDocumentResponse = get_document(file_name=file_name)
@@ -79,23 +79,23 @@ def process_new_file(file_path: str):
     except:
         pass
     if stored_content_hash == file_content_hash:
-        logging.info(f"{file_path}: content hash ({file_content_hash}) unchanged, ignore")
+        logging.info(f"{file_name}: content hash ({file_content_hash}) unchanged, ignore")
         return
-    logging.info(f"{file_path}: file content changed or new file")
+    logging.info(f"{file_name}: file content changed or new file")
 
     # delete document record if any
     delete_document(file_name=file_name)
 
     # parse file
     content_list: list[Content] = parser.parse(file_path=file_path)
-    logging.info(f"{file_path}: total {len(content_list)} content")
+    logging.info(f"{file_name}: total {len(content_list)} content")
     if len(content_list) == 0:
         return
 
     # chunking
     chunker = get_chunking()
     chunks = chunker.chunk(contents=content_list)
-    logging.info(f"{file_path}: total {len(chunks)} chunks")
+    logging.info(f"{file_name}: total {len(chunks)} chunks")
 
     # add llm summary to chunk
     chat_model: ChatModel = get_chat_model()
@@ -122,7 +122,7 @@ def process_new_file(file_path: str):
             gen_conf=TinyRAGConfig.gen_conf.model_dump(), # type: ignore
         )
         chunk.content += f"\n\n\n\n<llm_content><summary>{summary}</summary></llm_content>"
-        logging.info(f"{file_path}: Finish adding llm summary to chunk, summary:\n{summary}")
+        logging.info(f"{file_name}: Finish adding llm summary to chunk, summary:\n{summary}")
 
     # embedding chunks
     embedding_model = get_embedding_model()
@@ -133,7 +133,7 @@ def process_new_file(file_path: str):
         logging.info(f"{file_name}: chunk {i}, byte len: {len(text)}, estimated token num: {token_num}")
         embedding: dict[str, Any] = embedding_model.encode(texts=[text])
         chunk_embedding.append(embedding["dense"][0])
-        logging.info(f"{file_path}: finish embedding for chunk: {i}")
+        logging.info(f"{file_name}: finish embedding for chunk: {i}")
 
     # save to db
     upsert_document(
@@ -144,7 +144,7 @@ def process_new_file(file_path: str):
         chunk_embedding=chunk_embedding,
     )
 
-    logging.info(f"{file_path}: finish processing")
+    logging.info(f"{file_name}: finish processing")
 
 
 def process_delete_file(file_path: str):
