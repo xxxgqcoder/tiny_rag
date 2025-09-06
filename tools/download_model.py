@@ -187,13 +187,36 @@ def download_bge_m3_model(project_dir: str):
     print(f"MinerU config save to {config_file}")
 
 
+# ------------------------------------------------------------------------------
+# download qwen3 embedding model
+
+
+def download_qwen3_embedding_model(project_dir: str):
+    """
+    Download qwen3 embedding model weight.
+
+    Args:
+    - project_dir: project root directory.
+    """
+    from huggingface_hub import snapshot_download
+
+    model_dir = snapshot_download(
+        "Qwen/Qwen3-Embedding-4B",
+        ignore_patterns=["*onnx*"],
+    )
+    print(f"donwloaded model_dir is: {model_dir}")
+
+
 if __name__ == "__main__":
     file_dir = os.path.abspath(os.path.dirname(os.path.realpath(__file__)))
     project_dir = os.path.realpath(file_dir + "/..")
     print(f"project directory: {project_dir}")
 
-    download_mineru_model(project_dir)
-    print("finish downloading MinerU model")
+    # download_mineru_model(project_dir)
+    # print("finish downloading MinerU model")
 
-    download_bge_m3_model(project_dir)
-    print("finish downloading BGE-M3 model")
+    # download_bge_m3_model(project_dir)
+    # print("finish downloading BGE-M3 model")
+
+    download_qwen3_embedding_model(project_dir)
+    print("finish downloading qwen3 embedding model")
