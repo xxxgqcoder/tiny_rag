@@ -1,8 +1,11 @@
 import json
+import os
 
 from pydantic import BaseModel, Field
+from pydantic_settings import SettingsConfigDict
+from pydantic_settings_yaml import YamlBaseSettings
 
-from common.utils import run_once
+from common.utils import get_project_base_directory, init_root_logger
 
 
 class RationalDBConfig(BaseModel):
@@ -46,8 +49,11 @@ class CacheConfig(BaseModel):
     key_ttl_seconds: int = Field(12 * 60 * 60, description="Access token for the object store.")
 
 
-class Config(BaseModel):
+class Config(YamlBaseSettings):
     """Centralized configuration class for the entire Tiny RAG project."""
+
+    search_service_port: int = Field(8080, description="Port for the search service.")
+    root_data_dir: str = Field("data", description="Root directory for all data storage.")
 
     parser_config: ParserConfig | None = Field(None, description="Parser configuration.")
     rational_db_config: RationalDBConfig | None = Field(None, description="Rational database configuration.")
@@ -57,13 +63,9 @@ class Config(BaseModel):
     object_store_config: ObjectStoreConfig | None = Field(None, description="Object store configuration.")
     cache_config: CacheConfig | None = Field(None, description="Cache configuration.")
 
-
-@run_once
-def from_config_file(file_path: str) -> Config:
-    with open(file_path, encoding="utf-8") as f:
-        config_data = json.load(f)
-        return Config.model_validate(config_data)
-    return None
+    model_config = SettingsConfigDict(yaml_file=(os.path.join(get_project_base_directory(), "config.yaml")))
 
 
-TinyRAGConfig: Config | None = from_config_file("config.json")
+TinyRAGConfig = Config()  # type: ignore
+
+init_root_logger("tiny_rag")

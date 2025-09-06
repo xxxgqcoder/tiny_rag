@@ -1,6 +1,9 @@
 import uuid
+from enum import Enum
+from sre_constants import SUCCESS
 from typing import Any
 
+from albucore import F
 from pydantic import BaseModel, Field, model_validator
 from strenum import StrEnum
 from transformers.models.conditional_detr.modeling_conditional_detr import CONDITIONAL_DETR_INPUTS_DOCSTRING
@@ -48,8 +51,11 @@ class Chunk(Content):
         return self
 
 
-# rational db record
 class RationalDBRecord(BaseModel):
+    """
+    Rational DB record.
+    """
+
     file_name: str = Field(..., description="document name")
     # NOTE: recosinder this design.
     chunk_uuids: str = Field(..., description="id list of document's chunk, separated by '\x07'")
@@ -63,8 +69,40 @@ class RationalDBRecord(BaseModel):
 
 
 class VectorDBRecord(BaseModel):
+    """
+    Vector DB record.
+    """
+
     uuid: str = Field(..., description="uuid of the chunk")
     file_name: str = Field(..., description="original file name")
     content_url: str = Field(..., description="url to the content")
     embedding: list[float] = Field(..., description="embedding vector")
     metadata: dict[str, Any] = Field(..., description="meta data of the chunk")
+
+
+class ServiceResponse(BaseModel):
+    code: int = Field(0, description="0 for success")
+    message: str = Field("", description="error message if any")
+    data: dict[str, Any] = Field(default_factory=dict, description="data payload")
+
+
+class NewDocumentResponse(ServiceResponse):
+    pass
+
+
+class GetDocumentResponse(ServiceResponse):
+    document: RationalDBRecord | None = Field(None, description="document record")
+    md_content: str | None = Field("", description="markdown content of the document")
+    chunks: list[Chunk] | None = Field([], description="list of chunks of the document")
+
+
+class GetAllDocumentResponse(ServiceResponse):
+    file_names: list[str] | None = Field(None, description="document record list")
+
+
+class DeleteDocumentResponse(ServiceResponse):
+    pass
+
+
+class SearchResponse(ServiceResponse):
+    chunks: list[Chunk] | None = Field([], description="list of chunks")
