@@ -41,7 +41,7 @@ class PDFParser(Parser):
         except:
             return random.random().hex()
 
-        return "file_content_hash:" + hash64(file_bytes)
+        return "parser::file_content_hash::" + hash64(file_bytes)
 
     @time_it
     @cache_it(key_generator=key_generator)
