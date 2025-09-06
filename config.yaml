@@ -1,5 +1,6 @@
 root_data_dir: /var/data/tiny_rag
 search_service_port: 8080
+search_service_url: http://localhost:8080
 
 parser_config:
     config_file_path: /Users/xcoder/projects/tiny_rag/assets/MinerU/magic-pdf.json
