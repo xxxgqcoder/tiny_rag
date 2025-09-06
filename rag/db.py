@@ -650,3 +650,14 @@ def get_object_store() -> ObjectStore:
         token=TinyRAGConfig.object_store_config.token,  # type: ignore
         bucket_name=TinyRAGConfig.object_store_config.bucket_name,  # type: ignore
     )
+
+@singleton
+class _StorageManager:
+    def document_content_key(self, content_hash: str) -> str:
+        return f"document_content:{content_hash}"
+
+    def chunk_content_key(self, uuid: str) -> str:
+        return f"chunk_content:{uuid}"
+
+
+StorageManager = _StorageManager()

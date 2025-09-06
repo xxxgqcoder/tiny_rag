@@ -1,29 +1,29 @@
-import time
-import logging
 import json
-import re
+import logging
 import os
-from typing import Tuple, Dict, Any
+import re
+import time
+from typing import Any, Dict, Tuple
 
+import config
 from flask import (
-    request,
     Blueprint,
     Response,
     jsonify,
+    request,
 )
 
-import config
-from .document import get_rational_db
-from .llm import get_chat_model, estimate_token_num, assemble_knowledge_base, format_host_url, max_token_truncate
 from .db import get_vector_db
-from .prompt import prompt_system, promot_citation
+from .document import get_rational_db
+from .llm import assemble_knowledge_base, estimate_token_num, format_host_url, get_chat_model, max_token_truncate
+from .prompt import promot_citation, prompt_system
 
-bp = Blueprint('rag', __name__, url_prefix='/')
+bp = Blueprint("rag", __name__, url_prefix="/")
 
 _content_divider = "\n\n"
 
 
-@bp.route('/chat_completion', methods=['POST'])
+@bp.route("/chat_completion", methods=["POST"])
 def chat_completion():
     """
     Input json:
@@ -38,11 +38,11 @@ def chat_completion():
         - `answer`: str, LLM generated answer.
         - `prompt`: str, prompt used to generate the answer.
         - `reference_meta`: dict, reference id to meta info.
-        
+
     Return object is generated in incremental way, each returned object has newly generated token appended to previous returned answer.
     """
-    logging.info(f'**DEBUG** chat_completion: request={request}')
-    logging.info(f'**DEBUG** chat_completion: request.json={json.dumps(request.json, indent=4, ensure_ascii=False)}')
+    logging.info(f"**DEBUG** chat_completion: request={request}")
+    logging.info(f"**DEBUG** chat_completion: request.json={json.dumps(request.json, indent=4, ensure_ascii=False)}")
 
     req = request.json
     history = req["history"]
@@ -51,32 +51,30 @@ def chat_completion():
     vector_db = get_vector_db()
 
     # assemble history
-    messages = [{'role': m['role'], 'content': m['content']} for m in history if m['role'] != 'system']
+    messages = [{"role": m["role"], "content": m["content"]} for m in history if m["role"] != "system"]
     messages.reverse()
-    messages_content = [msg['content'] for msg in messages]
+    messages_content = [msg["content"] for msg in messages]
     idx = max_token_truncate(messages_content, int(0.8 * config.MAX_TOKEN_NUM))
-    messages = messages[:idx + 1]
+    messages = messages[: idx + 1]
     messages.reverse()
 
     # get last 3 questions and query db to fetch related chunks, assemble the chunks as system kwnowledge base
-    user_questions = [m['content'] for m in messages if m['role'] == 'user'][-3:]
+    user_questions = [m["content"] for m in messages if m["role"] == "user"][-3:]
     chunks = []
     for question in user_questions:
-        ret = vector_db.search(query=question, params={'limit': 4})
+        ret = vector_db.search(query=question, params={"limit": 4})
         chunks.extend(ret)
 
     knowledge_base, refid2meta = assemble_knowledge_base(chunks)
 
-    logging.info(f'**DEBUG** chat_completion, knowledge_base = \n{knowledge_base}')
-    logging.info('-' * 80)
+    logging.info(f"**DEBUG** chat_completion, knowledge_base = \n{knowledge_base}")
+    logging.info("-" * 80)
 
-    prompt = prompt_system.format(knowledge_base=knowledge_base) \
-                + f"\n{'-' * 8}\n" \
-                + promot_citation
+    prompt = prompt_system.format(knowledge_base=knowledge_base) + f"\n{'-' * 8}\n" + promot_citation
 
-    messages.insert(0, {'role': 'system', 'content': prompt})
+    messages.insert(0, {"role": "system", "content": prompt})
 
-    final_ans = ''
+    final_ans = ""
 
     def stream():
         nonlocal model, final_ans
@@ -87,28 +85,40 @@ def chat_completion():
                 # append to previous ans
                 final_ans += ans
 
-                yield json.dumps({
-                    "code": 0,
-                    "message": "",
-                    "data": {
-                        "answer": final_ans,
-                        "reference_meta": refid2meta,
-                        'prompt': prompt,
-                        'prompt_token_num': estimate_token_num(prompt)[0],
-                        'answer_token_num': estimate_token_num(final_ans)[0],
-                    }
-                }, ensure_ascii=False) + _content_divider
+                yield (
+                    json.dumps(
+                        {
+                            "code": 0,
+                            "message": "",
+                            "data": {
+                                "answer": final_ans,
+                                "reference_meta": refid2meta,
+                                "prompt": prompt,
+                                "prompt_token_num": estimate_token_num(prompt)[0],
+                                "answer_token_num": estimate_token_num(final_ans)[0],
+                            },
+                        },
+                        ensure_ascii=False,
+                    )
+                    + _content_divider
+                )
 
         except Exception as e:
-            yield json.dumps({
-                "code": 500,
-                "message": str(e),
-                "data": {
-                    "answer": "**ERROR**: " + str(e),
-                    "reference_meta": {},
-                    "prompt": prompt,
-                }
-            }, ensure_ascii=False) + _content_divider
+            yield (
+                json.dumps(
+                    {
+                        "code": 500,
+                        "message": str(e),
+                        "data": {
+                            "answer": "**ERROR**: " + str(e),
+                            "reference_meta": {},
+                            "prompt": prompt,
+                        },
+                    },
+                    ensure_ascii=False,
+                )
+                + _content_divider
+            )
         yield json.dumps({"code": 0, "message": "", "data": {}}, ensure_ascii=False) + _content_divider
 
     resp = Response(stream(), mimetype="text/event-stream")
@@ -119,7 +129,7 @@ def chat_completion():
     return resp
 
 
-@bp.route('/search', methods=['POST'])
+@bp.route("/search", methods=["POST"])
 def search():
     """
     Input json:
@@ -128,51 +138,53 @@ def search():
         - `question`: user question in natural language.
         - `file_name`: file name to search.
     - `config`: a dict contains search config.
-        
+
     Output json:
     - `code`: 0 for success.
     - `message`: error message if any.
     - `data`: data payload, list of returned chunks.
     """
-    logging.info(f'**DEBUG** search: request={request}')
-    logging.info(f'**DEBUG** search: request.json={json.dumps(request.json, indent=4, ensure_ascii=False)}')
+    logging.info(f"**DEBUG** search: request={request}")
+    logging.info(f"**DEBUG** search: request.json={json.dumps(request.json, indent=4, ensure_ascii=False)}")
 
     vector_db = get_vector_db()
     sql_db = get_rational_db()
 
     req = request.json
-    query = req.get('query', {})
-    config = req.get('config', {'limit': 4})
+    query = req.get("query", {})
+    config = req.get("config", {"limit": 4})
     ret_chunks = []
-    if query.get('uuid', None):
-        uuids = query.get('uuid')
+    if query.get("uuid", None):
+        uuids = query.get("uuid")
         ret_chunks = vector_db.get(keys=uuids)
-    elif query.get('question', None):
-        question = query.get('question')
+    elif query.get("question", None):
+        question = query.get("question")
         ret_chunks = vector_db.search(query=question, params=config)
-    elif query.get('file_name', None):
-        file_name = query.get('file_name')
+    elif query.get("file_name", None):
+        file_name = query.get("file_name")
         record = sql_db.get_document(name=file_name)
         if not record:
             ret_chunks = []
         else:
             logging.info(f"get chunk content by id: {record['chunks']}")
-            ret_chunks = vector_db.get(keys=record['chunks'])
+            ret_chunks = vector_db.get(keys=record["chunks"])
     else:
         pass
 
     response = {
-        'code': 0,
-        'data': [],
+        "code": 0,
+        "data": [],
     }
     for chunk in ret_chunks:
-        response['data'].append({
-            'uuid': chunk.uuid,
-            'file_name': chunk.file_name,
-            'content': chunk.content.decode('utf-8'),
-            'extra_description': chunk.extra_description.decode('utf-8'),
-            'content_type': str(chunk.content_type),
-            'content_url': format_host_url(chunk.content_url),
-        })
+        response["data"].append(
+            {
+                "uuid": chunk.uuid,
+                "file_name": chunk.file_name,
+                "content": chunk.content.decode("utf-8"),
+                "extra_description": chunk.extra_description.decode("utf-8"),
+                "content_type": str(chunk.content_type),
+                "content_url": format_host_url(chunk.content_url),
+            }
+        )
 
     return jsonify(response)

@@ -87,18 +87,6 @@ def get_cache_db() -> CacheDB:
 T = TypeVar("T")
 
 
-@singleton
-class _StorageManager:
-    def document_content_key(self, content_hash: str) -> str:
-        return f"document_content:{content_hash}"
-
-    def chunk_content_key(self, uuid: str) -> str:
-        return f"chunk_content:{uuid}"
-
-
-StorageManager = _StorageManager()
-
-
 def cache_it(key_generator: Callable[..., str]) -> Callable[..., Callable[..., T]]:
     """
     Redis cache decorator with customized key generator.
