@@ -13,7 +13,7 @@ parser_config:
 
 embedding_config:
     embedding_model_name: qwen3
-    embedding_dim: 1024
+    embedding_dim: 2560
     embedding_support_sparse_vector: false
     # embedding_model_dir: /Users/xcoder/.cache/huggingface/hub/models--Qwen--Qwen3-Embedding-0.6B/snapshots/c54f2e6e80b2d7b7de06f51cec4959f6b3e03418
     embedding_model_dir: /Users/xcoder/.cache/huggingface/hub/models--Qwen--Qwen3-Embedding-4B/snapshots/5cf2132abc99cad020ac570b19d031efec650f2b

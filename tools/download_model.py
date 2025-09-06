@@ -199,7 +199,7 @@ def download_qwen3_embedding_model(project_dir: str):
     from huggingface_hub import snapshot_download
 
     model_dir = snapshot_download(
-        "Qwen/Qwen3-Embedding-4B",
+        "Qwen/Qwen3-Embedding-0.6B",
         ignore_patterns=["*onnx*"],
     )
     print(f"donwloaded model_dir is: {model_dir}")
@@ -217,7 +217,7 @@ def download_qwen3_ranker_model(project_dir: str):
     from huggingface_hub import snapshot_download
 
     model_dir = snapshot_download(
-        "Qwen/Qwen3-Reranker-4B",
+        "Qwen/Qwen3-Reranker-0.6B",
         ignore_patterns=["*onnx*"],
     )
     print(f"donwloaded model_dir is: {model_dir}")
