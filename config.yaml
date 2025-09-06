@@ -1,0 +1,33 @@
+root_data_dir: /var/data/tiny_rag
+search_service_port: 8080
+
+parser_config:
+    config_file_path: /Users/xcoder/projects/tiny_rag/assets/MinerU/magic-pdf.json
+
+embeding_config:
+    embeding_model_name: qwen3
+    embeding_dim: 1024
+    embed_support_sparse_vector: false
+
+chunking_config:
+    consecutive_block_num: 12
+    block_overlap_num: 6
+
+rational_db_config:
+    db_name: /var/data/tiny_rag/rational/tiny_rag_rational.db
+    document_table_name: documents
+
+vector_db_config:
+    db_name: /var/data/tiny_rag/vector_db/tiny_rag_vector.db
+    collection_name: document_chunks
+    
+object_store_config:
+    conn_url: minio:9000
+    user: minioadmin
+    token: minioadmin
+    bucket_name: minio-tiny-rag
+
+cache_config:
+    conn_url: redis://redis:6379/0
+    token: ""
+    key_ttl_seconds: 43200
