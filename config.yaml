@@ -4,7 +4,7 @@ search_service_url: http://localhost:8080
 ollama_host: http://127.0.0.1:11434
 # ollama_model: qwen3:30b-a3b-thinking-2507-q8_0
 ollama_model: qwen3:30b-a3b
-max_context_token_num: 120000
+max_context_token_num: 60000
 host_file_dir: /Users/xcoder/tiny_rag/files
 
 parser_config:
@@ -22,7 +22,7 @@ gen_conf:
     temperature: 0.7
     top_p: 0.3
     repeat_penalty: 1.1
-    num_ctx: 120000
+    num_ctx: 60000
 
 ranker_config:
     # ranker_model_dir: /Users/xcoder/.cache/huggingface/hub/models--Qwen--Qwen3-Reranker-0.6B/snapshots/6e9e69830b95c52b5fd889b7690dda3329508de3
