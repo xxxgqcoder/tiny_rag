@@ -1,20 +1,14 @@
 import logging
-import traceback
-import re
-import os
-
-from typing import Union, Dict, List, Any, Generator, Tuple
 from abc import ABC, abstractmethod
+from typing import Any, Generator, Union
 
 from ollama import Client as OllamaClient
 
-import config
-from utils import singleton, estimate_token_num, format_host_url
-from parse.parser import Chunk, ChunkType
+from common.config import TinyRAGConfig
+from common.utils import singleton
 
 
 class ChatModel(ABC):
-
     def __init__(self, **kwargs):
         for k, v in kwargs.items():
             setattr(self, k, v)
@@ -22,52 +16,33 @@ class ChatModel(ABC):
     @abstractmethod
     def chat(
         self,
-        history: list[Dict[str, Any]],
-        gen_conf: Dict[str, Any],
+        history: list[dict[str, Any]],
+        gen_conf: dict[str, Any],
     ) -> Generator[Union[str, int], Any, Any]:
-        """
-        Chat API.
-
-        Args:
-        - history: a list of json objects representing coversation history.
-        - gen_conf: dict containing LLM generation configuration.
-
-        Returns:
-        - A generator of token sequence, last element will be total generated 
-            token num.
-        """
         raise NotImplementedError("Not implemented")
 
     @abstractmethod
     def instant_chat(
         self,
         prompt: str,
-        gen_conf: Dict[str, Any],
+        gen_conf: dict[str, Any],
     ) -> str:
-        """
-        Instant chat.
-        Args:
-        - prompt: prompt text.
-        - gen_conf: dict containing LLM generation configuration.
-        """
         raise NotImplementedError("Not implemented")
 
 
 @singleton
 class OllamaChat(ChatModel):
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, ollama_host: str, ollama_model: str):
         self.client = OllamaClient(
-            host=config.CHAT_MODEL_URL if 'ollama_host' not in kwargs else kwargs['ollama_host'],
+            host=ollama_host,
             timeout=15 * 60,  # time out 15 min
         )
-        self.model_name = config.CHAT_MODEL_NAME if 'ollama_model_name' not in kwargs else kwargs['ollama_model_name']
+        self.model_name = ollama_model
 
     def chat(
         self,
-        history: list[Dict[str, Any]],
-        gen_conf: Dict[str, Any],
+        history: list[dict[str, Any]],
+        gen_conf: dict[str, Any],
     ) -> Generator[Union[str, int], Any, Any]:
         if "max_tokens" in gen_conf:
             del gen_conf["max_tokens"]
@@ -105,9 +80,9 @@ class OllamaChat(ChatModel):
     def instant_chat(
         self,
         prompt: str,
-        gen_conf: Dict[str, Any],
+        gen_conf: dict[str, Any],
     ) -> str:
-        history = [{'role': 'user', 'content': prompt}]
+        history = [{"role": "user", "content": prompt}]
         if "max_tokens" in gen_conf:
             del gen_conf["max_tokens"]
 
@@ -129,129 +104,113 @@ class OllamaChat(ChatModel):
             return f"Exception: {e}"
 
         ans = response["message"]["content"].strip()
-        if '</think>' in ans:
-            ans = ans.split('</think>')[-1]
+        if "</think>" in ans:
+            ans = ans.split("</think>")[-1]
+
+        if "</thinking>" in ans:
+            ans = ans.split("</thinking>")[-1]
         return ans.strip()
 
 
-def get_chat_model(name: str = 'Ollama') -> ChatModel:
+def get_chat_model(name: str = "Ollama") -> ChatModel:
     return OllamaChat(
-        ollama_host=config.CHAT_MODEL_URL,
-        ollama_model_name=config.CHAT_MODEL_NAME,
+        ollama_host=TinyRAGConfig.ollama_host,
+        ollama_model=TinyRAGConfig.ollama_model,
     )
 
 
-def max_token_truncate(history: list[str], max_token_num: int) -> int:
-    """
-    Truncate by max token num. Return index such that token num of history[:index + 1] <= max_token_num
+# def assemble_knowledge_base(chunks: list[Chunk]) -> Tuple[str, Dict[str, Any]]:
+#     """
+#     Assemble knowledge in chunk and return formatted knowledge base.
 
-    Args:
-    - history: a list of string.
-    - max_token_num: maximum token num.
-    """
-    total_token_num = 0
-    index = 0
-    for i, msg in enumerate(history):
-        token_num, _ = estimate_token_num(msg)
-        if total_token_num + token_num >= max_token_num:
-            break
-        else:
-            index = i
-    return index
+#     Args:
+#     - chunks: chunks used to format knowledge base.
 
+#     Returns:
+#     - knowledge base: formated knowledge base.
+#     - A dict of reference id to chunk meta, key is reference id within current knowledge base.
+#     """
+#     _content_divider = "\n\n"
+#     # dedup chunks
+#     deduped_chunk = {}
+#     for chunk in chunks:
+#         if chunk.uuid not in deduped_chunk:
+#             deduped_chunk[chunk.uuid] = chunk
 
-def assemble_knowledge_base(chunks: list[Chunk]) -> Tuple[str, Dict[str, Any]]:
-    """
-    Assemble knowledge in chunk and return formatted knowledge base.
+#     # document name to chunks mapping
+#     document2chunks = {}
+#     for _, chunk in deduped_chunk.items():
+#         if chunk.file_name not in document2chunks:
+#             document2chunks[chunk.file_name] = []
+#         document2chunks[chunk.file_name].append(chunk)
 
-    Args:
-    - chunks: chunks used to format knowledge base.
+#     knowledge_base = []
+#     chunk_idx = 0  # reference index within current knowledge base
+#     refid2meta = {}  # reference index to chunk meta info
+#     for file_name, chunks in document2chunks.items():
+#         knowledge_base.append(f"Document: {file_name}{_content_divider}")
+#         knowledge_base.append(f"Relevant fragments as following:{_content_divider}")
+#         for chunk in chunks:
+#             content = ""
+#             if chunk.content_type in [ChunkType.TEXT]:
+#                 content = chunk.content.decode("utf-8")
+#             else:
+#                 content = chunk.extra_description.decode("utf-8")
 
-    Returns:
-    - knowledge base: formated knowledge base.
-    - A dict of reference id to chunk meta, key is reference id within current knowledge base.
-    """
-    _content_divider = '\n\n'
-    # dedup chunks
-    deduped_chunk = {}
-    for chunk in chunks:
-        if chunk.uuid not in deduped_chunk:
-            deduped_chunk[chunk.uuid] = chunk
+#             # trim llm summary if any
+#             content = re.sub(r"<summary>[.\s\S]*</summary>", "", content)
+#             knowledge_base.append(f"ID:{chunk_idx}\n{content}")
 
-    # document name to chunks mapping
-    document2chunks = {}
-    for _, chunk in deduped_chunk.items():
-        if chunk.file_name not in document2chunks:
-            document2chunks[chunk.file_name] = []
-        document2chunks[chunk.file_name].append(chunk)
+#             tokens = estimate_token_num(content)[-1]
 
-    knowledge_base = []
-    chunk_idx = 0  # reference index within current knowledge base
-    refid2meta = {}  # reference index to chunk meta info
-    for file_name, chunks in document2chunks.items():
-        knowledge_base.append(f"Document: {file_name}{_content_divider}")
-        knowledge_base.append(f'Relevant fragments as following:{_content_divider}')
-        for chunk in chunks:
-            content = ""
-            if chunk.content_type in [ChunkType.TEXT]:
-                content = chunk.content.decode('utf-8')
-            else:
-                content = chunk.extra_description.decode('utf-8')
+#             refid2meta[str(chunk_idx)] = {
+#                 "uuid": chunk.uuid,
+#                 "file_name": chunk.file_name,
+#                 "content_type": chunk.content_type,
+#                 "content_url": format_host_url(chunk.content_url),
+#                 "chunk_begin_digest": tokens[:6],
+#                 "chunk_end_digest": tokens[-6:],
+#             }
 
-            # trim llm summary if any
-            content = re.sub(r"<summary>[.\s\S]*</summary>", "", content)
-            knowledge_base.append(f"ID:{chunk_idx}\n{content}")
+#             chunk_idx += 1
 
-            tokens = estimate_token_num(content)[-1]
+#     knowledge_base = _content_divider.join(knowledge_base)
 
-            refid2meta[str(chunk_idx)] = {
-                'uuid': chunk.uuid,
-                'file_name': chunk.file_name,
-                'content_type': chunk.content_type,
-                'content_url': format_host_url(chunk.content_url),
-                'chunk_begin_digest': tokens[:6],
-                'chunk_end_digest': tokens[-6:],
-            }
-
-            chunk_idx += 1
-
-    knowledge_base = _content_divider.join(knowledge_base)
-
-    return knowledge_base, refid2meta
+#     return knowledge_base, refid2meta
 
 
-def format_reference_info(reference_meta: Dict[str, str], answer: str) -> str:
-    """
-    Fomat reference data in `answer`.
+# def format_reference_info(reference_meta: Dict[str, str], answer: str) -> str:
+#     """
+#     Fomat reference data in `answer`.
 
-    Args:
-    - reference_meta: reference meta info, key is reference id.
-    - answer: generated answer containing reference id.
+#     Args:
+#     - reference_meta: reference meta info, key is reference id.
+#     - answer: generated answer containing reference id.
 
-    Returns:
-    - formatted reference info.
-    """
-    formatted_reference_info = "\n\n"
+#     Returns:
+#     - formatted reference info.
+#     """
+#     formatted_reference_info = "\n\n"
 
-    answer = re.sub(r"<think>[.\S\s]*</think>", "", answer)
+#     answer = re.sub(r"<think>[.\S\s]*</think>", "", answer)
 
-    reference = re.findall(r"##[0-9]+@@", answer)
-    ref_ids = {}
-    for ref in reference:
-        ref_id = ref.strip("##").strip("@@")
-        ref_ids[ref_id] = True
+#     reference = re.findall(r"##[0-9]+@@", answer)
+#     ref_ids = {}
+#     for ref in reference:
+#         ref_id = ref.strip("##").strip("@@")
+#         ref_ids[ref_id] = True
 
-    for ref_id in sorted([ref_id for ref_id in ref_ids]):
-        ref_info = ''
-        meta = reference_meta[ref_id]
-        ref_info += f"<reference ID={ref_id}>,"
-        ref_info += "file=" + meta['file_name'] + ','
-        if meta['content_url']:
-            ref_info += "url=" + meta['content_url'] + ","
+#     for ref_id in sorted([ref_id for ref_id in ref_ids]):
+#         ref_info = ""
+#         meta = reference_meta[ref_id]
+#         ref_info += f"<reference ID={ref_id}>,"
+#         ref_info += "file=" + meta["file_name"] + ","
+#         if meta["content_url"]:
+#             ref_info += "url=" + meta["content_url"] + ","
 
-        chunk_begin_digest = " ".join(meta['chunk_begin_digest'])
-        chunk_end_digest = " ".join(meta['chunk_end_digest'])
-        ref_info += "ref content=" + f"{chunk_begin_digest} ... {chunk_end_digest}"
-        formatted_reference_info += ref_info + "\n\n"
+#         chunk_begin_digest = " ".join(meta["chunk_begin_digest"])
+#         chunk_end_digest = " ".join(meta["chunk_end_digest"])
+#         ref_info += "ref content=" + f"{chunk_begin_digest} ... {chunk_end_digest}"
+#         formatted_reference_info += ref_info + "\n\n"
 
-    return formatted_reference_info
+#     return formatted_reference_info
