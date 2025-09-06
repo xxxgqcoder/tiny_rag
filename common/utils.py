@@ -165,7 +165,7 @@ def time_it(prefix: str = "") -> Callable[[Callable[..., Any]], Callable[..., An
             begin = time.time_ns()
             ret = func(*kargs, **kwargs)
             elapse = (time.time_ns() - begin) // 1000000
-            
+
             func_name = f"{prefix} {func.__name__}" if prefix else func.__name__
             logging.info(
                 f"func {func_name} took {elapse // 60000}min {(elapse % 60000) // 1000}sec {elapse % 60000 % 1000}ms to finish"
@@ -174,12 +174,13 @@ def time_it(prefix: str = "") -> Callable[[Callable[..., Any]], Callable[..., An
             return ret
 
         return wrapper
+
     return decorator
 
 
-def safe_encode(text: str)-> str:
+def safe_encode(text: str) -> str:
     try:
-        return text.encode(encoding='utf-8', errors='ignore').decode(encoding='utf-8', errors='ignore')
+        return text.encode(encoding="utf-8", errors="ignore").decode(encoding="utf-8", errors="ignore")
     except Exception as e:
         logging_exception(e)
         return ""
