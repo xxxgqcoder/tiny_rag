@@ -63,6 +63,7 @@ class Config(YamlBaseSettings):
     search_service_port: int = Field(8080, description="Port for the search service.")
     root_data_dir: str = Field("data", description="Root directory for all data storage.")
     max_context_token_num: int = Field(64000, description="Maximum number of tokens in the context.")
+    host_file_dir: str = Field("", description="Directory for host files.")
 
     parser_config: ParserConfig | None = Field(None, description="Parser configuration.")
     rational_db_config: RationalDBConfig | None = Field(None, description="Rational database configuration.")
