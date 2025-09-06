@@ -5,6 +5,8 @@ from typing import Any
 
 import watchdog.events as events
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
+from watchdog.observers import Observer
+from watchdog.observers.api import BaseObserver
 
 from common.config import TinyRAGConfig
 from common.data import Content, ContentType, GetDocumentResponse
@@ -128,7 +130,10 @@ def process_new_file(file_path: str):
     embedding_model = get_embedding_model()
     chunk_embedding = []
     for i, chunk in enumerate(chunks):
-        embedding: dict[str, Any] = embedding_model.encode(texts=[chunk.content], prompt_name="query")
+        text: str = chunk.content if chunk.content_type == ContentType.TEXT else chunk.extra_description
+        token_num = estimate_token_num(text)[0]
+        logging.info(f"{file_name}: chunk {i}, byte len: {len(text)}, estimated token num: {token_num}")
+        embedding: dict[str, Any] = embedding_model.encode(texts=[text])
         chunk_embedding.append(embedding["dense"][0])
         logging.info(f"{file_path}: finish embedding for chunk: {i}")
 
@@ -250,3 +255,18 @@ def initial_file_process() -> None:
 
     for file_name in file_names:
         job_executor.submit(on_process_new_file, file_path=os.path.join(TinyRAGConfig.host_file_dir, file_name))
+
+
+if __name__ == "__main__":
+    # start file monitor
+    initial_file_process()
+
+    # set up monitor
+    event_handler = FileHandler()
+    observer: BaseObserver = Observer()
+    observer.schedule(event_handler=event_handler, path=TinyRAGConfig.host_file_dir, recursive=False)
+    observer.start()
+
+    observer.join()
+
+    logging.info(f"shutdown")
