@@ -2,8 +2,9 @@ root_data_dir: /var/data/tiny_rag
 search_service_port: 8080
 search_service_url: http://localhost:8080
 ollama_host: http://127.0.0.1:11434
-ollama_model: qwen3:30b-a3b-thinking-2507-q8_0
-max_context_token_num: 64000
+# ollama_model: qwen3:30b-a3b-thinking-2507-q8_0
+ollama_model: qwen3:30b-a3b
+max_context_token_num: 120000
 host_file_dir: /Users/xcoder/tiny_rag/files
 
 parser_config:
@@ -12,11 +13,19 @@ parser_config:
 
 embedding_config:
     embedding_model_name: qwen3
-    embedding_dim: 2560
+    embedding_dim: 1024
     embedding_support_sparse_vector: false
+    # embedding_model_dir: /Users/xcoder/.cache/huggingface/hub/models--Qwen--Qwen3-Embedding-0.6B/snapshots/c54f2e6e80b2d7b7de06f51cec4959f6b3e03418
     embedding_model_dir: /Users/xcoder/.cache/huggingface/hub/models--Qwen--Qwen3-Embedding-4B/snapshots/5cf2132abc99cad020ac570b19d031efec650f2b
 
+gen_conf:
+    temperature: 0.7
+    top_p: 0.3
+    repeat_penalty: 1.1
+    num_ctx: 120000
+
 ranker_config:
+    # ranker_model_dir: /Users/xcoder/.cache/huggingface/hub/models--Qwen--Qwen3-Reranker-0.6B/snapshots/6e9e69830b95c52b5fd889b7690dda3329508de3
     ranker_model_dir: /Users/xcoder/.cache/huggingface/hub/models--Qwen--Qwen3-Reranker-4B/snapshots/f16fc5d5d2b9b1d0db8280929242745d79794ef5
 
 chunking_config:

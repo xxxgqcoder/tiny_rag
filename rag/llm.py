@@ -60,6 +60,10 @@ class OllamaChat(ChatModel):
             options["presence_penalty"] = gen_conf["presence_penalty"]
         if "frequency_penalty" in gen_conf:
             options["frequency_penalty"] = gen_conf["frequency_penalty"]
+        if "repeat_penalty" in gen_conf:
+            options["repeat_penalty"] = gen_conf["repeat_penalty"]
+        if "num_ctx" in gen_conf:
+            options["num_ctx"] = gen_conf["num_ctx"]
 
         try:
             response = self.client.chat(
@@ -106,6 +110,10 @@ class OllamaChat(ChatModel):
             options["presence_penalty"] = gen_conf["presence_penalty"]
         if "frequency_penalty" in gen_conf:
             options["frequency_penalty"] = gen_conf["frequency_penalty"]
+        if "repeat_penalty" in gen_conf:
+            options["repeat_penalty"] = gen_conf["repeat_penalty"]
+        if "num_ctx" in gen_conf:
+            options["num_ctx"] = gen_conf["num_ctx"]
 
         try:
             response = self.client.chat(model=self.model_name, messages=history, options=options, keep_alive=10)

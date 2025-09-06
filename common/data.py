@@ -85,6 +85,7 @@ class VectorDBRecord(BaseModel):
     metadata: dict[str, Any] = Field(..., description="meta data of the chunk")
 
 
+# -----------------------------------------------------------------------------------------------
 # service request / response
 class ServiceResponse(BaseModel):
     code: int = Field(0, description="0 for success")

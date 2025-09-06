@@ -230,7 +230,7 @@ def time_it(prefix: str = "") -> Callable[[Callable[..., Any]], Callable[..., An
 
             func_name = f"{prefix} {func.__name__}" if prefix else func.__name__
             logging.info(
-                f"func {func_name} took {elapse // 60000}min {(elapse % 60000) // 1000}sec {elapse % 60000 % 1000}ms to finish"
+                f"{func_name} took {elapse // 60000}min {(elapse % 60000) // 1000}sec {elapse % 60000 % 1000}ms to finish"
             )
 
             return ret

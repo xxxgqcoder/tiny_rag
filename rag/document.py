@@ -5,8 +5,6 @@ from typing import Any
 
 import watchdog.events as events
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
-from watchdog.observers import Observer
-from watchdog.observers.api import BaseObserver
 
 from common.config import TinyRAGConfig
 from common.data import Content, ContentType, GetDocumentResponse
@@ -121,7 +119,7 @@ def process_new_file(file_path: str):
         )
         summary = chat_model.instant_chat(
             prompt=prompt,
-            gen_conf={},
+            gen_conf=TinyRAGConfig.gen_conf.model_dump(), # type: ignore
         )
         chunk.content += f"\n\n\n\n<llm_content><summary>{summary}</summary></llm_content>"
         logging.info(f"{file_path}: Finish adding llm summary to chunk, summary:\n{summary}")
@@ -257,16 +255,4 @@ def initial_file_process() -> None:
         job_executor.submit(on_process_new_file, file_path=os.path.join(TinyRAGConfig.host_file_dir, file_name))
 
 
-if __name__ == "__main__":
-    # start file monitor
-    initial_file_process()
 
-    # set up monitor
-    event_handler = FileHandler()
-    observer: BaseObserver = Observer()
-    observer.schedule(event_handler=event_handler, path=TinyRAGConfig.host_file_dir, recursive=False)
-    observer.start()
-
-    observer.join()
-
-    logging.info(f"shutdown")

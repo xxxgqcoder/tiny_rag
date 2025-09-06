@@ -1,7 +1,5 @@
-import json
 import os
 
-import ollama
 from pydantic import BaseModel, Field
 from pydantic_settings import SettingsConfigDict
 from pydantic_settings_yaml import YamlBaseSettings
@@ -54,6 +52,13 @@ class RankerConfig(BaseModel):
     ranker_mode_dir: str = Field("", description="Directory of the ranker model.")
 
 
+class GenerationConf(BaseModel):
+    temperature: float = Field(0.7, description="Temperature for text generation.")
+    top_p: float = Field(0.3, description=" Top-p (nucleus) sampling parameter.")
+    repeat_penalty: float = Field(1.1, description=" Repetition penalty for text generation.")
+    num_ctx: int = Field(64000, description=" Maximum context length for the model.")
+
+
 class Config(YamlBaseSettings):
     """Centralized configuration class for the entire Tiny RAG project."""
 
@@ -73,6 +78,7 @@ class Config(YamlBaseSettings):
     object_store_config: ObjectStoreConfig | None = Field(None, description="Object store configuration.")
     cache_config: CacheConfig | None = Field(None, description="Cache configuration.")
     ranker_config: RankerConfig | None = Field(None, description="Ranker configuration.")
+    gen_conf: GenerationConf | None = Field(None, description="Generation configuration.")
 
     model_config = SettingsConfigDict(yaml_file=(os.path.join(get_project_base_directory(), "config.yaml")))
 
