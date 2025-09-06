@@ -1,6 +1,7 @@
 import json
 import os
 
+import ollama
 from pydantic import BaseModel, Field
 from pydantic_settings import SettingsConfigDict
 from pydantic_settings_yaml import YamlBaseSettings
@@ -56,9 +57,12 @@ class RankerConfig(BaseModel):
 class Config(YamlBaseSettings):
     """Centralized configuration class for the entire Tiny RAG project."""
 
+    ollama_host: str = Field("", description="Host for the Ollama server.")
+    ollama_model: str = Field("", description="Model name for the Ollama server.")
     search_service_url: str = Field("", description="URL for the search service.")
     search_service_port: int = Field(8080, description="Port for the search service.")
     root_data_dir: str = Field("data", description="Root directory for all data storage.")
+    max_context_token_num: int = Field(64000, description="Maximum number of tokens in the context.")
 
     parser_config: ParserConfig | None = Field(None, description="Parser configuration.")
     rational_db_config: RationalDBConfig | None = Field(None, description="Rational database configuration.")

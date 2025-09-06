@@ -120,3 +120,7 @@ class OverlapChunking(Chunking):
             filtered_chunks.append(chunk)
 
         return filtered_chunks
+
+
+def get_chunking() -> Chunking:
+    return OverlapChunking()
