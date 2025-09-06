@@ -83,7 +83,7 @@ def get_cache_db() -> CacheDB:
 T = TypeVar("T")
 
 
-def cache_it(key_generator: Callable[..., str], key_ttl_seconds=6 * 60 * 60) -> Callable[..., Callable[..., T]]:
+def cache_it(key_generator: Callable[..., str], key_ttl_seconds=24 * 60 * 60) -> Callable[..., Callable[..., T]]:
     """
     Redis cache decorator with customized key generator.
 
