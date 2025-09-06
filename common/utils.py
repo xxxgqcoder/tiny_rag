@@ -99,7 +99,7 @@ def _sync_run_once(func: Callable[..., T]) -> Callable[..., T]:
 
         return _result
 
-    return wrapper # type: ignore
+    return wrapper  # type: ignore
 
 
 def _async_run_once(func: Callable[..., T]) -> Callable[..., T]:
@@ -121,12 +121,12 @@ def _async_run_once(func: Callable[..., T]) -> Callable[..., T]:
 
         async with _lock:
             if not _called:
-                _result = await func(*args, **kwargs) # type: ignore
+                _result = await func(*args, **kwargs)  # type: ignore
                 _called = True
 
         return _result
 
-    return wrapper # type: ignore
+    return wrapper  # type: ignore
 
 
 def run_once(func: Callable[..., T]) -> Callable[..., T]:
@@ -143,7 +143,7 @@ def run_once(func: Callable[..., T]) -> Callable[..., T]:
         Wrapped function that executes only once
     """
     if inspect.iscoroutinefunction(func):
-        return _async_run_once(func) # type: ignore
+        return _async_run_once(func)  # type: ignore
     else:
         return _sync_run_once(func)
 
