@@ -1,9 +1,13 @@
 root_data_dir: /var/data/tiny_rag
 search_service_port: 8080
 search_service_url: http://localhost:8080
+ollama_host: http://127.0.0.1:11434
+ollama_model: qwen3:30b-a3b-thinking-2507-q8_0
+max_context_token_num: 64000
 
 parser_config:
     config_file_path: /Users/xcoder/projects/tiny_rag/assets/MinerU/magic-pdf.json
+    asset_save_dir: /Users/xcoder/obsidian/Profession/attachments
 
 embedding_config:
     embedding_model_name: qwen3
