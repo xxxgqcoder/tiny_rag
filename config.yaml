@@ -38,6 +38,6 @@ object_store_config:
     bucket_name: minio-tiny-rag
 
 cache_config:
-    conn_url: redis://redis:6379/0
+    conn_url: redis://localhost:6379/0
     token: ""
     key_ttl_seconds: 43200

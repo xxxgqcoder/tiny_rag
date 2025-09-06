@@ -1,10 +1,7 @@
-import json
 import logging
 import os
-import shutil
-import traceback
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Dict
+from typing import Any
 
 import watchdog.events as events
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
@@ -49,7 +46,7 @@ def format_md_content(content_list: list[Content]) -> str:
     return ret
 
 
-async def process_new_file(file_path: str):
+def process_new_file(file_path: str):
     if ignore_file(file_path):
         logging.info(f"{file_path}: ignore")
         return
@@ -75,7 +72,7 @@ async def process_new_file(file_path: str):
     logging.info(f"{file_path}: total {len(file_bytes)} bytes loaded, content hash: {file_content_hash}")
 
     # get document record
-    document_record: GetDocumentResponse = await get_document(file_name=file_name)
+    document_record: GetDocumentResponse = get_document(file_name=file_name)
     stored_content_hash = ""
     try:
         stored_content_hash = document_record.document.content_hash  # type: ignore
@@ -87,7 +84,7 @@ async def process_new_file(file_path: str):
     logging.info(f"{file_path}: file content changed or new file")
 
     # delete document record if any
-    await delete_document(file_name=file_name)
+    delete_document(file_name=file_name)
 
     # parse file
     content_list: list[Content] = parser.parse(file_path=file_path)
@@ -125,16 +122,18 @@ async def process_new_file(file_path: str):
             gen_conf={},
         )
         chunk.content += f"\n\n\n\n<llm_content><summary>{summary}</summary></llm_content>"
+        logging.info(f"{file_path}: Finish adding llm summary to chunk, summary:\n{summary}")
 
     # embedding chunks
     embedding_model = get_embedding_model()
     chunk_embedding = []
-    for chunk in chunks:
-        embedding = embedding_model.encode(texts=[chunk.content], prompt_name="query")
+    for i, chunk in enumerate(chunks):
+        embedding: dict[str, Any] = embedding_model.encode(texts=[chunk.content], prompt_name="query")
         chunk_embedding.append(embedding["dense"][0])
+        logging.info(f"{file_path}: finish embedding for chunk: {i}")
 
     # save to db
-    await upsert_document(
+    upsert_document(
         file_name=file_name,
         content_hash=file_content_hash,
         md_content=format_md_content(content_list=content_list),
@@ -145,14 +144,14 @@ async def process_new_file(file_path: str):
     logging.info(f"{file_path}: finish processing")
 
 
-async def process_delete_file(file_path: str):
+def process_delete_file(file_path: str):
     if ignore_file(file_path):
         logging.info(f"{file_path}: ignore")
         return
     logging.info(f"{file_path}: process delete file")
 
     file_name = os.path.basename(file_path)
-    await delete_document(file_name=file_name)
+    delete_document(file_name=file_name)
 
 
 def ignore_file(file_path: str) -> bool:
@@ -191,17 +190,17 @@ def get_job_executor() -> ThreadPoolExecutor:
 
 
 @time_it(prefix="process new file")
-async def on_process_new_file(file_path: str) -> None:
+def on_process_new_file(file_path: str) -> None:
     try:
-        await process_new_file(file_path=file_path)
+        process_new_file(file_path=file_path)
     except Exception as e:
         logging_exception(e)
 
 
 @time_it(prefix="process delete file")
-async def on_process_delete_file(file_path: str) -> None:
+def on_process_delete_file(file_path: str) -> None:
     try:
-        await process_delete_file(file_path=file_path)
+        process_delete_file(file_path=file_path)
     except Exception as e:
         logging_exception(e)
 
@@ -236,11 +235,11 @@ class FileHandler(FileSystemEventHandler):
 
 
 @run_once
-async def initial_file_process() -> None:
+def initial_file_process() -> None:
     job_executor = get_job_executor()
 
     # get all documents
-    all_document = await get_all_document()
+    all_document = get_all_document()
     file_names = os.listdir(TinyRAGConfig.host_file_dir)
 
     # delete documents that are not found in file_dir

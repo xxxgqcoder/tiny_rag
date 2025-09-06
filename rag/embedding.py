@@ -33,7 +33,7 @@ class Qwen3Embedding(EmbeddingModel):
     def key_generator(self, texts: list[str], **kwargs) -> str:
         prompt_name = kwargs.get("prompt_name", "")
         content = ",".join(texts) + prompt_name
-        return "embedding::text_hash::" + hash64(content)
+        return "embedding::text_hash::" + hash64(content.encode("utf-8", errors="ignore"))
 
     @time_it(prefix="Qwen3 ebmedding")
     @cache_it(key_generator=key_generator)

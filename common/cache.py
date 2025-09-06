@@ -21,7 +21,7 @@ class CacheDB(ABC):
         raise NotImplementedError("Not implemented")
 
     @abstractmethod
-    def put(self, key: str, obj: bytes) -> int:
+    def put(self, key: str, obj: bytes, key_ttl_seconds: int) -> int:
         """
         Put an cache bytes.
 
@@ -61,10 +61,10 @@ class RedisCache(CacheDB):
         return ret  # type: ignore
 
     @time_it(prefix="redis")
-    def put(self, key: str, obj: bytes) -> int:
+    def put(self, key: str, obj: bytes, key_ttl_seconds: int) -> int:
         ret = self.client.setex(
             name=key,
-            time=self.key_ttl_seconds,
+            time=self.key_ttl_seconds if not key_ttl_seconds else key_ttl_seconds,
             value=obj,
         )
         if not ret:
@@ -83,7 +83,7 @@ def get_cache_db() -> CacheDB:
 T = TypeVar("T")
 
 
-def cache_it(key_generator: Callable[..., str]) -> Callable[..., Callable[..., T]]:
+def cache_it(key_generator: Callable[..., str], key_ttl_seconds=6 * 60 * 60) -> Callable[..., Callable[..., T]]:
     """
     Redis cache decorator with customized key generator.
 
@@ -106,7 +106,7 @@ def cache_it(key_generator: Callable[..., str]) -> Callable[..., Callable[..., T
             result = func(*args, **kwargs)
             try:
                 serialized_result = pickle.dumps(result)
-                redis_cache_db.put(cache_key, serialized_result)
+                redis_cache_db.put(cache_key, serialized_result, key_ttl_seconds)
             except:
                 pass
             return result

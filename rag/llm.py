@@ -1,11 +1,13 @@
+import json
 import logging
 from abc import ABC, abstractmethod
 from typing import Any, Generator, Union
 
 from ollama import Client as OllamaClient
 
+from common.cache import cache_it
 from common.config import TinyRAGConfig
-from common.utils import singleton
+from common.utils import hash64, singleton, time_it
 
 
 class ChatModel(ABC):
@@ -77,6 +79,13 @@ class OllamaChat(ChatModel):
             yield "\n**ERROR**: " + str(e)
         yield 0
 
+    def key_generator(self, prompt: str, gen_conf: dict[str, Any]) -> str:
+        gen_conf_items = json.dumps(gen_conf)
+        content = prompt + gen_conf_items
+        return f"ollama_chat::prompt_hash::{hash64(content.encode('utf-8', errors='ignore'))}"
+
+    @time_it(prefix="llm instant chat")
+    @cache_it(key_generator=key_generator)
     def instant_chat(
         self,
         prompt: str,
