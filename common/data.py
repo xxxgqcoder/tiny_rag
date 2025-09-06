@@ -100,6 +100,10 @@ class NewDocumentRequest(BaseModel):
     chunk_embedding: list[list[float]] = Field(..., description="list of chunk embeddings")
 
 
+class GetDocumentRequest(BaseModel):
+    file_name: str = Field(..., description="original file name")
+
+
 class NewDocumentResponse(ServiceResponse):
     pass
 
@@ -114,8 +118,17 @@ class GetAllDocumentResponse(ServiceResponse):
     file_names: list[str] | None = Field(None, description="document record list")
 
 
+class DeleteDocumentRequest(BaseModel):
+    file_name: str = Field(..., description="original file name")
+
+
 class DeleteDocumentResponse(ServiceResponse):
     pass
+
+
+class SearchRequest(BaseModel):
+    query: dict[str, Any] = Field(..., description="search query, depends on the vector db implementation")
+    query_params: dict[str, Any] = Field(default_factory=dict, description="additional search parameters")
 
 
 class SearchResponse(ServiceResponse):

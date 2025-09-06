@@ -7,12 +7,15 @@ from fastapi import FastAPI
 from common.config import TinyRAGConfig
 from common.data import (
     Chunk,
+    DeleteDocumentRequest,
     DeleteDocumentResponse,
     GetAllDocumentResponse,
+    GetDocumentRequest,
     GetDocumentResponse,
     NewDocumentRequest,
     NewDocumentResponse,
     RationalDBRecord,
+    SearchRequest,
     SearchResponse,
     VectorDBRecord,
 )
@@ -150,8 +153,9 @@ async def upsert_document(request: NewDocumentRequest) -> NewDocumentResponse:
 
 @app.post("/get_document", response_model=GetDocumentResponse)
 async def get_document(
-    file_name: str,
+    request: GetDocumentRequest,
 ) -> GetDocumentResponse:
+    file_name = request.file_name
     if not file_name:
         return GetDocumentResponse(
             code=1,
@@ -203,7 +207,8 @@ async def get_all_document() -> GetAllDocumentResponse:
 
 
 @app.post("/delete_document", response_model=DeleteDocumentResponse)
-async def delete_document(file_name: str) -> DeleteDocumentResponse:
+async def delete_document(request: DeleteDocumentRequest) -> DeleteDocumentResponse:
+    file_name = request.file_name
     # get record from rational db
     record = rational_db.get_document(file_name=file_name)
     if not record:
@@ -221,10 +226,14 @@ async def delete_document(file_name: str) -> DeleteDocumentResponse:
     # delete from object store
     try:
         object_store.delete(StorageManager.document_content_key(record.content_hash))
-        for uuid in uuids:
-            object_store.delete(StorageManager.chunk_content_key(uuid))
     except Exception as e:
         logging_exception(e)
+
+    for uuid in uuids:
+        try:
+            object_store.delete(StorageManager.chunk_content_key(uuid))
+        except Exception as e:
+            logging_exception(e)
 
     return DeleteDocumentResponse(
         code=0,
@@ -233,10 +242,7 @@ async def delete_document(file_name: str) -> DeleteDocumentResponse:
 
 
 @app.post("/search", response_model=SearchResponse)
-async def search(
-    query: dict[str, Any],
-    query_params: dict[str, Any],
-) -> SearchResponse:
+async def search(request: SearchRequest) -> SearchResponse:
     return SearchResponse(
         code=1,
         message="not implemented",

@@ -1,18 +1,13 @@
-
 from abc import ABC, abstractmethod
 from typing import Any
 
-import numpy as np
 from sentence_transformers import SentenceTransformer
-from common.utils import singleton, time_it
+
 from common.config import TinyRAGConfig
+from common.utils import singleton, time_it
 
 
 class EmbeddingModel(ABC):
-    def __init__(self, name):
-        super().__init__()
-        self.name = name
-
     @abstractmethod
     def encode(self, texts: list[str], **kwargs) -> dict[str, Any]:
         """
@@ -42,3 +37,29 @@ class Qwen3Embedding(EmbeddingModel):
 
 def get_embedding_model() -> EmbeddingModel:
     return Qwen3Embedding(model_dir=TinyRAGConfig.embedding_config.embedding_model_dir)  # type: ignore
+
+
+class RankerModel(ABC):
+    @abstractmethod
+    def rank(
+        self,
+    ):
+        """
+        Ranking function.
+        """
+        raise NotImplementedError("Not implemented")
+
+
+class Qwen3Ranker(RankerModel):
+    def __init__(self, model_dir: str):
+        self.model_dir = model_dir
+
+    @time_it(prefix="Qwen3 ranker")
+    def rank(
+        self,
+    ):
+        pass
+
+
+def get_ranker() -> RankerModel:
+    return Qwen3Ranker(model_dir=TinyRAGConfig.ranker_config.ranker_model_dir)  # type: ignore
