@@ -138,7 +138,9 @@ def process_new_file(file_path: str):
         if token_num > embedding_max_token_num:
             truncate_ratio = float(embedding_max_token_num / token_num)
             text = text[: int(len(text) * truncate_ratio)]
-            logging.info(f"Truncate text due to token num exceed embedding model limit, new byte len: {len(text)}, truncate ratio: {truncate_ratio}")
+            logging.info(
+                f"Truncate text due to token num exceed embedding model limit, new byte len: {len(text)}, truncate ratio: {truncate_ratio}"
+            )
         embedding: dict[str, Any] = embedding_model.encode(texts=[text])
         chunk_embedding.append(embedding["dense"][0])
         logging.info(f"{file_name}: finish embedding for chunk: {i}")

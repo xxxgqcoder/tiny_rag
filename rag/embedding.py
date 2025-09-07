@@ -26,13 +26,14 @@ class EmbeddingModel(ABC):
 
 @singleton
 class Qwen3Embedding(EmbeddingModel):
-    def __init__(self, model_dir: str):
+    def __init__(self, model_dir: str, model_name: str):
         self.model_dir = model_dir
+        self.model_name = model_name
         self.model = SentenceTransformer(model_dir)
 
     def key_generator(self, texts: list[str], **kwargs) -> str:
         prompt_name = kwargs.get("prompt_name", "")
-        content = ",".join(texts) + self.model_dir + prompt_name
+        content = ",".join(texts) + self.model_name + prompt_name
         return "embedding::text_hash::" + hash64(content.encode("utf-8", errors="ignore"))
 
     @time_it(prefix="Qwen3 ebmedding")
@@ -44,7 +45,10 @@ class Qwen3Embedding(EmbeddingModel):
 
 
 def get_embedding_model() -> EmbeddingModel:
-    return Qwen3Embedding(model_dir=TinyRAGConfig.embedding_config.embedding_model_dir)  # type: ignore
+    return Qwen3Embedding(
+        model_dir=TinyRAGConfig.embedding_config.embedding_model_dir,  # type: ignore
+        model_name=TinyRAGConfig.embedding_config.embedding_model_name,  # type: ignore
+    )
 
 
 class RankerModel(ABC):
