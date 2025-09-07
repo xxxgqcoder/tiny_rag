@@ -97,33 +97,7 @@ def process_new_file(file_path: str):
     chunks = chunker.chunk(contents=content_list)
     logging.info(f"{file_name}: total {len(chunks)} chunks")
 
-    # add llm summary to chunk
-    chat_model: ChatModel = get_chat_model()
-    for chunk in chunks:
-        if chunk.content_type != ContentType.TEXT:
-            continue
-
-        content = chunk.content
-        estimated_token_num = estimate_token_num(content)[0]
-        if estimated_token_num > TinyRAGConfig.max_context_token_num:
-            truncate_ratio = float(TinyRAGConfig.max_context_token_num / estimated_token_num)
-            logging.info(
-                f"estimated token num ({estimated_token_num}) exceed max token num ({TinyRAGConfig.max_context_token_num}), prompt byte num: {len(content)}, truncated by ratio: {truncate_ratio}"
-            )
-            content = content[: int(len(content) * truncate_ratio)]
-            logging.info(f"truncated byte num: {len(content)}")
-
-        prompt = _prompt_text_summary.format(
-            content=content,
-            max_token_num=int(estimated_token_num * 0.1),
-        )
-        summary = chat_model.instant_chat(
-            prompt=prompt,
-            gen_conf=TinyRAGConfig.gen_conf.model_dump(),  # type: ignore
-        )
-        # need to regenerate uuid
-        chunk.content += f"\n\n\n\n<llm_content><summary>{summary}</summary></llm_content>"
-        logging.info(f"{file_name}: Finish adding llm summary to chunk, summary:\n{summary}")
+    # TODO: add document meta data to chunk, e.g., document title, author.
 
     # embedding chunks
     embedding_model = get_embedding_model()
