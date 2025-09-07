@@ -14,7 +14,7 @@ from common.utils import hash64, singleton, time_it
 
 class EmbeddingModel(ABC):
     @abstractmethod
-    def encode(self, texts: list[str], **kwargs) -> dict[str, Any]:
+    def encode(self, texts: list[str], **kwargs) -> dict[str, list[float]]:
         """
         Encode text as vector. Some model is versatile and can return both dense and sparse vector.
 
@@ -44,7 +44,7 @@ class Qwen3Embedding(EmbeddingModel):
 
     @time_it(prefix="Qwen3 ebmedding")
     @cache_it(key_generator=key_generator)
-    def encode(self, texts: list[str], **kwargs) -> dict[str, Any]:
+    def encode(self, texts: list[str], **kwargs) -> dict[str, list[float]]:
         prompt_name = kwargs.get("prompt_name", None)
         if prompt_name:
             for i, text in enumerate(texts):

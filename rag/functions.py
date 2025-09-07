@@ -20,6 +20,7 @@ from common.data import (
     SearchResponse,
     VectorDBRecord,
 )
+from rag.document import get_embedding_model
 
 _service_url = TinyRAGConfig.search_service_url
 
@@ -81,6 +82,9 @@ def get_document(
     """
     Args:
     - file_name: original file name.
+
+    Returns:
+    - GetDocumentResponse: document content and metadata.
     """
     request = GetDocumentRequest(
         file_name=file_name,
@@ -96,6 +100,9 @@ def get_document(
 def get_all_document() -> GetAllDocumentResponse:
     """
     Get all documents name in db.
+
+    Returns:
+    - GetAllDocumentResponse: list of document names.
     """
     try:
         ret = http_call(url=_service_url + "/get_all_document", request={}, out_cls=GetAllDocumentResponse)
@@ -121,10 +128,30 @@ def delete_document(file_name: str) -> DeleteDocumentResponse:
         return DeleteDocumentResponse.model_validate({})
 
 
-def search(query: dict[str, Any], query_params: dict[str, Any]) -> SearchResponse:
+def search(
+    query: str,
+    limit: int = 10,
+    prompt_name: str = "",
+) -> SearchResponse:
+    """
+    Search documents in db using semantic search.
+
+    Args:
+    - query: query requirement in natural language.
+    - limit: number of results to return.
+
+    Returns:
+    - SearchResponse: list of search results.
+    """
+    if prompt_name:
+        query = f"{prompt_name} {query}"
+    embedding_model = get_embedding_model()
+    query_embedding = embedding_model.encode([query])
     request = SearchRequest(
-        query=query,
-        query_params=query_params,
+        query=query_embedding,
+        query_params={
+            "limit": limit,
+        },
     )
 
     try:
@@ -133,4 +160,3 @@ def search(query: dict[str, Any], query_params: dict[str, Any]) -> SearchRespons
     except Exception as e:
         logging.error(e)
         return SearchResponse.model_validate({})
-    pass

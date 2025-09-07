@@ -113,7 +113,7 @@ class GetDocumentResponse(ServiceResponse):
 
 
 class GetAllDocumentResponse(ServiceResponse):
-    file_names: list[str] | None = Field(None, description="document record list")
+    file_names: list[str] | None = Field(None, description="document name list")
 
 
 class DeleteDocumentRequest(BaseModel):
@@ -125,7 +125,9 @@ class DeleteDocumentResponse(ServiceResponse):
 
 
 class SearchRequest(BaseModel):
-    query: dict[str, Any] = Field(..., description="search query, key is the vector db collection column name")
+    query: dict[str, Any] = Field(
+        ..., description="search query, key is the vector db collection column name, value is the embedding vector."
+    )
     query_params: dict[str, Any] = Field(default_factory=dict, description="additional search parameters")
 
 
