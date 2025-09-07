@@ -2,8 +2,7 @@ root_data_dir: /var/data/tiny_rag
 search_service_port: 8080
 search_service_url: http://localhost:8080
 ollama_host: http://127.0.0.1:11434
-# ollama_model: qwen3:30b-a3b-thinking-2507-q8_0
-ollama_model: qwen3:30b-a3b
+ollama_model: qwen3:30b-a3b-thinking-2507-q4_K_M
 max_context_token_num: 60000
 host_file_dir: /Users/xcoder/tiny_rag/files
 
@@ -12,7 +11,7 @@ parser_config:
     asset_save_dir: /Users/xcoder/obsidian/Profession/attachments
 
 embedding_config:
-    embedding_model_name: qwen3
+    embedding_model_name: dengcao/Qwen3-Embedding-4B:Q5_K_M
     embedding_dim: 2560
     embedding_support_sparse_vector: false
     embedding_model_dir: /Users/xcoder/.cache/huggingface/hub/models--Qwen--Qwen3-Embedding-4B/snapshots/5cf2132abc99cad020ac570b19d031efec650f2b

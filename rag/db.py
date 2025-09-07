@@ -1,6 +1,7 @@
 import io
 import logging
 import os
+import re
 import sqlite3
 from abc import ABC, abstractmethod
 from typing import Any
@@ -660,7 +661,9 @@ class _StorageManager:
         return f"chunk_content:{uuid}"
 
     def vector_db_collection_name(self) -> str:
-        return f"document_chunks_{TinyRAGConfig.embedding_config.embedding_model_name}_{TinyRAGConfig.embedding_config.embedding_dim}"  # type: ignore
+        collection_name = f"document_chunks_{TinyRAGConfig.embedding_config.embedding_model_name}_{TinyRAGConfig.embedding_config.embedding_dim}"  # type: ignore
+        collection_name = re.sub(r"[^a-zA-Z0-9_]", "_", collection_name)
+        return collection_name
 
     def rational_db_document_table_name(self) -> str:
         return "documents"

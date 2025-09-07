@@ -2,6 +2,9 @@ import random
 from abc import ABC, abstractmethod
 from typing import Any
 
+from ollama import Client as OllamaClient
+from ollama import EmbedResponse
+from pandas.tests.test_algos import test_infinity_against_nan
 from sentence_transformers import SentenceTransformer
 
 from common.cache import cache_it
@@ -16,7 +19,7 @@ class EmbeddingModel(ABC):
         Encode text as vector. Some model is versatile and can return both dense and sparse vector.
 
         Args:
-        - texts: the texts to encode.
+        - texts: List of texts to be encoded.
 
         Returns:
         - Encoded vector, represented by a dict. Key is the encoded vector type, i.e., `dense`, `sparse`. Value is the encoded vector value.
@@ -29,7 +32,10 @@ class Qwen3Embedding(EmbeddingModel):
     def __init__(self, model_dir: str, model_name: str):
         self.model_dir = model_dir
         self.model_name = model_name
-        self.model = SentenceTransformer(model_dir)
+        self.client = OllamaClient(
+            host=TinyRAGConfig.ollama_host,
+            timeout=5,
+        )
 
     def key_generator(self, texts: list[str], **kwargs) -> str:
         prompt_name = kwargs.get("prompt_name", "")
@@ -40,8 +46,13 @@ class Qwen3Embedding(EmbeddingModel):
     @cache_it(key_generator=key_generator)
     def encode(self, texts: list[str], **kwargs) -> dict[str, Any]:
         prompt_name = kwargs.get("prompt_name", None)
-        embeddings = self.model.encode(texts, prompt_name=prompt_name)
-        return {"dense": embeddings}
+        if prompt_name:
+            for i, text in enumerate(texts):
+                texts[i] = f"{prompt_name} {text}"
+        response: EmbedResponse = self.client.embed(model=self.model_name, input=texts)
+        return {
+            TinyRAGConfig.vector_db_config.embedding_column_name: response.embeddings,  # type: ignore
+        }
 
 
 def get_embedding_model() -> EmbeddingModel:
