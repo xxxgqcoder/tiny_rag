@@ -39,7 +39,7 @@ def ensure_max_token(content: str, max_token_num: int) -> str:
         truncate_ratio = float(max_token_num / token_num)
         content = content[: int(len(content) * truncate_ratio)]
         logging.info(
-            f"Truncate text due to token num exceed max token num {max_token_num}, new byte len: {len(content)}, truncate ratio: {truncate_ratio}"
+            f"Truncate text due to token num exceed max token num {max_token_num}, estimate token num: {token_num}, new byte len: {len(content)}, truncate ratio: {truncate_ratio}"
         )
 
     return content
@@ -102,8 +102,8 @@ def process_new_file(file_path: str):
     md_content = format_md_content(content_list=content_list)
     content = ensure_max_token(md_content, 2000)
     document_meta = chat_model.instant_chat(prompt=PROMPT_DOCUMENT_META.format(content=content))
-
     logging.info(f"{file_name}: document meta:\n{document_meta}")
+    
     for chunk in chunks:
         if chunk.content_type == ContentType.TEXT:
             chunk.content = chunk.content + "\n\n\n\n" + f"<document_meta>\n{document_meta}\n</document_meta>"
