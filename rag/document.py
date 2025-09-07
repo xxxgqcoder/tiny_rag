@@ -1,11 +1,9 @@
 import logging
 import os
-from cmd import PROMPT
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any
-
 import watchdog.events as events
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
+from watchdog.observers import Observer
 
 from common.config import TinyRAGConfig
 from common.data import Content, ContentType, GetDocumentResponse
@@ -103,7 +101,7 @@ def process_new_file(file_path: str):
     content = ensure_max_token(md_content, 2000)
     document_meta = chat_model.instant_chat(prompt=PROMPT_DOCUMENT_META.format(content=content))
     logging.info(f"{file_name}: document meta:\n{document_meta}")
-    
+
     for chunk in chunks:
         if chunk.content_type == ContentType.TEXT:
             chunk.content = chunk.content + "\n\n\n\n" + f"<document_meta>\n{document_meta}\n</document_meta>"
@@ -118,8 +116,7 @@ def process_new_file(file_path: str):
     for i, chunk in enumerate(chunks):
         text = chunk.content if chunk.content_type == ContentType.TEXT else chunk.extra_description
         chunk_content.append(ensure_max_token(text, embedding_max_token_num))
-    embedding = embedding_model.encode(texts=chunk_content)
-    embedding_vector = embedding[TinyRAGConfig.vector_db_config.embedding_column_name]
+    chunk_embedding = embedding_model.encode(texts=chunk_content)
     logging.info(f"{file_name}: chunk embedding done")
 
     # save to db
@@ -128,7 +125,7 @@ def process_new_file(file_path: str):
         content_hash=file_content_hash,
         md_content=format_md_content(content_list=content_list),
         chunks=chunks,
-        chunk_embedding=embedding_vector,
+        chunk_embedding=chunk_embedding,
     )
 
     logging.info(f"{file_name}: finish processing")
@@ -241,3 +238,21 @@ def initial_file_process() -> None:
 
     for file_name in file_names:
         job_executor.submit(on_process_new_file, file_path=os.path.join(TinyRAGConfig.host_file_dir, file_name))
+
+
+def main():
+    # start file monitor
+    initial_file_process()
+
+    event_handler = FileHandler()
+    observer = Observer()
+    observer.schedule(event_handler, TinyRAGConfig.host_file_dir, recursive=False)
+    observer.start()
+
+    observer.join()
+
+    logging.info(f"shutdown")
+
+
+if __name__ == "__main__":
+    main()

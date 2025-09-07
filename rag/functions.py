@@ -146,12 +146,11 @@ def search(
     if prompt_name:
         query = f"{prompt_name} {query}"
     embedding_model = get_embedding_model()
-    query_embedding = embedding_model.encode([query])
-    embedding_vector = query_embedding[TinyRAGConfig.vector_db_config.embedding_column_name][0]
+    embedding_vector = embedding_model.encode([query])
 
     request = SearchRequest(
         query={
-            TinyRAGConfig.vector_db_config.embedding_column_name: embedding_vector,
+            TinyRAGConfig.vector_db_config.embedding_column_name: embedding_vector[0],
         },
         query_params={
             "limit": limit,
