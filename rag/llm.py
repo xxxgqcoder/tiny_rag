@@ -19,7 +19,7 @@ class ChatModel(ABC):
     def chat(
         self,
         history: list[dict[str, Any]],
-        gen_conf: dict[str, Any],
+        gen_conf: dict[str, Any] = {},
     ) -> Generator[Union[str, int], Any, Any]:
         raise NotImplementedError("Not implemented")
 
@@ -27,7 +27,7 @@ class ChatModel(ABC):
     def instant_chat(
         self,
         prompt: str,
-        gen_conf: dict[str, Any],
+        gen_conf: dict[str, Any] = {},
     ) -> str:
         raise NotImplementedError("Not implemented")
 
@@ -44,8 +44,11 @@ class OllamaChat(ChatModel):
     def chat(
         self,
         history: list[dict[str, Any]],
-        gen_conf: dict[str, Any],
+        gen_conf: dict[str, Any] = {},
     ) -> Generator[Union[str, int], Any, Any]:
+        if not gen_conf:
+            gen_conf = TinyRAGConfig.gen_conf.model_dump()
+
         if "max_tokens" in gen_conf:
             del gen_conf["max_tokens"]
 
@@ -83,18 +86,19 @@ class OllamaChat(ChatModel):
             yield "\n**ERROR**: " + str(e)
         yield 0
 
-    def key_generator(self, prompt: str, gen_conf: dict[str, Any]) -> str:
-        gen_conf_items = json.dumps(gen_conf)
-        content = prompt + gen_conf_items
-        return f"ollama_chat::prompt_hash::{hash64(content.encode('utf-8', errors='ignore'))}"
+    def key_generator(self, prompt: str) -> str:
+        return f"ollama_chat::prompt_hash::{hash64(prompt.encode('utf-8', errors='ignore'))}"
 
     @time_it(prefix="llm instant chat")
     @cache_it(key_generator=key_generator)
     def instant_chat(
         self,
         prompt: str,
-        gen_conf: dict[str, Any],
+        gen_conf: dict[str, Any] = {},
     ) -> str:
+        if not gen_conf:
+            gen_conf = TinyRAGConfig.gen_conf.model_dump()
+
         history = [{"role": "user", "content": prompt}]
         if "max_tokens" in gen_conf:
             del gen_conf["max_tokens"]

@@ -1,5 +1,6 @@
 import logging
 import os
+from cmd import PROMPT
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
@@ -11,25 +12,11 @@ from common.data import Content, ContentType, GetDocumentResponse
 from common.utils import estimate_token_num, hash64, logging_exception, run_once, time_it
 from parse import get_parser
 from parse.chunking import get_chunking
-from rag.embedding import get_embedding_model
+from parse.parser import Parser
+from rag.embedding import EmbeddingModel, get_embedding_model
 from rag.functions import delete_document, get_all_document, get_document, upsert_document
 from rag.llm import ChatModel, get_chat_model
-
-_prompt_text_summary = """"
-summarize below content, use no more than {max_token_num} words.
-
-below is the content
-----
-
-{content}
-
-----
-
-now let's tink step by step and give a concise summary.
-"""
-
-_prompt_image_summary = """
-"""
+from rag.prompt import PROMPT_DOCUMENT_META
 
 
 def format_md_content(content_list: list[Content]) -> str:
@@ -46,12 +33,26 @@ def format_md_content(content_list: list[Content]) -> str:
     return ret
 
 
+def ensure_max_token(content: str, max_token_num: int) -> str:
+    token_num = estimate_token_num(content)[0]
+    if token_num > max_token_num:
+        truncate_ratio = float(max_token_num / token_num)
+        content = content[: int(len(content) * truncate_ratio)]
+        logging.info(
+            f"Truncate text due to token num exceed max token num {max_token_num}, new byte len: {len(content)}, truncate ratio: {truncate_ratio}"
+        )
+
+    return content
+
+
 def process_new_file(file_path: str):
     if ignore_file(file_path):
         logging.info(f"{file_path}: ignore")
         return
 
-    parser = get_parser()
+    parser: Parser = get_parser()
+    chat_model: ChatModel = get_chat_model()
+    embedding_model: EmbeddingModel = get_embedding_model()
 
     # get file content hash
     file_name = os.path.basename(file_path)
@@ -97,27 +98,29 @@ def process_new_file(file_path: str):
     chunks = chunker.chunk(contents=content_list)
     logging.info(f"{file_name}: total {len(chunks)} chunks")
 
-    # TODO: add document meta data to chunk, e.g., document title, author.
+    # add document meta data to chunk
+    md_content = format_md_content(content_list=content_list)
+    content = ensure_max_token(md_content, 2000)
+    document_meta = chat_model.instant_chat(prompt=PROMPT_DOCUMENT_META.format(content=content))
+
+    logging.info(f"{file_name}: document meta:\n{document_meta}")
+    for chunk in chunks:
+        if chunk.content_type == ContentType.TEXT:
+            chunk.content = chunk.content + "\n\n\n\n" + f"<document_meta>\n{document_meta}\n</document_meta>"
+        else:
+            chunk.extra_description = (
+                chunk.extra_description + "\n\n\n\n" + f"<document_meta>\n{document_meta}\n</document_meta>"
+            )
 
     # embedding chunks
-    embedding_model = get_embedding_model()
-    embedding_max_token_num = 8 * 1024
-    chunk_embedding = []
+    embedding_max_token_num = 16 * 1024
+    chunk_content = []
     for i, chunk in enumerate(chunks):
-        text: str = chunk.content if chunk.content_type == ContentType.TEXT else chunk.extra_description
-        token_num = estimate_token_num(text)[0]
-        logging.info(
-            f"{file_name}: chunk {i}, uuid: {chunk.uuid}, byte len: {len(text)}, estimated token num: {token_num}"
-        )
-        if token_num > embedding_max_token_num:
-            truncate_ratio = float(embedding_max_token_num / token_num)
-            text = text[: int(len(text) * truncate_ratio)]
-            logging.info(
-                f"Truncate text due to token num exceed embedding model limit, new byte len: {len(text)}, truncate ratio: {truncate_ratio}"
-            )
-        embedding: dict[str, Any] = embedding_model.encode(texts=[text])
-        chunk_embedding.append(embedding["dense"][0])
-        logging.info(f"{file_name}: finish embedding for chunk: {i}")
+        text = chunk.content if chunk.content_type == ContentType.TEXT else chunk.extra_description
+        chunk_content.append(ensure_max_token(text, embedding_max_token_num))
+    embedding = embedding_model.encode(texts=chunk_content)
+    embedding_vector = embedding[TinyRAGConfig.vector_db_config.embedding_column_name]
+    logging.info(f"{file_name}: chunk embedding done")
 
     # save to db
     upsert_document(
@@ -125,7 +128,7 @@ def process_new_file(file_path: str):
         content_hash=file_content_hash,
         md_content=format_md_content(content_list=content_list),
         chunks=chunks,
-        chunk_embedding=chunk_embedding,
+        chunk_embedding=embedding_vector,
     )
 
     logging.info(f"{file_name}: finish processing")

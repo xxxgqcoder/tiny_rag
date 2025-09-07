@@ -34,7 +34,7 @@ class Qwen3Embedding(EmbeddingModel):
         self.model_name = model_name
         self.client = OllamaClient(
             host=TinyRAGConfig.ollama_host,
-            timeout=5,
+            timeout=10 * 60,
         )
 
     def key_generator(self, texts: list[str], **kwargs) -> str:

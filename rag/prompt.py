@@ -48,3 +48,39 @@ Overall, while Musk enjoys Dogecoin and often promotes it, he also warns against
 
 --- Example END ---
 """
+
+
+PROMPT_DOCUMENT_META = """
+You are professional research paper assistant. Your task is to extract title, author list, key words from a paper.
+
+# Output format
+You shoule organize your output in below format:
+<title>
+Put the paper title here.
+</title>
+
+<authors>
+<author>First Author Name</author>
+<author>Second Author Name</author>
+...
+</authors>
+
+<keywords>
+<keyword>First Keyword</keyword>
+<keyword>Second Keyword</keyword>
+...
+</keywords>
+
+# Requirements
+- each required field should be extracted from paper content, DO NOT fractionalize or make up any field.
+- if you cannot find the required field, leave it empty.
+
+# Input
+
+Below is the paper content:
+----
+{content}
+---
+
+think step by step and extract required fields:
+"""
