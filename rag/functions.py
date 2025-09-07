@@ -20,7 +20,7 @@ from common.data import (
     SearchResponse,
     VectorDBRecord,
 )
-from rag.document import get_embedding_model
+from rag.embedding import get_embedding_model
 
 _service_url = TinyRAGConfig.search_service_url
 
@@ -147,8 +147,12 @@ def search(
         query = f"{prompt_name} {query}"
     embedding_model = get_embedding_model()
     query_embedding = embedding_model.encode([query])
+    embedding_vector = query_embedding[TinyRAGConfig.vector_db_config.embedding_column_name][0]
+
     request = SearchRequest(
-        query=query_embedding,
+        query={
+            TinyRAGConfig.vector_db_config.embedding_column_name: embedding_vector,
+        },
         query_params={
             "limit": limit,
         },

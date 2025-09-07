@@ -14,7 +14,7 @@ from common.utils import hash64, singleton, time_it
 
 class EmbeddingModel(ABC):
     @abstractmethod
-    def encode(self, texts: list[str], **kwargs) -> dict[str, list[float]]:
+    def encode(self, texts: list[str], **kwargs) -> dict[str, list[list[float]]]:
         """
         Encode text as vector. Some model is versatile and can return both dense and sparse vector.
 
@@ -44,14 +44,16 @@ class Qwen3Embedding(EmbeddingModel):
 
     @time_it(prefix="Qwen3 ebmedding")
     @cache_it(key_generator=key_generator)
-    def encode(self, texts: list[str], **kwargs) -> dict[str, list[float]]:
+    def encode(self, texts: list[str], **kwargs) -> dict[str, list[list[float]]]:
         prompt_name = kwargs.get("prompt_name", None)
         if prompt_name:
             for i, text in enumerate(texts):
                 texts[i] = f"{prompt_name} {text}"
         response: EmbedResponse = self.client.embed(model=self.model_name, input=texts)
         return {
-            TinyRAGConfig.vector_db_config.embedding_column_name: response.embeddings,  # type: ignore
+            TinyRAGConfig.vector_db_config.embedding_column_name: [
+                list(embedding) for embedding in response.embeddings
+            ],
         }
 
 
