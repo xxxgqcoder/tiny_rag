@@ -2,6 +2,7 @@ import io
 import logging
 import os
 import sqlite3
+import token
 from abc import ABC, abstractmethod
 from typing import Any
 
@@ -9,6 +10,7 @@ from minio import Minio
 from minio.error import S3Error
 from minio.helpers import ObjectWriteResult
 from pymilvus import AnnSearchRequest, DataType, MilvusClient, WeightedRanker
+from transformers.models.upernet import configuration_upernet
 
 from common.config import TinyRAGConfig
 from common.data import RationalDBRecord, VectorDBRecord
@@ -196,9 +198,8 @@ class ObjectStore(ABC):
 # vector db
 @singleton
 class MilvusLiteDB(VectorDB):
-    def __init__(self, conn_url: str, token: str = "", **kwargs):
-        super().__init__(conn_url=conn_url, token=token, **kwargs)
-
+    def __init__(self, conn_url: str, token: str = "", collection_name: str = "", **kwargs):
+        self.collection_name = collection_name
         self.client = MilvusClient(conn_url)
 
     @time_it(prefix="vector db")
@@ -299,35 +300,29 @@ class MilvusLiteDB(VectorDB):
 
 
 @run_once
-def create_vector_db_collection(
-    conn_url: str = "",
-    token: str = "",
-    collection_name: str = "",
-    **kwargs,
-) -> None:
+def create_vector_db_collection() -> None:
     """
     Create milvus collection.
 
     Args:
     - conn_url: the milvus connection url, or db_name if deployed as lite.
     - token: connection token if any.
-    - collection_name: the collection name.
     - kwargs: should contain `dense_embed_dim`.
     """
-
-    logging.info(f"initialize milvus db: {conn_url}, token: {token}")
+    conn_url = TinyRAGConfig.vector_db_config.db_name  # type: ignore
+    logging.info(f"initialize milvus db: {conn_url}")
 
     # NOTE: assume local file path
     os.makedirs(os.path.dirname(conn_url), exist_ok=True)
     client = MilvusClient(conn_url)
-
+    collection_name = StorageManager.vector_db_collection_name()
+    logging.info(f"milvus collection name: {collection_name}")
     if client.has_collection(collection_name=collection_name):
         logging.info(f"collection {collection_name} found in {conn_url}, skip collection creation")
         return
 
     # data schema
-    embedding_dim = kwargs.get("embedding_dim", None)
-    assert embedding_dim is not None, "embedding_dim is required to create milvus collection"
+    embedding_dim = TinyRAGConfig.embedding_config.embedding_dim  # type: ignore
     logging.info(f"Embedding dim: {embedding_dim}")
     schema = client.create_schema(enable_dynamic_field=True)
 
@@ -358,14 +353,14 @@ def create_vector_db_collection(
         nullable=True,
     )
     schema.add_field(
-        field_name="embedding",
+        field_name=TinyRAGConfig.vector_db_config.embedding_column_name,  # type: ignore
         datatype=DataType.FLOAT_VECTOR,
         dim=embedding_dim,
     )
     # index
     index_params = client.prepare_index_params()
     index_params.add_index(
-        field_name="embedding",
+        field_name=TinyRAGConfig.vector_db_config.embedding_column_name,  # type: ignore
         index_type="AUTOINDEX",
         metric_type="IP",
     )
@@ -385,14 +380,19 @@ def create_vector_db_collection(
 def get_vector_db() -> VectorDB:
     return MilvusLiteDB(
         conn_url=TinyRAGConfig.vector_db_config.db_name,  # type: ignore
-        collection_name=TinyRAGConfig.vector_db_config.collection_name,  # type: ignore
     )
 
 
 # rational db
 @singleton
 class SQLiteDB(RationalDB):
-    def __init__(self, conn_url: str, token: str = "", document_table_name: str = "", **kwargs):
+    def __init__(
+        self,
+        conn_url: str,
+        token: str = "",
+        document_table_name: str = "",
+        **kwargs,
+    ):
         """
         SQLite DB.
 
@@ -506,12 +506,7 @@ class SQLiteDB(RationalDB):
 
 
 @run_once
-def create_rational_db_table(
-    conn_url: str = "",
-    token: str = "",
-    table_name: str = "",
-    **kwargs,
-) -> None:
+def create_rational_db_table() -> None:
     """
     Create rational db table.
 
@@ -520,8 +515,12 @@ def create_rational_db_table(
     - token: not used.
     - table_name: document table name.
     """
+    conn_url = TinyRAGConfig.rational_db_config.db_name  # type: ignore
+    document_table_name = StorageManager.rational_db_document_table_name()
+    logging.info(f"Rational db: {conn_url}, document table name: {document_table_name}")
+
     sql_create_table = f"""
-    CREATE TABLE IF NOT EXISTS {table_name} (
+    CREATE TABLE IF NOT EXISTS {document_table_name} (
         id INTEGER PRIMARY KEY,
         file_name TEXT NOT NULL,
         chunk_uuids TEXT NOT NULL,
@@ -529,17 +528,17 @@ def create_rational_db_table(
         content_hash TEXT NOT NULL
     )
     """
-    sql_create_index = f"CREATE INDEX idx_name ON {table_name} (file_name)"
+    sql_create_index = f"CREATE INDEX idx_name ON {document_table_name} (file_name)"
     # NOTE: assume local file path
     os.makedirs(os.path.dirname(conn_url), exist_ok=True)
 
     with sqlite3.connect(conn_url) as conn:
         cur = conn.cursor()
         try:
-            ret = cur.execute("SELECT name FROM sqlite_master WHERE name = ?", (table_name,))
+            ret = cur.execute("SELECT name FROM sqlite_master WHERE name = ?", (document_table_name,))
             res = ret.fetchall()
             if len(res) > 0:
-                logging.info(f"Table {table_name} found in {conn_url}, skip table creation")
+                logging.info(f"Table {document_table_name} found in {conn_url}, skip table creation")
                 return
             cur.execute(sql_create_table)
             cur.execute(sql_create_index)
@@ -549,20 +548,27 @@ def create_rational_db_table(
                 conn.rollback()
             logging_exception(e)
 
-    logging.info(f"table created {table_name}")
+    logging.info(f"table created {document_table_name}")
 
 
 def get_rational_db() -> RationalDB:
     return SQLiteDB(
         conn_url=TinyRAGConfig.rational_db_config.db_name,  # type: ignore
-        document_table_name=TinyRAGConfig.rational_db_config.document_table_name,  # type: ignore
+        document_table_name=StorageManager.rational_db_document_table_name(),  # type: ignore
     )
 
 
 # object storage
 @singleton
 class MinioStore(ObjectStore):
-    def __init__(self, conn_url: str, user: str = "", token: str = "", bucket_name: str = "", **kwargs):
+    def __init__(
+        self,
+        conn_url: str,
+        user: str = "",
+        token: str = "",
+        bucket_name: str = "",
+        **kwargs,
+    ):
         """
         Minio store.
 
@@ -626,16 +632,21 @@ class MinioStore(ObjectStore):
 
 
 @run_once
-def create_object_store_bucket(user: str, token: str, conn_url: str, bucket_name: str) -> None:
+def create_object_store_bucket() -> None:
     """
     Create obejct storage bucket.
     """
+    conn_url = TinyRAGConfig.object_store_config.conn_url  # type: ignore
+    user = TinyRAGConfig.object_store_config.user  # type: ignore
+    token = TinyRAGConfig.object_store_config.token  # type: ignore
+    logging.info(f"initialize minio object store: {conn_url}, user: {user}")
     client = Minio(
         endpoint=conn_url,
         access_key=user,
         secret_key=token,
         secure=False,
     )
+    bucket_name = StorageManager.object_store_bucket_name()
     found = client.bucket_exists(bucket_name)
     if not found:
         client.make_bucket(bucket_name)
@@ -649,7 +660,7 @@ def get_object_store() -> ObjectStore:
         conn_url=TinyRAGConfig.object_store_config.conn_url,  # type: ignore
         user=TinyRAGConfig.object_store_config.user,  # type: ignore
         token=TinyRAGConfig.object_store_config.token,  # type: ignore
-        bucket_name=TinyRAGConfig.object_store_config.bucket_name,  # type: ignore
+        bucket_name=StorageManager.object_store_bucket_name(),  # type: ignore
     )
 
 
@@ -660,6 +671,15 @@ class _StorageManager:
 
     def chunk_content_key(self, uuid: str) -> str:
         return f"chunk_content:{uuid}"
+
+    def vector_db_collection_name(self) -> str:
+        return f"document_chunks_{TinyRAGConfig.embedding_config.embedding_model_name}_{TinyRAGConfig.embedding_config.embedding_dim}"  # type: ignore
+
+    def rational_db_document_table_name(self) -> str:
+        return "documents"
+
+    def object_store_bucket_name(self) -> str:
+        return "minio-tiny-rag"
 
 
 StorageManager = _StorageManager()

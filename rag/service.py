@@ -33,23 +33,9 @@ from rag.db import (
     get_vector_db,
 )
 
-create_rational_db_table(
-    conn_url=TinyRAGConfig.rational_db_config.db_name,  # type: ignore
-    table_name=TinyRAGConfig.rational_db_config.document_table_name,  # type: ignore
-)
-
-create_vector_db_collection(
-    conn_url=TinyRAGConfig.vector_db_config.db_name,  # type: ignore
-    collection_name=TinyRAGConfig.vector_db_config.collection_name,  # type: ignore
-    embedding_dim=TinyRAGConfig.embedding_config.embedding_dim,  # type: ignore
-)
-
-create_object_store_bucket(
-    conn_url=TinyRAGConfig.object_store_config.conn_url,  # type: ignore
-    user=TinyRAGConfig.object_store_config.user,  # type: ignore
-    token=TinyRAGConfig.object_store_config.token,  # type: ignore
-    bucket_name=TinyRAGConfig.object_store_config.bucket_name,  # type: ignore
-)
+create_rational_db_table()
+create_vector_db_collection()
+create_object_store_bucket()
 
 
 app = FastAPI()

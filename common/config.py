@@ -9,13 +9,11 @@ from common.utils import get_project_base_directory, init_root_logger
 
 class RationalDBConfig(BaseModel):
     db_name: str = Field("", description="Name of the SQL database.")
-    document_table_name: str = Field("", description="Name of the document table.")
-    db_data_dir: str = Field("", description="Directory for SQL database data storage.")
 
 
 class VectorDBConfig(BaseModel):
     db_name: str = Field("", description="Name of the vector database.")
-    collection_name: str = Field("", description="Name of the collection in the vector database.")
+    embedding_column_name: str = Field("embedding", description="Name of the embedding column.")
 
 
 class EmbeddingConfig(BaseModel):
@@ -39,7 +37,6 @@ class ObjectStoreConfig(BaseModel):
     conn_url: str = Field("", description="Connection URL for the object store.")
     user: str = Field("", description="Username for the object store.")
     token: str = Field("", description="Access token for the object store.")
-    bucket_name: str = Field("", description="Name of the bucket in the object store.")
 
 
 class CacheConfig(BaseModel):

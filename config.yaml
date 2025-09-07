@@ -15,7 +15,6 @@ embedding_config:
     embedding_model_name: qwen3
     embedding_dim: 2560
     embedding_support_sparse_vector: false
-    # embedding_model_dir: /Users/xcoder/.cache/huggingface/hub/models--Qwen--Qwen3-Embedding-0.6B/snapshots/c54f2e6e80b2d7b7de06f51cec4959f6b3e03418
     embedding_model_dir: /Users/xcoder/.cache/huggingface/hub/models--Qwen--Qwen3-Embedding-4B/snapshots/5cf2132abc99cad020ac570b19d031efec650f2b
 
 gen_conf:
@@ -25,7 +24,6 @@ gen_conf:
     num_ctx: 60000
 
 ranker_config:
-    # ranker_model_dir: /Users/xcoder/.cache/huggingface/hub/models--Qwen--Qwen3-Reranker-0.6B/snapshots/6e9e69830b95c52b5fd889b7690dda3329508de3
     ranker_model_dir: /Users/xcoder/.cache/huggingface/hub/models--Qwen--Qwen3-Reranker-4B/snapshots/f16fc5d5d2b9b1d0db8280929242745d79794ef5
 
 chunking_config:
@@ -34,17 +32,15 @@ chunking_config:
 
 rational_db_config:
     db_name: /var/data/tiny_rag/rational/tiny_rag_rational.db
-    document_table_name: documents
 
 vector_db_config:
     db_name: /var/data/tiny_rag/vector_db/tiny_rag_vector.db
-    collection_name: document_chunks
+    embedding_column_name: embedding
     
 object_store_config:
     conn_url: minio:9000
     user: minioadmin
     token: minioadmin
-    bucket_name: minio-tiny-rag
 
 cache_config:
     conn_url: redis://localhost:6379/0
