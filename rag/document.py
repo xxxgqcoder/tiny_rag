@@ -127,6 +127,7 @@ def process_new_file(file_path: str):
 
     # embedding chunks
     embedding_model = get_embedding_model()
+    embedding_max_token_num = 8 * 1024
     chunk_embedding = []
     for i, chunk in enumerate(chunks):
         text: str = chunk.content if chunk.content_type == ContentType.TEXT else chunk.extra_description
@@ -134,6 +135,10 @@ def process_new_file(file_path: str):
         logging.info(
             f"{file_name}: chunk {i}, uuid: {chunk.uuid}, byte len: {len(text)}, estimated token num: {token_num}"
         )
+        if token_num > embedding_max_token_num:
+            truncate_ratio = float(embedding_max_token_num / token_num)
+            text = text[: int(len(text) * truncate_ratio)]
+            logging.info(f"Truncate text due to token num exceed embedding model limit, new byte len: {len(text)}, truncate ratio: {truncate_ratio}")
         embedding: dict[str, Any] = embedding_model.encode(texts=[text])
         chunk_embedding.append(embedding["dense"][0])
         logging.info(f"{file_name}: finish embedding for chunk: {i}")
