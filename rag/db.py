@@ -299,11 +299,6 @@ class MilvusLiteDB(VectorDB):
 def create_vector_db_collection() -> None:
     """
     Create milvus collection.
-
-    Args:
-    - conn_url: the milvus connection url, or db_name if deployed as lite.
-    - token: connection token if any.
-    - kwargs: should contain `dense_embed_dim`.
     """
     conn_url = TinyRAGConfig.vector_db_config.db_name  # type: ignore
     logging.info(f"initialize milvus db: {conn_url}")
@@ -506,11 +501,6 @@ class SQLiteDB(RationalDB):
 def create_rational_db_table() -> None:
     """
     Create rational db table.
-
-    Args:
-    - conn_url: sqlite connection url. Currently only support local file path.
-    - token: not used.
-    - table_name: document table name.
     """
     conn_url = TinyRAGConfig.rational_db_config.db_name  # type: ignore
     document_table_name = StorageManager.rational_db_document_table_name()
