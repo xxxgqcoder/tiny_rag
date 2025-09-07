@@ -2,15 +2,11 @@ import io
 import logging
 import os
 import sqlite3
-import token
 from abc import ABC, abstractmethod
 from typing import Any
 
 from minio import Minio
-from minio.error import S3Error
-from minio.helpers import ObjectWriteResult
 from pymilvus import AnnSearchRequest, DataType, MilvusClient, WeightedRanker
-from transformers.models.upernet import configuration_upernet
 
 from common.config import TinyRAGConfig
 from common.data import RationalDBRecord, VectorDBRecord
@@ -380,6 +376,7 @@ def create_vector_db_collection() -> None:
 def get_vector_db() -> VectorDB:
     return MilvusLiteDB(
         conn_url=TinyRAGConfig.vector_db_config.db_name,  # type: ignore
+        collection_name=StorageManager.vector_db_collection_name(),  # type: ignore
     )
 
 
