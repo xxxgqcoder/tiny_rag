@@ -47,3 +47,5 @@ fastapi[standard]
 pydantic-settings-yaml
 redis
 minio
+autogen_core
+autogen-ext
