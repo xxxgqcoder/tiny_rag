@@ -56,10 +56,8 @@ RUN --mount=type=cache,id=tiny_rag_pip,target=/root/.cache/pip,sharing=locked \
 # copy project files
 COPY assets assets
 COPY common common
-COPY rag/db.py rag/db.py
-COPY rag/service.py rag/service.py
+COPY rag rag
 
-COPY start_server.py .
 COPY config.yaml .
 COPY start_jupyter.sh .
 

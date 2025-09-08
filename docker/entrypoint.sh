@@ -15,9 +15,6 @@ sh start_jupyter.sh
 echo 'jupyter server started'
 
 
-# start python server
-python start_server.py
-
 # hang for ever
 tail -f /dev/null
 
