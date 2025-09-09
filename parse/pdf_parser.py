@@ -46,12 +46,12 @@ class PDFParser(Parser):
         return "parser::file_content_hash::" + hash64(file_bytes)
 
     @time_it("pdf parser")
-    @cache_it(key_generator=key_generator)
+    @cache_it(key_generator=key_generator, key_ttl_seconds=24 * 60 * 60 * 100)
     def parse(
         self,
         file_path: str,
     ) -> list[Content]:
-        asset_save_dir = TinyRAGConfig.parser_config.asset_save_dir  # type: ignore
+        asset_save_dir = TinyRAGConfig.parser_config.asset_save_dir
         os.makedirs(asset_save_dir, exist_ok=True)
         self.file_name = os.path.basename(file_path)
 
