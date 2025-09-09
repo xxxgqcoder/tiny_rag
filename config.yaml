@@ -30,7 +30,7 @@ chunking_config:
     block_overlap_num: 6
 
 rational_db_config:
-    db_name: /var/data/tiny_rag/rational/tiny_rag_rational.db
+    db_name: /var/data/tiny_rag/rational_db/tiny_rag_rational.db
 
 vector_db_config:
     db_name: /var/data/tiny_rag/vector_db/tiny_rag_vector.db
