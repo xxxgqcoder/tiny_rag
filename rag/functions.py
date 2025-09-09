@@ -39,10 +39,10 @@ def http_call(url, request: Any, out_cls) -> Any:
             raise ValueError(f"Http call fail with status {response.status_code}")
 
     except aiohttp.ClientError as e:
-        logging.error(f"Network error during document upsert: {e}")
+        logging.error(f"Network error during http call: {e}")
         raise
     except Exception as e:
-        logging.error(f"Unexpected error during document upsert: {e}")
+        logging.error(f"Unexpected error: {e}")
         raise
 
 
