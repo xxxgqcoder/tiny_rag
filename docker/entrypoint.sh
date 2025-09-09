@@ -15,6 +15,10 @@ sh start_jupyter.sh
 echo 'jupyter server started'
 
 
+# start python server
+python -m rag.service
+
+
 # hang for ever
 tail -f /dev/null
 

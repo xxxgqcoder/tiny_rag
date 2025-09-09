@@ -57,7 +57,6 @@ RUN --mount=type=cache,id=tiny_rag_pip,target=/root/.cache/pip,sharing=locked \
 COPY assets assets
 COPY common common
 COPY rag rag
-
 COPY config.yaml .
 COPY start_jupyter.sh .
 

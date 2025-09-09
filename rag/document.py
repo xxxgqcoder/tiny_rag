@@ -1,6 +1,7 @@
 import logging
 import os
 from concurrent.futures import ThreadPoolExecutor
+
 import watchdog.events as events
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer

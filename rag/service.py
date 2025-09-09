@@ -2,6 +2,7 @@ import json
 import logging
 from typing import Any
 
+import uvicorn
 from fastapi import FastAPI
 
 from common.config import TinyRAGConfig
@@ -248,3 +249,12 @@ async def search(request: SearchRequest) -> SearchResponse:
         data={},
         chunks=chunks,
     )
+
+
+if __name__ == "__main__":
+    # set up service
+    logging.info(f"Server started on port {TinyRAGConfig.search_service_port}")
+
+    uvicorn.run(app, host="0.0.0.0", port=TinyRAGConfig.search_service_port)
+
+    logging.info(f"Server shutting down")
