@@ -232,7 +232,7 @@ def initial_file_process() -> None:
     file_names = os.listdir(TinyRAGConfig.host_file_dir)
 
     # delete documents that are not found in file_dir
-    to_delete = list(set(remote_file_names) - set(file_names))  # type: ignore
+    to_delete = list(set(remote_file_names) - set(file_names))
     logging.info(f"Below files are founded in db but not in file folder, delete: {to_delete}")
     for file_name in to_delete:
         job_executor.submit(on_process_delete_file, file_path=os.path.join(TinyRAGConfig.host_file_dir, file_name))

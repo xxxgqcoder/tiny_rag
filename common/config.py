@@ -46,7 +46,7 @@ class CacheConfig(BaseModel):
 
 
 class RankerConfig(BaseModel):
-    ranker_mode_dir: str = Field("", description="Directory of the ranker model.")
+    ranker_model_dir: str = Field("", description="Directory of the ranker model.")
 
 
 class GenerationConf(BaseModel):

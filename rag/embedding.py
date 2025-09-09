@@ -55,8 +55,8 @@ class Qwen3Embedding(EmbeddingModel):
 
 def get_embedding_model() -> EmbeddingModel:
     return Qwen3Embedding(
-        model_dir=TinyRAGConfig.embedding_config.embedding_model_dir,  # type: ignore
-        model_name=TinyRAGConfig.embedding_config.embedding_model_name,  # type: ignore
+        model_dir=TinyRAGConfig.embedding_config.embedding_model_dir,
+        model_name=TinyRAGConfig.embedding_config.embedding_model_name,
     )
 
 
@@ -83,4 +83,4 @@ class Qwen3Ranker(RankerModel):
 
 
 def get_ranker() -> RankerModel:
-    return Qwen3Ranker(model_dir=TinyRAGConfig.ranker_config.ranker_model_dir)  # type: ignore
+    return Qwen3Ranker(model_dir=TinyRAGConfig.ranker_config.ranker_model_dir)

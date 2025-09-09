@@ -301,7 +301,7 @@ def create_vector_db_collection() -> None:
     """
     Create milvus collection.
     """
-    conn_url = TinyRAGConfig.vector_db_config.db_name  # type: ignore
+    conn_url = TinyRAGConfig.vector_db_config.db_name
     logging.info(f"initialize milvus db: {conn_url}")
 
     # NOTE: assume local file path
@@ -314,7 +314,7 @@ def create_vector_db_collection() -> None:
         return
 
     # data schema
-    embedding_dim = TinyRAGConfig.embedding_config.embedding_dim  # type: ignore
+    embedding_dim = TinyRAGConfig.embedding_config.embedding_dim
     logging.info(f"Embedding dim: {embedding_dim}")
     schema = client.create_schema(enable_dynamic_field=True)
 
@@ -345,14 +345,14 @@ def create_vector_db_collection() -> None:
         nullable=True,
     )
     schema.add_field(
-        field_name=TinyRAGConfig.vector_db_config.embedding_column_name,  # type: ignore
+        field_name=TinyRAGConfig.vector_db_config.embedding_column_name,
         datatype=DataType.FLOAT_VECTOR,
         dim=embedding_dim,
     )
     # index
     index_params = client.prepare_index_params()
     index_params.add_index(
-        field_name=TinyRAGConfig.vector_db_config.embedding_column_name,  # type: ignore
+        field_name=TinyRAGConfig.vector_db_config.embedding_column_name,
         index_type="AUTOINDEX",
         metric_type="IP",
     )
@@ -371,7 +371,7 @@ def create_vector_db_collection() -> None:
 
 def get_vector_db() -> VectorDB:
     return MilvusLiteDB(
-        conn_url=TinyRAGConfig.vector_db_config.db_name,  # type: ignore
+        conn_url=TinyRAGConfig.vector_db_config.db_name,
         collection_name=StorageManager.vector_db_collection_name(),  # type: ignore
     )
 
@@ -503,7 +503,7 @@ def create_rational_db_table() -> None:
     """
     Create rational db table.
     """
-    conn_url = TinyRAGConfig.rational_db_config.db_name  # type: ignore
+    conn_url = TinyRAGConfig.rational_db_config.db_name 
     document_table_name = StorageManager.rational_db_document_table_name()
     logging.info(f"Rational db: {conn_url}, document table name: {document_table_name}")
 
@@ -541,7 +541,7 @@ def create_rational_db_table() -> None:
 
 def get_rational_db() -> RationalDB:
     return SQLiteDB(
-        conn_url=TinyRAGConfig.rational_db_config.db_name,  # type: ignore
+        conn_url=TinyRAGConfig.rational_db_config.db_name,
         document_table_name=StorageManager.rational_db_document_table_name(),  # type: ignore
     )
 
@@ -624,9 +624,9 @@ def create_object_store_bucket() -> None:
     """
     Create obejct storage bucket.
     """
-    conn_url = TinyRAGConfig.object_store_config.conn_url  # type: ignore
-    user = TinyRAGConfig.object_store_config.user  # type: ignore
-    token = TinyRAGConfig.object_store_config.token  # type: ignore
+    conn_url = TinyRAGConfig.object_store_config.conn_url
+    user = TinyRAGConfig.object_store_config.user
+    token = TinyRAGConfig.object_store_config.token
     logging.info(f"initialize minio object store: {conn_url}, user: {user}")
     client = Minio(
         endpoint=conn_url,
@@ -645,9 +645,9 @@ def create_object_store_bucket() -> None:
 
 def get_object_store() -> ObjectStore:
     return MinioStore(
-        conn_url=TinyRAGConfig.object_store_config.conn_url,  # type: ignore
-        user=TinyRAGConfig.object_store_config.user,  # type: ignore
-        token=TinyRAGConfig.object_store_config.token,  # type: ignore
+        conn_url=TinyRAGConfig.object_store_config.conn_url,
+        user=TinyRAGConfig.object_store_config.user,
+        token=TinyRAGConfig.object_store_config.token,
         bucket_name=StorageManager.object_store_bucket_name(),  # type: ignore
     )
 
@@ -661,7 +661,7 @@ class _StorageManager:
         return f"chunk_content:{uuid}"
 
     def vector_db_collection_name(self) -> str:
-        collection_name = f"document_chunks_{TinyRAGConfig.embedding_config.embedding_model_name}_{TinyRAGConfig.embedding_config.embedding_dim}"  # type: ignore
+        collection_name = f"document_chunks_{TinyRAGConfig.embedding_config.embedding_model_name}_{TinyRAGConfig.embedding_config.embedding_dim}"
         collection_name = re.sub(r"[^a-zA-Z0-9_]", "_", collection_name)
         return collection_name
 
