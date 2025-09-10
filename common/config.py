@@ -43,11 +43,7 @@ class CacheConfig(BaseModel):
     conn_url: str = Field("", description="Connection URL for the object store.")
     token: str = Field("", description="Access token for the object store.")
     key_ttl_seconds: int = Field(12 * 60 * 60, description="Access token for the object store.")
-
-
-class RankerConfig(BaseModel):
-    ranker_model_dir: str = Field("", description="Directory of the ranker model.")
-
+    
 
 class GenerationConf(BaseModel):
     temperature: float = Field(0.7, description="Temperature for text generation.")
@@ -74,7 +70,6 @@ class Config(YamlBaseSettings):
     chunking_config: ChunkingConfig = Field(..., description="Embedding configuration.")
     object_store_config: ObjectStoreConfig = Field(..., description="Object store configuration.")
     cache_config: CacheConfig = Field(..., description="Cache configuration.")
-    ranker_config: RankerConfig = Field(..., description="Ranker configuration.")
     gen_conf: GenerationConf = Field(..., description="Generation configuration.")
 
     model_config = SettingsConfigDict(yaml_file=(os.path.join(get_project_base_directory(), "config.yaml")))
