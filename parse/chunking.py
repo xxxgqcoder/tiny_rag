@@ -1,6 +1,8 @@
+from dataclasses import field
 import logging
 from abc import ABC, abstractmethod
 
+from common.cache import singleton
 from common.config import TinyRAGConfig
 from common.data import Chunk, Content, ContentType
 from common.utils import safe_encode, safe_strip
@@ -44,6 +46,7 @@ def _filter_chunk(chunks: list[Chunk]) -> list[Chunk]:
     return filtered_chunks
 
 
+@singleton
 class OverlapChunking(Chunking):
     def __init__(self) -> None:
         super().__init__()
@@ -123,6 +126,7 @@ class OverlapChunking(Chunking):
         return merged_chunks
 
 
+@singleton
 class ByteOverlapChunking(Chunking):
     def __init__(self) -> None:
         super().__init__()
@@ -166,3 +170,13 @@ class ByteOverlapChunking(Chunking):
 
 def get_chunking() -> Chunking:
     return OverlapChunking()
+
+
+def get_chunking_by_file_type(file_type: str) -> Chunking:
+    if file_type in ["pdf"]:
+        return OverlapChunking()
+    if file_type in ["txt", "md"]:
+        return ByteOverlapChunking()
+
+    # default
+    return ByteOverlapChunking()
