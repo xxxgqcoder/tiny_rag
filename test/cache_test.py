@@ -31,7 +31,7 @@ class TestCache(unittest.TestCase):
         cache = get_cache_db()
 
         # put key
-        ret = cache.put(key, value)
+        ret = cache.put(key, value, -1)
         self.assertEqual(ret, len(value))
 
         # get key

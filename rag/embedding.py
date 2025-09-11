@@ -57,5 +57,3 @@ def get_embedding_model() -> EmbeddingModel:
         model_dir=TinyRAGConfig.embedding_config.embedding_model_dir,
         model_name=TinyRAGConfig.embedding_config.embedding_model_name,
     )
-
-

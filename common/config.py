@@ -32,6 +32,9 @@ class ChunkingConfig(BaseModel):
     consecutive_block_num: int = Field(8, description="Number of consecutive blocks to form a chunk.")
     block_overlap_num: int = Field(3, description="Number of overlapping blocks between consecutive chunks.")
 
+    consecutive_byte_num: int = Field(1000, description="Number of consecutive bytes to form a chunk.")
+    byte_overlap_num: int = Field(500, description="Number of overlapping bytes between consecutive chunks.")
+
 
 class ObjectStoreConfig(BaseModel):
     conn_url: str = Field("", description="Connection URL for the object store.")
@@ -43,7 +46,7 @@ class CacheConfig(BaseModel):
     conn_url: str = Field("", description="Connection URL for the object store.")
     token: str = Field("", description="Access token for the object store.")
     key_ttl_seconds: int = Field(12 * 60 * 60, description="Access token for the object store.")
-    
+
 
 class GenerationConf(BaseModel):
     temperature: float = Field(0.7, description="Temperature for text generation.")

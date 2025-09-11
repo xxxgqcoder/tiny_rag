@@ -503,7 +503,7 @@ def create_rational_db_table() -> None:
     """
     Create rational db table.
     """
-    conn_url = TinyRAGConfig.rational_db_config.db_name 
+    conn_url = TinyRAGConfig.rational_db_config.db_name
     document_table_name = StorageManager.rational_db_document_table_name()
     logging.info(f"Rational db: {conn_url}, document table name: {document_table_name}")
 

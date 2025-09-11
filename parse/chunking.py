@@ -25,6 +25,25 @@ class Chunking(ABC):
         raise NotImplementedError("Not implemented")
 
 
+def _filter_chunk(chunks: list[Chunk]) -> list[Chunk]:
+    """
+    Filter too short chunks
+    """
+    filtered_chunks = []
+    for chunk in chunks:
+        content = chunk.content
+        if chunk.content_type != ContentType.TEXT:
+            content = chunk.extra_description
+        content = safe_strip(content)
+        if len(content) < 1:
+            logging.info(f"{chunk.file_name}: remove chunk due to too short content: {str(chunk)}")
+            continue
+
+        filtered_chunks.append(chunk)
+
+    return filtered_chunks
+
+
 class OverlapChunking(Chunking):
     def __init__(self) -> None:
         super().__init__()
@@ -100,26 +119,49 @@ class OverlapChunking(Chunking):
             # start next iteration
             i = j - self.block_overlap_num
 
-        merged_chunks = self.filter_chunk(merged_chunks)
+        merged_chunks = _filter_chunk(merged_chunks)
         return merged_chunks
 
-    def filter_chunk(self, chunks: list[Chunk]) -> list[Chunk]:
-        """
-        Filter too short chunks
-        """
-        filtered_chunks = []
-        for chunk in chunks:
-            content = chunk.content
-            if chunk.content_type != ContentType.TEXT:
-                content = chunk.extra_description
-            content = safe_strip(content)
-            if len(content) < 1:
-                logging.info(f"{chunk.file_name}: remove chunk due to too short content: {str(chunk)}")
+
+class ByteOverlapChunking(Chunking):
+    def __init__(self) -> None:
+        super().__init__()
+
+        self.consecutive_byte_num = TinyRAGConfig.chunking_config.consecutive_byte_num
+        self.byte_overlap_num = TinyRAGConfig.chunking_config.byte_overlap_num
+
+        assert self.byte_overlap_num < self.consecutive_byte_num, (
+            f"block overlap num ({self.byte_overlap_num}) be less than consecutive block num ({self.consecutive_byte_num})"
+        )
+
+    def chunk(self, contents: list[Content]) -> list[Chunk]:
+        if not contents:
+            return []
+
+        file_name = contents[0].file_name
+        content = "\n\n\n\n".join([c.content for c in contents if c.content_type == ContentType.TEXT])
+
+        i = 0
+        chunks = []
+        while i < len(content) - self.byte_overlap_num:
+            chunk_content = content[i : i + self.consecutive_byte_num]
+            chunk_content = safe_strip(chunk_content)
+            if len(chunk_content) < 1:
                 continue
 
-            filtered_chunks.append(chunk)
+            chunks.append(
+                Chunk(
+                    content_type=ContentType.TEXT,
+                    file_name=file_name,
+                    content=safe_encode(chunk_content),
+                    extra_description="",
+                    content_url="",
+                    uuid="",
+                )
+            )
+            i = i + self.consecutive_byte_num - self.byte_overlap_num
 
-        return filtered_chunks
+        return _filter_chunk(chunks)
 
 
 def get_chunking() -> Chunking:

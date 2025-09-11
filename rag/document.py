@@ -117,7 +117,7 @@ def process_new_file(file_path: str):
     chunk_embedding = []
     embedding_batch_size = 64
     for i in range(0, len(chunks), embedding_batch_size):
-        chunk_batch = chunks[i: i + embedding_batch_size]
+        chunk_batch = chunks[i : i + embedding_batch_size]
         chunk_content = []
         for chunk in chunk_batch:
             text = chunk.content if chunk.content_type == ContentType.TEXT else chunk.extra_description

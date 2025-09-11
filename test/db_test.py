@@ -33,16 +33,9 @@ class TestMilvusDB(unittest.TestCase):
             pass
         embeding_vector = np.random.rand(embedding_dim).astype("float32").tolist()
 
-        create_vector_db_collection(
-            conn_url=vector_db_name,
-            collection_name=collection_name,
-            embedding_dim=embedding_dim,
-        )
+        create_vector_db_collection()
 
-        TinyRAGConfig.vector_db_config = VectorDBConfig(  # type: ignore
-            db_name=vector_db_name,
-            collection_name=collection_name,
-        )
+        TinyRAGConfig.vector_db_config = VectorDBConfig(db_name=vector_db_name, embedding_column_name="embedding")
         db = get_vector_db()
         self.assertEqual(db.collection_name, collection_name)
 
@@ -85,10 +78,7 @@ class TestSQLiteDB(unittest.TestCase):
         except:
             pass
 
-        TinyRAGConfig.rational_db_config = RationalDBConfig(  # type: ignore
-            db_name=db_name,
-            document_table_name=document_table,
-        )
+        TinyRAGConfig.rational_db_config = RationalDBConfig(db_name=db_name)
         db = get_rational_db()
 
         file_path = "/var/share/tiny_rag_files/test_file.pdf"
@@ -135,12 +125,7 @@ class TestMinio(unittest.TestCase):
         user = "minioadmin"
         token = "minioadmin"
 
-        TinyRAGConfig.object_store_config = ObjectStoreConfig(  # type: ignore
-            conn_url=conn_url,
-            user=user,
-            token=token,
-            bucket_name=bucket_name,
-        )
+        TinyRAGConfig.object_store_config = ObjectStoreConfig(conn_url=conn_url, user=user, token=token)
 
         # create bucket
         create_object_store_bucket(user=user, conn_url=conn_url, token=token, bucket_name=bucket_name)
