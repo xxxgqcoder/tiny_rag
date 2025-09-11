@@ -18,7 +18,7 @@ from rag.llm import ChatModel, get_chat_model
 from rag.prompt import PROMPT_DOCUMENT_META
 
 
-def format_md_content(content_list: list[Content]) -> str:
+def _format_md_content(content_list: list[Content]) -> str:
     ret = ""
     for content in content_list:
         if content.content_type in ContentType.TEXT:
@@ -32,7 +32,7 @@ def format_md_content(content_list: list[Content]) -> str:
     return ret
 
 
-def ensure_max_token(content: str, max_token_num: int) -> str:
+def _ensure_max_token(content: str, max_token_num: int) -> str:
     token_num = estimate_token_num(content)[0]
     if token_num > max_token_num:
         truncate_ratio = float(max_token_num / token_num)
@@ -97,34 +97,40 @@ def process_new_file(file_path: str):
     chunks = chunker.chunk(contents=content_list)
     logging.info(f"{file_name}: total {len(chunks)} chunks")
 
-    # add document meta data to chunk
-    md_content = format_md_content(content_list=content_list)
-    content = ensure_max_token(md_content, 2000)
-    document_meta = chat_model.instant_chat(prompt=PROMPT_DOCUMENT_META.format(content=content))
-    logging.info(f"{file_name}: document meta:\n{document_meta}")
+    # NOTE: add title, authors and keywords to each chunk cause search to focus on meta info of each chunk.
+    # # add document meta data to chunk
+    # md_content = _format_md_content(content_list=content_list)
+    # content = _ensure_max_token(md_content, 2000)
+    # document_meta = chat_model.instant_chat(prompt=PROMPT_DOCUMENT_META.format(content=content))
+    # logging.info(f"{file_name}: document meta:\n{document_meta}")
 
-    for chunk in chunks:
-        if chunk.content_type == ContentType.TEXT:
-            chunk.content = chunk.content + "\n\n\n\n" + f"<document_meta>\n{document_meta}\n</document_meta>"
-        else:
-            chunk.extra_description = (
-                chunk.extra_description + "\n\n\n\n" + f"<document_meta>\n{document_meta}\n</document_meta>"
-            )
+    # for chunk in chunks:
+    #     if chunk.content_type == ContentType.TEXT:
+    #         chunk.content = chunk.content + "\n\n\n\n" + f"<document_meta>\n{document_meta}\n</document_meta>"
+    #     else:
+    #         chunk.extra_description = (
+    #             chunk.extra_description + "\n\n\n\n" + f"<document_meta>\n{document_meta}\n</document_meta>"
+    #         )
 
     # embedding chunks
     embedding_max_token_num = 16 * 1024
-    chunk_content = []
-    for i, chunk in enumerate(chunks):
-        text = chunk.content if chunk.content_type == ContentType.TEXT else chunk.extra_description
-        chunk_content.append(ensure_max_token(text, embedding_max_token_num))
-    chunk_embedding = embedding_model.encode(texts=chunk_content)
+    chunk_embedding = []
+    embedding_batch_size = 64
+    for i in range(0, len(chunks), embedding_batch_size):
+        chunk_batch = chunks[i: i + embedding_batch_size]
+        chunk_content = []
+        for chunk in chunk_batch:
+            text = chunk.content if chunk.content_type == ContentType.TEXT else chunk.extra_description
+            chunk_content.append(_ensure_max_token(text, embedding_max_token_num))
+        embeddings = embedding_model.encode(texts=chunk_content)
+        chunk_embedding.extend(embeddings)
     logging.info(f"{file_name}: chunk embedding done")
 
     # save to db
     upsert_document(
         file_name=file_name,
         content_hash=file_content_hash,
-        md_content=format_md_content(content_list=content_list),
+        md_content=_format_md_content(content_list=content_list),
         chunks=chunks,
         chunk_embedding=chunk_embedding,
     )

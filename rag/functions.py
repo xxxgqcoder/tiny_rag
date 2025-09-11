@@ -143,10 +143,8 @@ def search(
     Returns:
     - SearchResponse: list of search results.
     """
-    if prompt_name:
-        query = f"{prompt_name} {query}"
     embedding_model = get_embedding_model()
-    embedding_vector = embedding_model.encode([query])
+    embedding_vector = embedding_model.encode([query], prompt_name=prompt_name)
 
     request = SearchRequest(
         query={

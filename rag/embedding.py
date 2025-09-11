@@ -1,11 +1,10 @@
+import logging
 import random
 from abc import ABC, abstractmethod
 from typing import Any
 
 from ollama import Client as OllamaClient
 from ollama import EmbedResponse
-from pandas.tests.test_algos import test_infinity_against_nan
-from sentence_transformers import SentenceTransformer
 
 from common.cache import cache_it
 from common.config import TinyRAGConfig
@@ -43,7 +42,7 @@ class Qwen3Embedding(EmbeddingModel):
         return "embedding::text_hash::" + hash64(content.encode("utf-8", errors="ignore"))
 
     @time_it(prefix="Qwen3 ebmedding")
-    @cache_it(key_generator=key_generator)
+    # @cache_it(key_generator=key_generator)
     def encode(self, texts: list[str], **kwargs) -> list[list[float]]:
         prompt_name = kwargs.get("prompt_name", None)
         if prompt_name:
@@ -60,27 +59,3 @@ def get_embedding_model() -> EmbeddingModel:
     )
 
 
-class RankerModel(ABC):
-    @abstractmethod
-    def rank(
-        self,
-    ):
-        """
-        Ranking function.
-        """
-        raise NotImplementedError("Not implemented")
-
-
-class Qwen3Ranker(RankerModel):
-    def __init__(self, model_dir: str):
-        self.model_dir = model_dir
-
-    @time_it(prefix="Qwen3 ranker")
-    def rank(
-        self,
-    ):
-        pass
-
-
-def get_ranker() -> RankerModel:
-    return Qwen3Ranker(model_dir=TinyRAGConfig.ranker_config.ranker_model_dir)
