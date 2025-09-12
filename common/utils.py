@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import functools
 import inspect
 import logging
@@ -246,3 +247,12 @@ def safe_encode(text: str) -> str:
     except Exception as e:
         logging_exception(e)
         return ""
+
+
+def load_base64_image(p: str) -> str:
+    """load image as base64 encoded string"""
+    with open(p, "rb") as f:
+        image_bytes = f.read()
+        base64_string = base64.b64encode(image_bytes).decode("utf-8")
+
+    return base64_string

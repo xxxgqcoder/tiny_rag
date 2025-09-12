@@ -1,17 +1,15 @@
-import base64
 import json
 import logging
 import os
 import random
 import shutil
 import tempfile
-from encodings import base64_codec
 from typing import Any
 
 from common.cache import cache_it
 from common.config import TinyRAGConfig
 from common.data import Content, ContentType
-from common.utils import hash64, logging_exception, safe_encode, safe_strip, singleton, time_it
+from common.utils import hash64, logging_exception, safe_encode, safe_strip, singleton, time_it, load_base64_image
 from parse.parser import Parser
 
 
@@ -183,14 +181,6 @@ class PDFParser(Parser):
         md_writer.write_string(f"{file_name}_model.json", json.dumps(model_json, ensure_ascii=False, indent=4))
 
         # parse content list
-        def _load_image(p: str) -> str:
-            """load image as base64 encoded string"""
-            with open(p, "rb") as f:
-                image_bytes = f.read()
-                base64_string = base64.b64encode(image_bytes).decode("utf-8")
-
-            return base64_string
-
         def _save_image(src_path: str, dst_dir: str) -> None:
             dst_path = os.path.join(dst_dir, os.path.basename(src_path))
             shutil.copyfile(src_path, dst_path)
@@ -264,7 +254,7 @@ class PDFParser(Parser):
                     Content(
                         content_type=ContentType.IMAGE,
                         file_name=self.file_name,
-                        content=_load_image(abs_img_path),
+                        content=load_base64_image(abs_img_path),
                         extra_description=safe_encode(extra_description),
                         content_url=os.path.join(asset_save_dir, os.path.basename(abs_img_path)),
                     )
@@ -291,7 +281,7 @@ class PDFParser(Parser):
                     Content(
                         content_type=ContentType.TABLE,
                         file_name=self.file_name,
-                        content=_load_image(abs_img_path),
+                        content=load_base64_image(abs_img_path),
                         extra_description=extra_description,
                         content_url=os.path.join(asset_save_dir, os.path.basename(abs_img_path))
                         if content["img_path"]
