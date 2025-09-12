@@ -211,7 +211,7 @@ class FileHandler(FileSystemEventHandler):
                 job_executor.submit(on_process_delete_file, file_path=src_path)
 
             if not os.path.isdir(dest_path):
-                job_executor.submit(on_process_new_file, file_path=src_path)
+                job_executor.submit(on_process_new_file, file_path=dest_path)
 
         elif event.event_type == events.EVENT_TYPE_DELETED:
             if not os.path.isdir(src_path):
@@ -254,7 +254,7 @@ def main():
 
     event_handler = FileHandler()
     observer = Observer()
-    observer.schedule(event_handler, TinyRAGConfig.host_file_dir, recursive=False)
+    observer.schedule(event_handler, TinyRAGConfig.host_file_dir, recursive=True)
     observer.start()
 
     observer.join()
