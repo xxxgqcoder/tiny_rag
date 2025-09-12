@@ -9,7 +9,7 @@ from typing import Any
 from common.cache import cache_it
 from common.config import TinyRAGConfig
 from common.data import Content, ContentType
-from common.utils import hash64, logging_exception, safe_encode, safe_strip, singleton, time_it, load_base64_image
+from common.utils import hash64, load_base64_image, logging_exception, safe_encode, safe_strip, singleton, time_it
 from parse.parser import Parser
 
 

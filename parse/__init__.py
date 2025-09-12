@@ -1,4 +1,4 @@
-from .parser import Parser, TextParser
+from .parser import ImageParser, Parser, TextParser
 from .pdf_parser import PDFParser
 
 Parsers: dict[str, type[Parser]] = {
@@ -19,6 +19,8 @@ def get_parser_by_file_type(file_type: str) -> Parser:
         return PDFParser()
     if file_type in ["txt", "md"]:
         return TextParser()
+    if file_type in ["png", "jpg", "jpeg", "bmp", "gif"]:
+        return ImageParser()
 
     # default
     return TextParser()

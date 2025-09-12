@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 
 from common.cache import singleton
 from common.data import Content, ContentType
+from common.utils import load_base64_image
 
 
 class Parser(ABC):
@@ -40,5 +41,20 @@ class TextParser(Parser):
             content=text,
             extra_description="",
             content_url="",
+        )
+        return [content]
+
+
+@singleton
+class ImageParser(Parser):
+    def parse(self, file_path: str) -> list[Content]:
+        self.file_name = os.path.basename(file_path)
+        image_content = load_base64_image(file_path)
+        content = Content(
+            file_name=self.file_name,
+            content_type=ContentType.IMAGE,
+            content=image_content,
+            extra_description="",
+            content_url=file_path,
         )
         return [content]
