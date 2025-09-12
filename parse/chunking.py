@@ -168,6 +168,24 @@ class ByteOverlapChunking(Chunking):
         return _filter_chunk(chunks)
 
 
+@singleton
+class BypassChunking(Chunking):
+    def chunk(self, contents: list[Content]) -> list[Chunk]:
+        chunks = []
+        for content in contents:
+            chunks.append(
+                Chunk(
+                    content_type=content.content_type,
+                    file_name=content.file_name,
+                    content=content.content,
+                    extra_description=content.extra_description,
+                    content_url=content.content_url,
+                    uuid="",
+                )
+            )
+        return chunks
+
+
 def get_chunking() -> Chunking:
     return OverlapChunking()
 
@@ -177,6 +195,8 @@ def get_chunking_by_file_type(file_type: str) -> Chunking:
         return OverlapChunking()
     if file_type in ["txt", "md"]:
         return ByteOverlapChunking()
+    if file_type in ["png", "jpg", "jpeg", "bmp", "gif"]:
+        return BypassChunking()
 
     # default
     return ByteOverlapChunking()

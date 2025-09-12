@@ -9,13 +9,12 @@ from watchdog.observers import Observer
 from common.config import TinyRAGConfig
 from common.data import Content, ContentType, GetDocumentResponse
 from common.utils import estimate_token_num, hash64, logging_exception, run_once, time_it
-from parse import get_parser, get_parser_by_file_type
-from parse.chunking import get_chunking, get_chunking_by_file_type
+from parse import get_parser_by_file_type
+from parse.chunking import get_chunking_by_file_type
 from parse.parser import Parser
 from rag.embedding import EmbeddingModel, get_embedding_model
 from rag.functions import delete_document, get_all_document, get_document, upsert_document
-from rag.llm import ChatModel, get_chat_model
-from rag.prompt import PROMPT_DOCUMENT_META
+from rag.llm import ChatModel, get_chat_model, get_vision_model
 
 
 def _format_md_content(content_list: list[Content]) -> str:
@@ -54,7 +53,7 @@ def process_new_file(file_path: str):
 
     # get file content hash
     file_name = os.path.basename(file_path)
-    file_type = file_name.split(".")[-1] or ""
+    file_type = file_name.rsplit(".", 1)[-1]
     logging.info(f"{file_name}: type {file_type}, begin processing")
     file_bytes = ""
     try:
@@ -113,6 +112,19 @@ def process_new_file(file_path: str):
     #             chunk.extra_description + "\n\n\n\n" + f"<document_meta>\n{document_meta}\n</document_meta>"
     #         )
 
+    # process image chunks
+    vision_model = get_vision_model()
+    for chunk in chunks:
+        if chunk.content_type not in [ContentType.IMAGE, ContentType.TABLE]:
+            continue
+        if not chunk.content or not chunk.content_url:
+            continue
+        img_description = vision_model.image_chat(
+            prompt="summarize what you see in the picture",
+            image_content=chunk.content,
+        )
+        chunk.extra_description = chunk.extra_description + "\n\n\n\n" + img_description
+
     # embedding chunks
     embedding_max_token_num = 16 * 1024
     chunk_embedding = []
@@ -163,10 +175,12 @@ def _ignore_file(file_path: str) -> bool:
 
     # ignore non-supported file postfix
     postifx = file_name.rsplit(".", 1)[-1]
-    if postifx not in ["pdf", "docx", "ppt", "md", "txt"]:
-        return True
+    if postifx in ["pdf", "docx", "ppt", "md", "txt"]:
+        return False
+    if postifx in ["png", "jpg", "jpeg", "bmp", "gif"]:
+        return False
 
-    return False
+    return True
 
 
 # --------------------------------------------------------------------------------------------------------
