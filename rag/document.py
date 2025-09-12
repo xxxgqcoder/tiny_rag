@@ -8,7 +8,7 @@ from watchdog.observers import Observer
 
 from common.config import TinyRAGConfig
 from common.data import Content, ContentType, GetDocumentResponse
-from common.utils import estimate_token_num, hash64, logging_exception, run_once, time_it
+from common.utils import ensure_max_token, hash64, logging_exception, run_once, time_it
 from parse import get_parser_by_file_type
 from parse.chunking import get_chunking_by_file_type
 from parse.parser import Parser
@@ -29,18 +29,6 @@ def _format_md_content(content_list: list[Content]) -> str:
             pass
 
     return ret
-
-
-def _ensure_max_token(content: str, max_token_num: int) -> str:
-    token_num = estimate_token_num(content)[0]
-    if token_num > max_token_num:
-        truncate_ratio = float(max_token_num / token_num)
-        content = content[: int(len(content) * truncate_ratio)]
-        logging.info(
-            f"Truncate text due to token num exceed max token num {max_token_num}, estimate token num: {token_num}, new byte len: {len(content)}, truncate ratio: {truncate_ratio}"
-        )
-
-    return content
 
 
 def process_new_file(file_path: str):
@@ -133,7 +121,7 @@ def process_new_file(file_path: str):
         chunk_content = []
         for chunk in chunk_batch:
             text = chunk.content if chunk.content_type == ContentType.TEXT else chunk.extra_description
-            chunk_content.append(_ensure_max_token(text, embedding_max_token_num))
+            chunk_content.append(ensure_max_token(text, embedding_max_token_num))
         embeddings = embedding_model.encode(texts=chunk_content)
         chunk_embedding.extend(embeddings)
     logging.info(f"{file_path}: chunk embedding done")
@@ -252,11 +240,8 @@ def initial_file_process() -> None:
     all_document = get_all_document()
     remote_file_paths = all_document.file_paths if all_document.file_paths else []
     full_file_paths = [
-        os.path.join(root, file)
-        for root, _, files in os.walk(TinyRAGConfig.host_file_dir)
-        for file in files
+        os.path.join(root, file) for root, _, files in os.walk(TinyRAGConfig.host_file_dir) for file in files
     ]
-
 
     filered_file_paths = [file_path for file_path in full_file_paths if not _ignore_file(file_path)]
     logging.info(f"Total {len(filered_file_paths)} to process")

@@ -256,3 +256,15 @@ def load_base64_image(p: str) -> str:
         base64_string = base64.b64encode(image_bytes).decode("utf-8")
 
     return base64_string
+
+
+def ensure_max_token(content: str, max_token_num: int) -> str:
+    token_num = estimate_token_num(content)[0]
+    if token_num > max_token_num:
+        truncate_ratio = float(max_token_num / token_num)
+        content = content[: int(len(content) * truncate_ratio)]
+        logging.info(
+            f"Truncate text due to token num exceed max token num {max_token_num}, estimate token num: {token_num}, new byte len: {len(content)}, truncate ratio: {truncate_ratio}"
+        )
+
+    return content
