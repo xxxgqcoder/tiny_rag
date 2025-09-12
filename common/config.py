@@ -60,6 +60,7 @@ class Config(YamlBaseSettings):
 
     ollama_host: str = Field("", description="Host for the Ollama server.")
     ollama_model: str = Field("", description="Model name for the Ollama server.")
+    vision_medel: str = Field("", description="Vision model name for the Ollama server.")
     search_service_url: str = Field("", description="URL for the search service.")
     search_service_port: int = Field(8080, description="Port for the search service.")
     root_data_dir: str = Field("data", description="Root directory for all data storage.")

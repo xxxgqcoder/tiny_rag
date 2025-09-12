@@ -3,7 +3,8 @@ search_service_port: 8080
 search_service_url: http://localhost:8080
 ollama_host: http://127.0.0.1:11434
 ollama_model: qwen3:30b-a3b-thinking-2507-q4_K_M
-max_context_token_num: 60000
+vision_medel: qwen2.5vl:32b
+max_context_token_num: 30000
 host_file_dir: /Users/xcoder/tiny_rag/files
 
 parser_config:
@@ -20,11 +21,13 @@ gen_conf:
     temperature: 0.7
     top_p: 0.3
     repeat_penalty: 1.1
-    num_ctx: 60000
+    num_ctx: 30000
 
 chunking_config:
     consecutive_block_num: 12
     block_overlap_num: 6
+    consecutive_byte_num: 1000
+    byte_overlap_num: 500
 
 rational_db_config:
     db_name: /var/data/tiny_rag/rational_db/tiny_rag_rational.db

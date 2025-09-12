@@ -3,9 +3,10 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Any, Generator, Union
 
+from numpy import single
 from ollama import Client as OllamaClient
 
-from common.cache import cache_it
+from common.cache import cache_it, logging_exception
 from common.config import TinyRAGConfig
 from common.utils import hash64, singleton, time_it
 
@@ -32,6 +33,57 @@ class ChatModel(ABC):
         raise NotImplementedError("Not implemented")
 
 
+class VisionModel(ABC):
+    def __init__(self, **kwargs):
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+    @abstractmethod
+    def image_chat(
+        self,
+        prompt: str,
+        image_content: str,
+        gen_conf: dict[str, Any] = {},
+    ) -> str:
+        """
+        Args:
+        - prompt: prompt to guide image to text generation.
+        - image_content: base64 encoded image content.
+        - gen_conf: generation configuration.
+
+        Returns:
+        - generated text.
+        """
+        raise NotImplementedError("Not implemented")
+
+
+def _ollama_options(gen_conf: dict[str, Any]) -> dict[str, Any]:
+    if not gen_conf:
+        gen_conf = TinyRAGConfig.gen_conf.model_dump()
+
+    if "max_tokens" in gen_conf:
+        del gen_conf["max_tokens"]
+
+    options = {}
+    if "temperature" in gen_conf:
+        options["temperature"] = gen_conf["temperature"]
+    if "max_tokens" in gen_conf:
+        options["num_predict"] = gen_conf["max_tokens"]
+    if "top_p" in gen_conf:
+        options["top_p"] = gen_conf["top_p"]
+    if "presence_penalty" in gen_conf:
+        options["presence_penalty"] = gen_conf["presence_penalty"]
+    if "frequency_penalty" in gen_conf:
+        options["frequency_penalty"] = gen_conf["frequency_penalty"]
+    if "repeat_penalty" in gen_conf:
+        options["repeat_penalty"] = gen_conf["repeat_penalty"]
+    if "num_ctx" in gen_conf:
+        options["num_ctx"] = gen_conf["num_ctx"]
+
+    return options
+
+
+# implementation
 @singleton
 class OllamaChat(ChatModel):
     def __init__(self, ollama_host: str, ollama_model: str):
@@ -46,28 +98,7 @@ class OllamaChat(ChatModel):
         history: list[dict[str, Any]],
         gen_conf: dict[str, Any] = {},
     ) -> Generator[Union[str, int], Any, Any]:
-        if not gen_conf:
-            gen_conf = TinyRAGConfig.gen_conf.model_dump()
-
-        if "max_tokens" in gen_conf:
-            del gen_conf["max_tokens"]
-
-        options = {}
-        if "temperature" in gen_conf:
-            options["temperature"] = gen_conf["temperature"]
-        if "max_tokens" in gen_conf:
-            options["num_predict"] = gen_conf["max_tokens"]
-        if "top_p" in gen_conf:
-            options["top_p"] = gen_conf["top_p"]
-        if "presence_penalty" in gen_conf:
-            options["presence_penalty"] = gen_conf["presence_penalty"]
-        if "frequency_penalty" in gen_conf:
-            options["frequency_penalty"] = gen_conf["frequency_penalty"]
-        if "repeat_penalty" in gen_conf:
-            options["repeat_penalty"] = gen_conf["repeat_penalty"]
-        if "num_ctx" in gen_conf:
-            options["num_ctx"] = gen_conf["num_ctx"]
-
+        options = _ollama_options(gen_conf)
         try:
             response = self.client.chat(
                 model=self.model_name,
@@ -96,28 +127,9 @@ class OllamaChat(ChatModel):
         prompt: str,
         gen_conf: dict[str, Any] = {},
     ) -> str:
-        if not gen_conf:
-            gen_conf = TinyRAGConfig.gen_conf.model_dump()
+        options = _ollama_options(gen_conf)
 
         history = [{"role": "user", "content": prompt}]
-        if "max_tokens" in gen_conf:
-            del gen_conf["max_tokens"]
-
-        options = {}
-        if "temperature" in gen_conf:
-            options["temperature"] = gen_conf["temperature"]
-        if "max_tokens" in gen_conf:
-            options["num_predict"] = gen_conf["max_tokens"]
-        if "top_p" in gen_conf:
-            options["top_p"] = gen_conf["top_p"]
-        if "presence_penalty" in gen_conf:
-            options["presence_penalty"] = gen_conf["presence_penalty"]
-        if "frequency_penalty" in gen_conf:
-            options["frequency_penalty"] = gen_conf["frequency_penalty"]
-        if "repeat_penalty" in gen_conf:
-            options["repeat_penalty"] = gen_conf["repeat_penalty"]
-        if "num_ctx" in gen_conf:
-            options["num_ctx"] = gen_conf["num_ctx"]
 
         try:
             response = self.client.chat(model=self.model_name, messages=history, options=options, keep_alive=10)
@@ -133,10 +145,52 @@ class OllamaChat(ChatModel):
         return ans.strip()
 
 
-def get_chat_model(name: str = "Ollama") -> ChatModel:
+def get_chat_model() -> ChatModel:
     return OllamaChat(
         ollama_host=TinyRAGConfig.ollama_host,
         ollama_model=TinyRAGConfig.ollama_model,
+    )
+
+
+@singleton
+class OllamaVisionModel(VisionModel):
+    def __init__(self, ollama_host: str, ollama_model: str):
+        self.client = OllamaClient(
+            host=ollama_host,
+            timeout=15 * 60,  # time out 15 min
+        )
+        self.model_name = ollama_model
+
+    def key_generator(self, prompt: str, image_content: str) -> str:
+        content = prompt + image_content
+        return f"ollama_vision::prompt_hash::{hash64(content.encode('utf-8', errors='ignore'))}"
+
+    @time_it(prefix="llm image chat")
+    @cache_it(key_generator=key_generator, key_ttl_seconds=25 * 60 * 60 * 30)
+    def image_chat(
+        self,
+        prompt: str,
+        image_content: str,
+        gen_conf: dict[str, Any] = {},
+    ) -> str:
+        options = _ollama_options(gen_conf)
+        response = self.client.chat(
+            model=self.model_name,
+            messages=[{"role": "user", "content": prompt, "images": [image_content]}],
+            options=options,
+        )
+        try:
+            return response["message"]["content"]
+        except Exception as e:
+            logging_exception(e)
+
+        return ""
+
+
+def get_vision_model() -> VisionModel:
+    return OllamaVisionModel(
+        ollama_host=TinyRAGConfig.ollama_host,
+        ollama_model=TinyRAGConfig.vision_medel,
     )
 
 
