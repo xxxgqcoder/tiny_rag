@@ -9,8 +9,8 @@ from watchdog.observers import Observer
 from common.config import TinyRAGConfig
 from common.data import Content, ContentType, GetDocumentResponse
 from common.utils import estimate_token_num, hash64, logging_exception, run_once, time_it
-from parse import get_parser
-from parse.chunking import get_chunking
+from parse import get_parser, get_parser_by_file_type
+from parse.chunking import get_chunking, get_chunking_by_file_type
 from parse.parser import Parser
 from rag.embedding import EmbeddingModel, get_embedding_model
 from rag.functions import delete_document, get_all_document, get_document, upsert_document
@@ -45,17 +45,17 @@ def _ensure_max_token(content: str, max_token_num: int) -> str:
 
 
 def process_new_file(file_path: str):
-    if ignore_file(file_path):
+    if _ignore_file(file_path):
         logging.info(f"{file_path}: ignore")
         return
 
-    parser: Parser = get_parser()
     chat_model: ChatModel = get_chat_model()
     embedding_model: EmbeddingModel = get_embedding_model()
 
     # get file content hash
     file_name = os.path.basename(file_path)
-    logging.info(f"{file_name}: begin processing")
+    file_type = file_name.split(".")[-1] or ""
+    logging.info(f"{file_name}: type {file_type}, begin processing")
     file_bytes = ""
     try:
         with open(file_path, "rb") as f:
@@ -87,13 +87,14 @@ def process_new_file(file_path: str):
     delete_document(file_name=file_name)
 
     # parse file
+    parser: Parser = get_parser_by_file_type(file_type=file_type)
     content_list: list[Content] = parser.parse(file_path=file_path)
     logging.info(f"{file_name}: total {len(content_list)} content")
     if len(content_list) == 0:
         return
 
     # chunking
-    chunker = get_chunking()
+    chunker = get_chunking_by_file_type(file_type=file_type)
     chunks = chunker.chunk(contents=content_list)
     logging.info(f"{file_name}: total {len(chunks)} chunks")
 
