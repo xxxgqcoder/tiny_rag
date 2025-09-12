@@ -196,6 +196,8 @@ def get_vision_model() -> VisionModel:
     )
 
 
+# ---------------------------
+# knowledge base util functions
 def assemble_knowledge_base(chunks: list[Chunk]) -> tuple[str, dict[str, Any]]:
     """
     Assemble knowledge in chunk and return formatted knowledge base.
@@ -281,7 +283,7 @@ def format_reference_info(reference_meta: dict[str, dict[str, Any]], answer: str
         ref_info = ""
         meta = reference_meta[ref_id]
         ref_info += f"<reference ID={ref_id}>,"
-        ref_info += ("file=" + meta.get("file_path", ""))
+        ref_info += "file=" + meta.get("file_path", "")
         if meta["content_url"]:
             ref_info += "url=" + meta["content_url"] + ","
 

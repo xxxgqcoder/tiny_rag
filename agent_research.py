@@ -29,14 +29,14 @@ from prompt_toolkit import PromptSession
 from pydantic import BaseModel
 from rich.console import Console
 from rich.markdown import Markdown
-from utils import pretty_format
 
-from parse.parser import Chunk, ChunkType
-from rag.llm import assemble_knowledge_base, max_token_truncate
+from common.data import Chunk
+from common.utils import estimate_token_num
+from rag.functions import search
+from rag.llm import assemble_knowledge_base
 
 chat_host = "http://127.0.0.1:11434"
-search_host = "http://127.0.0.1:4567/search"
-chat_model = "qwen3:30b-a3b"
+chat_model = "qwen3:30b-a3b-thinking-2507-q4_K_M"
 
 max_token_num = 80 * 1024
 is_generating = False
@@ -58,6 +58,25 @@ def _escape_markdown(text: str) -> str:
     text = re.sub(r"(.?)>", r"\1&gt;", text)
 
     return text
+
+
+def _max_token_truncate(history: list[str], max_token_num: int) -> int:
+    """
+    Truncate by max token num. Return index such that token num of history[:index + 1] <= max_token_num
+
+    Args:
+    - history: a list of string.
+    - max_token_num: maximum token num.
+    """
+    total_token_num = 0
+    index = 0
+    for i, msg in enumerate(history):
+        token_num, _ = estimate_token_num(msg)
+        if total_token_num + token_num >= max_token_num:
+            break
+        else:
+            index = i
+    return index
 
 
 # ------------------------------------------------------------------------------
@@ -88,6 +107,99 @@ class GenerationRequest(BaseModel):
 
 
 # ------------------------------------------------------------------------------
+# Prompts
+PROMPT_QUERY_REWRITE = """
+You are a search assistant. Your goal is to generate sophisticated and diverse search queries.
+These queries are intended for an advanced automated research tool capable of analyzing complex results, expand topics based on user query and synthesizing information.
+
+Below is history user queries:
+
+{history_queries}
+
+Above is history user queries.
+
+
+Instructions:
+- Always prefer a single search query, only add another query if the original question requests multiple aspects or elements and one query is not enough.
+- Each query should focus on one specific aspect of the original question.
+- Don't produce more than {num_queries} queries.
+- Queries should be diverse, if the topic is broad, generate more than 1 query.
+- Don't generate multiple similar queries, one is enough.
+
+Format:
+- Format your response as a JSON object with ALL two of these exact keys:
+- "rational": Brief explanation of why these queries are relevant
+- "query": A list of search queries
+
+
+Below is one output example given original query:
+
+Original query: What revenue grew more last year apple stock or the number of people buying an iphone
+
+{{
+    "rational": "To answer this comparative growth question accurately, we need specific data points on Apple's stock performance and iPhone sales metrics. These queries target the precise financial information needed: company revenue trends, product-specific unit sales figures, and stock price movement over the same fiscal period for direct comparison.",
+    "query": ["Apple total revenue growth fiscal year 2024", "iPhone unit sales growth fiscal year 2024", "Apple stock price growth fiscal year 2024"],
+}}
+
+Above is one output example given original query.
+
+
+Below is the original query:
+
+{original_query}
+
+Above is the original query.
+"""
+
+PROMPT_QUERY_PARSE = """
+You are a query understanding agent in a research conversation and working with other agents. 
+Your role is to parse user query and determine what to do next given conversation history.
+
+Below is history conversations:
+
+{history_conversation}
+
+Above is history conversations.
+
+Instructions:
+- User query may not necessary trigger query action when history information is sufficient. In this case you can just return 'context_sufficient'.
+- If current context is not sufficient to answer user question, you need to return `query`.
+
+
+Format:
+- Format your response as a JSON object with ALL two of these exact keys:
+    - "rational": "Brief explanation of why the action is necessary.",
+    - "action": "next action item."
+
+Below is fist output example given original query:
+
+Original query: What is RoPE positional encoding.
+
+{{
+    "rational": "No related content found for user .",
+    "action": "query"
+}}
+
+Above is first output example given original query:
+
+
+Below is second output example given original query:
+
+Original query: What is the difference between RoPE positional encoding and absolute postional encoding.
+
+{{
+    "rational": "Context is sufficient to answer user query.",
+    "action": "context_sufficient"
+}}
+
+Above is second output example given original query:
+
+Below is user original query:
+{user_query}
+"""
+
+
+# ------------------------------------------------------------------------------
 # Agents
 # Query master
 class QueryMasterAgent(RoutedAgent):
@@ -109,7 +221,7 @@ class QueryMasterAgent(RoutedAgent):
     @message_handler
     async def handle_chat_message(self, message: ChatMessage, ctx: MessageContext) -> None:
         logging.info(f"{self.id.type}:" + "-" * 80)
-        logging.info(f"{self.id.type} handle chat message:\n{pretty_format(message, indent=1)}")
+        logging.info(f"{self.id.type} handle chat message:\n{message}")
 
         if isinstance(message.body, SystemMessage):
             # insert or update system message
@@ -127,53 +239,6 @@ class QueryMasterAgent(RoutedAgent):
         # append user message to chat history
         self._chat_history.append(message)
 
-        _parse_prompt = """
-        You are a query understanding agent in a research conversation and working with other agents. 
-        Your role is to parse user query and determine what to do next given conversation history.
-
-        Below is history conversations:
-
-        {history_conversation}
-
-        Above is history conversations.
-
-        Instructions:
-        - User query may not necessary trigger query action when history information is sufficient. In this case you can just return 'context_sufficient'.
-        - If current context is not sufficient to answer user question, you need to return `query`.
-
-
-        Format:
-        - Format your response as a JSON object with ALL two of these exact keys:
-            - "rational": "Brief explanation of why the action is necessary.",
-            - "action": "next action item."
-
-        Below is fist output example given original query:
-
-        Original query: What is RoPE positional encoding.
-
-        {{
-            "rational": "No related content found for user .",
-            "action": "query"
-        }}
-
-        Above is first output example given original query:
-
-
-        Below is second output example given original query:
-
-        Original query: What is the difference between RoPE positional encoding and absolute postional encoding.
-
-        {{
-            "rational": "Context is sufficient to answer user query.",
-            "action": "context_sufficient"
-        }}
-
-        Above is second output example given original query:
-
-        Below is user original query:
-        {user_query}
-        """
-
         # assemble conversation history
         history_conversation = []
         for i in range(len(self._chat_history) - 2, -1, -1):
@@ -184,28 +249,28 @@ class QueryMasterAgent(RoutedAgent):
                 continue
             conversation = f"Role: {msg.source}\n\nContent:\n{msg.content}" + f"\n{'-' * 8}\n\n"
             history_conversation.append(conversation)
-        idx = max_token_truncate(history_conversation, max_token_num=int(max_token_num * 0.8))
+        idx = _max_token_truncate(history_conversation, max_token_num=int(max_token_num * 0.8))
         history_conversation = history_conversation[: idx + 1]
         history_conversation.reverse()
 
         # get model result
-        prompt = _parse_prompt.format(
+        prompt = PROMPT_QUERY_PARSE.format(
             history_conversation="\n".join(history_conversation),
             user_query=message.body.content,
         )
         logging.info(f"{self.id.type}:" + "-" * 80)
-        logging.info(f"{self.id.type} intent identify prompt:\n{pretty_format(prompt, indent=1)}")
+        logging.info(f"{self.id.type} intent identify prompt:\n{prompt}")
 
         completion = await self._model_client.create(
             [SystemMessage(content=prompt)],
             cancellation_token=ctx.cancellation_token,
         )
         logging.info(f"{self.id.type}:" + "-" * 80)
-        logging.info(f"{self.id.type}: completion response:\n{pretty_format(completion, indent=1)}")
+        logging.info(f"{self.id.type}: completion response:\n{completion}")
 
         reduced_completion_content = re.sub(r"<think>[.\S\s]*</think>", "", completion.content).strip()
         logging.info(f"{self.id.type}:" + "-" * 80)
-        logging.info(f"{self.id.type}: reduced query response:\n{pretty_format(reduced_completion_content, indent=1)}")
+        logging.info(f"{self.id.type}: reduced query response:\n{reduced_completion_content}")
 
         # next action
         parse_result = json.loads(reduced_completion_content)
@@ -256,56 +321,13 @@ class QueryRewriterAgent(RoutedAgent):
         if isinstance(message.body, UserMessage):
             # rewriter only considers user messages
             logging.info(f"{self.id.type}:" + "-" * 80)
-            logging.info(f"{self.id.type}: append user chat message:\n{pretty_format(message, indent=1)}")
+            logging.info(f"{self.id.type}: append user chat message:\n{message}")
             self._user_query_history.append(message)
 
     @message_handler
     async def handle_query_parse_result_message(self, message: QueryParseResult, ctx: MessageContext) -> None:
         logging.info(f"{self.id.type}:" + "-" * 80)
-        logging.info(f"{self.id.type}: handle query rewrite message:\n{pretty_format(message, indent=1)}")
-
-        _query_rewrite_prompt = """
-        You are a search assistant. Your goal is to generate sophisticated and diverse search queries.
-        These queries are intended for an advanced automated research tool capable of analyzing complex results, expand topics based on user query and synthesizing information.
-
-        Below is history user queries:
-
-        {history_queries}
-
-        Above is history user queries.
-
-
-        Instructions:
-        - Always prefer a single search query, only add another query if the original question requests multiple aspects or elements and one query is not enough.
-        - Each query should focus on one specific aspect of the original question.
-        - Don't produce more than {num_queries} queries.
-        - Queries should be diverse, if the topic is broad, generate more than 1 query.
-        - Don't generate multiple similar queries, one is enough.
-
-        Format:
-        - Format your response as a JSON object with ALL two of these exact keys:
-        - "rational": Brief explanation of why these queries are relevant
-        - "query": A list of search queries
-
-
-        Below is one output example given original query:
-
-        Original query: What revenue grew more last year apple stock or the number of people buying an iphone
-
-        {{
-            "rational": "To answer this comparative growth question accurately, we need specific data points on Apple's stock performance and iPhone sales metrics. These queries target the precise financial information needed: company revenue trends, product-specific unit sales figures, and stock price movement over the same fiscal period for direct comparison.",
-            "query": ["Apple total revenue growth fiscal year 2024", "iPhone unit sales growth fiscal year 2024", "Apple stock price growth fiscal year 2024"],
-        }}
-
-        Above is one output example given original query.
-
-
-        Below is the original query:
-
-        {original_query}
-
-        Above is the original query.
-        """
+        logging.info(f"{self.id.type}: handle query rewrite message:\n{message}")
 
         # format history queries
         history_queries = []
@@ -317,30 +339,28 @@ class QueryRewriterAgent(RoutedAgent):
 
             query = f"Query: {msg.body.content}\n" + f"{'-' * 8}\n"
             history_queries.append(query)
-        idx = max_token_truncate(history_queries, max_token_num=int(max_token_num * 0.8))
+        idx = _max_token_truncate(history_queries, max_token_num=int(max_token_num * 0.8))
         history_queries = history_queries[: idx + 1]
         history_queries.reverse()
 
         # get model result
-        prompt = _query_rewrite_prompt.format(
+        prompt = PROMPT_QUERY_REWRITE.format(
             num_queries=self._num_queries,
             original_query=message.original_query,
             history_queries="\n".join(history_queries),
         )
         logging.info(f"{self.id.type}:" + "-" * 80)
-        logging.info(f"{self.id.type}: query rewrite prompt:\n{pretty_format(prompt, indent=1)}")
+        logging.info(f"{self.id.type}: query rewrite prompt:\n{prompt}")
 
         completion = await self._model_client.create(
             [SystemMessage(content=prompt)], cancellation_token=ctx.cancellation_token
         )
         logging.info(f"{self.id.type}:" + "-" * 80)
-        logging.info(f"{self.id.type}: completion response:\n{pretty_format(completion, indent=1)}")
+        logging.info(f"{self.id.type}: completion response:\n{completion}")
 
         reduced_completion_content = re.sub(r"<think>[.\s\S]*</think>", "", completion.content)
         logging.info(f"{self.id.type}:" + "-" * 80)
-        logging.info(
-            f"{self.id.type}: reduced comletion content:\n{pretty_format(reduced_completion_content, indent=1)}"
-        )
+        logging.info(f"{self.id.type}: reduced comletion content:\n{reduced_completion_content}")
 
         query = json.loads(reduced_completion_content)
         search_request = SearchRequest(query=query.get("query", []))
@@ -361,52 +381,29 @@ class SearchAgent(RoutedAgent):
         self,
         description: str,
         model_client: ChatCompletionClient,
-        search_server_url: str,
-        search_config: dict[str, Any],
         chat_topic_type: str,
     ) -> None:
         super().__init__(description=description)
         self._description = description
         self._model_client = model_client
-        self._search_server_url = search_server_url
-        self._search_config = search_config
         self._chat_topic_type = chat_topic_type
 
     def search(self, query: str) -> list[Chunk]:
         # get search result
-        response = requests.post(
-            url=self._search_server_url,
-            json={
-                "query": {
-                    "question": query,
-                },
-                "config": self._search_config,
-            },
-            stream=False,
+
+        response = search(
+            query=query,
+            prompt_name="query",
+            limit=10,
         )
-        response.raise_for_status()
-
-        # parse chunk
-        content = json.loads(response.text)
-        chunks = []
-        for dataload in content["data"]:
-            chunk = Chunk(
-                content_type=ChunkType(dataload.get("content_type", None)),
-                file_name=dataload.get("file_name", None),
-                content_url=dataload.get("content_url", None),
-                content=dataload.get("content", b"").encode("utf-8", errors="ignore"),
-                extra_description=dataload.get("extra_description", b"").encode("utf-8", errors="ignore"),
-            )
-            # NOTE: set uuid instead of auto generating
-            chunk.uuid = dataload.get("uuid", None)
-            chunks.append(chunk)
-
-        return chunks
+        if response and response.chunks:
+            return response.chunks
+        return []
 
     @message_handler
     async def handle_search_message(self, message: SearchRequest, ctx: MessageContext) -> None:
         logging.info(f"{self.id.type}:" + "-" * 80)
-        logging.info(f"{self.id.type}: handle search request:\n{pretty_format(message, indent=1)}")
+        logging.info(f"{self.id.type}: handle search request:\n{message}")
 
         all_chunks = []
         for query in message.query:
@@ -416,8 +413,8 @@ class SearchAgent(RoutedAgent):
         # assemble knowledge base
         knowledge_base, refid2meta = assemble_knowledge_base(all_chunks)
         logging.info(f"{self.id.type}:" + "-" * 80)
-        logging.info(f"{self.id.type}: knowledge base:\n{pretty_format(knowledge_base, indent=1)}")
-        logging.info(f"{self.id.type}: reference meta:\n{pretty_format(refid2meta, indent=1)}")
+        logging.info(f"{self.id.type}: knowledge base:\n{knowledge_base}")
+        logging.info(f"{self.id.type}: reference meta:\n{refid2meta}")
 
         # publish system knowledge base update message
         await self.publish_message(
@@ -452,7 +449,7 @@ class GeneratorAgent(RoutedAgent):
     @message_handler
     async def handle_chat_message(self, message: ChatMessage, ctx: MessageContext) -> None:
         logging.info(f"{self.id.type}:" + "-" * 80)
-        logging.info(f"{self.id.type} handle chat message:\n{pretty_format(message, indent=1)}")
+        logging.info(f"{self.id.type} handle chat message:\n{message}")
 
         # update system knowledge message
         if isinstance(message.body, SystemMessage):
@@ -470,7 +467,7 @@ class GeneratorAgent(RoutedAgent):
     @message_handler
     async def handle_generation_request(self, message: GenerationRequest, ctx: MessageContext) -> None:
         logging.info(f"{self.id.type}:" + "-" * 80)
-        logging.info(f"{self.id.type} handle generation request:\n{pretty_format(message, indent=1)}")
+        logging.info(f"{self.id.type} handle generation request:\n{message}")
 
         from rag.prompt import promot_citation, prompt_system
 
@@ -486,8 +483,8 @@ class GeneratorAgent(RoutedAgent):
         knowledge_base_prompt = prompt_system.format(knowledge_base=knowledge_base) + f"\n{'-' * 8}\n" + promot_citation
 
         logging.info(f"{self.id.type}:" + "-" * 80)
-        logging.info(f"{self.id.type}: knowledge base prompt:\n{pretty_format(knowledge_base_prompt, indent=1)}")
-        logging.info(f"{self.id.type}: reference meta:\n{pretty_format(refid2meta, indent=1)}")
+        logging.info(f"{self.id.type}: knowledge base prompt:\n{knowledge_base_prompt}")
+        logging.info(f"{self.id.type}: reference meta:\n{refid2meta}")
 
         # assemble history conversations
         conversations = []
@@ -499,7 +496,7 @@ class GeneratorAgent(RoutedAgent):
             conversations.append(msg.body)
             conversation_content.append(msg.body.content)
 
-        idx = max_token_truncate(conversation_content, int(0.6 * max_token_num))
+        idx = _max_token_truncate(conversation_content, int(0.6 * max_token_num))
         conversations = conversations[: idx + 1]
         conversations.reverse()
 
@@ -521,7 +518,7 @@ class GeneratorAgent(RoutedAgent):
         from rag.llm import format_reference_info
 
         formatted_ref = format_reference_info(refid2meta, completion.content)
-        logging.info(f"{self.id.type}: formatted reference data: {pretty_format(formatted_ref, indent=1)}")
+        logging.info(f"{self.id.type}: formatted reference data: {formatted_ref}")
         Console().print(Markdown(_escape_markdown(formatted_ref)))
 
         # publish assistance message
@@ -582,10 +579,7 @@ def print_loading_mark() -> None:
 
 async def main():
     # NOTE: re-init root logger
-    import utils
-
-    utils.initialized_root_logger = False
-    from utils import init_root_logger
+    from common.utils import init_root_logger
 
     init_root_logger("agent_run", need_stream=False)
 
@@ -647,8 +641,6 @@ async def main():
         lambda: SearchAgent(
             model_client=model_client,
             description=search_desc,
-            search_server_url=search_host,
-            search_config={"limit": 4},
             chat_topic_type=chat_topic_type,
         ),
     )
