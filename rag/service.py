@@ -63,7 +63,7 @@ async def upsert_document(request: NewDocumentRequest) -> NewDocumentResponse:
     try:
         upsert_cnt = rational_db.upsert_document(
             RationalDBRecord(
-                file_name=request.file_name,
+                file_path=request.file_path,
                 chunk_uuids="\x07".join([chunk.uuid for chunk in request.chunks]),
                 created_date="",
                 content_hash=request.content_hash,
@@ -81,7 +81,7 @@ async def upsert_document(request: NewDocumentRequest) -> NewDocumentResponse:
             upsert_cnt = vector_db.upsert(
                 VectorDBRecord(
                     uuid=chunk.uuid,
-                    file_name=chunk.file_name,
+                    file_path=chunk.file_path,
                     content_url=chunk.content_url,
                     embedding=request.chunk_embedding[i],
                     metadata={
@@ -130,7 +130,7 @@ async def upsert_document(request: NewDocumentRequest) -> NewDocumentResponse:
         return NewDocumentResponse(code=1, message="error when saving to object store, error:\n" + str(e))
 
     return NewDocumentResponse(
-        code=0, message="success", data={"file_name": request.file_name, "chunks": [c.uuid for c in request.chunks]}
+        code=0, message="success", data={"file_path": request.file_path, "chunks": [c.uuid for c in request.chunks]}
     )
 
 
@@ -138,21 +138,21 @@ async def upsert_document(request: NewDocumentRequest) -> NewDocumentResponse:
 async def get_document(
     request: GetDocumentRequest,
 ) -> GetDocumentResponse:
-    file_name = request.file_name
-    if not file_name:
+    file_path = request.file_path
+    if not file_path:
         return GetDocumentResponse(
             code=1,
-            message="file_name is required",
+            message="file_path is required",
             document=None,
             md_content="",
             chunks=[],
         )
 
-    record: RationalDBRecord = rational_db.get_document(file_name=file_name)
+    record: RationalDBRecord = rational_db.get_document(file_path=file_path)
     if not record:
         return GetDocumentResponse(
             code=1,
-            message=f"document not found: {file_name}",
+            message=f"document not found: {file_path}",
         )
 
     # md content
@@ -181,30 +181,30 @@ async def get_document(
 
 @app.post("/get_all_document", response_model=GetAllDocumentResponse)
 async def get_all_document() -> GetAllDocumentResponse:
-    file_names: list[str] = rational_db.get_all_documents()
+    file_paths: list[str] = rational_db.get_all_documents()
     return GetAllDocumentResponse(
         code=0,
         message="success",
-        file_names=file_names,
+        file_paths=file_paths,
     )
 
 
 @app.post("/delete_document", response_model=DeleteDocumentResponse)
 async def delete_document(request: DeleteDocumentRequest) -> DeleteDocumentResponse:
-    file_name = request.file_name
+    file_path = request.file_path
     # get record from rational db
-    record = rational_db.get_document(file_name=file_name)
+    record = rational_db.get_document(file_path=file_path)
     if not record:
-        return DeleteDocumentResponse(code=1, message=f"document not found: {file_name}")
+        return DeleteDocumentResponse(code=1, message=f"document not found: {file_path}")
 
     # delete from rational db
-    delete_cnt = rational_db.delete_document(file_name=file_name)
-    logging.info(f"Deleted {delete_cnt} records from rational db for document: {file_name}")
+    delete_cnt = rational_db.delete_document(file_path=file_path)
+    logging.info(f"Deleted {delete_cnt} records from rational db for document: {file_path}")
 
     # delete from vector db
     uuids = record.chunk_uuids.split("\x07")
     delete_cnt = vector_db.delete(keys=uuids)
-    logging.info(f"Deleted {delete_cnt} records from vector db for chunk: {file_name}")
+    logging.info(f"Deleted {delete_cnt} records from vector db for chunk: {file_path}")
 
     # delete from object store
     try:

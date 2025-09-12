@@ -38,7 +38,7 @@ def _filter_chunk(chunks: list[Chunk]) -> list[Chunk]:
             content = chunk.extra_description
         content = safe_strip(content)
         if len(content) < 1:
-            logging.info(f"{chunk.file_name}: remove chunk due to too short content: {str(chunk)}")
+            logging.info(f"{chunk.file_path}: remove chunk due to too short content: {str(chunk)}")
             continue
 
         filtered_chunks.append(chunk)
@@ -91,7 +91,7 @@ class OverlapChunking(Chunking):
                     merged_chunks.append(
                         Chunk(
                             content_type=content.content_type,
-                            file_name=content.file_name,
+                            file_path=content.file_path,
                             content=content.content,
                             extra_description=content.extra_description,
                             content_url=content.content_url,
@@ -110,7 +110,7 @@ class OverlapChunking(Chunking):
                 merged_chunks.append(
                     Chunk(
                         content_type=content_buffer[0].content_type,
-                        file_name=content_buffer[0].file_name,
+                        file_path=content_buffer[0].file_path,
                         content=safe_encode(texts),
                         extra_description="",
                         content_url="",
@@ -142,7 +142,6 @@ class ByteOverlapChunking(Chunking):
         if not contents:
             return []
 
-        file_name = contents[0].file_name
         content = "\n\n\n\n".join([c.content for c in contents if c.content_type == ContentType.TEXT])
 
         i = 0
@@ -156,7 +155,7 @@ class ByteOverlapChunking(Chunking):
             chunks.append(
                 Chunk(
                     content_type=ContentType.TEXT,
-                    file_name=file_name,
+                    file_path=contents[0].file_path,
                     content=safe_encode(chunk_content),
                     extra_description="",
                     content_url="",
@@ -176,7 +175,7 @@ class BypassChunking(Chunking):
             chunks.append(
                 Chunk(
                     content_type=content.content_type,
-                    file_name=content.file_name,
+                    file_path=content.file_path,
                     content=content.content,
                     extra_description=content.extra_description,
                     content_url=content.content_url,

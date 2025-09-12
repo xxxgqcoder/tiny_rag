@@ -51,7 +51,7 @@ class PDFParser(Parser):
     ) -> list[Content]:
         asset_save_dir = TinyRAGConfig.parser_config.asset_save_dir
         os.makedirs(asset_save_dir, exist_ok=True)
-        self.file_name = os.path.basename(file_path)
+        self.file_path = file_path
 
         # get original chunk list
         temp_dir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
@@ -229,7 +229,7 @@ class PDFParser(Parser):
                 contents.append(
                     Content(
                         content_type=ContentType.TEXT,
-                        file_name=self.file_name,
+                        file_path=self.file_path,
                         content=safe_encode(text),
                         extra_description="",
                         content_url="",
@@ -247,13 +247,13 @@ class PDFParser(Parser):
                     extra_description = "no caption for this image"
 
                 # NOTE: hard coded image path format
-                abs_img_path = os.path.join(temp_asset_dir, str(Path(self.file_name).stem), "auto", content["img_path"])
+                abs_img_path = os.path.join(temp_asset_dir, str(Path(self.file_path).stem), "auto", content["img_path"])
                 _save_image(abs_img_path, asset_save_dir)
 
                 contents.append(
                     Content(
                         content_type=ContentType.IMAGE,
-                        file_name=self.file_name,
+                        file_path=self.file_path,
                         content=load_base64_image(abs_img_path),
                         extra_description=safe_encode(extra_description),
                         content_url=os.path.join(asset_save_dir, os.path.basename(abs_img_path)),
@@ -273,14 +273,14 @@ class PDFParser(Parser):
                 table_body = content.get("table_body", "")
                 extra_description += "\n\n\n\nTable content:\n" + table_body
 
-                abs_img_path = os.path.join(temp_asset_dir, str(Path(self.file_name).stem), "auto", content["img_path"])
+                abs_img_path = os.path.join(temp_asset_dir, str(Path(self.file_path).stem), "auto", content["img_path"])
                 if content["img_path"]:
                     _save_image(abs_img_path, asset_save_dir)
 
                 contents.append(
                     Content(
                         content_type=ContentType.TABLE,
-                        file_name=self.file_name,
+                        file_path=self.file_path,
                         content=load_base64_image(abs_img_path),
                         extra_description=extra_description,
                         content_url=os.path.join(asset_save_dir, os.path.basename(abs_img_path))

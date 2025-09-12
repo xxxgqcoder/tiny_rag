@@ -107,12 +107,12 @@ class RationalDB(ABC):
         raise NotImplementedError("Not implemented")
 
     @abstractmethod
-    def get_document(self, file_name: str) -> RationalDBRecord:
+    def get_document(self, file_path: str) -> RationalDBRecord:
         """
         Get a document.
 
         Args:
-        - file_name: document file name.
+        - file_path: document file name.
 
         Returns:
         - A document record.
@@ -120,12 +120,12 @@ class RationalDB(ABC):
         raise NotImplementedError("Not implemented")
 
     @abstractmethod
-    def delete_document(self, file_name: str) -> int:
+    def delete_document(self, file_path: str) -> int:
         """
         Delete a document.
 
         Args:
-        - file_name: document file name.
+        - file_path: document file name.
 
         Returns:
         - An int indicating how many records are deleted.
@@ -221,7 +221,7 @@ class MilvusLiteDB(VectorDB):
         query: dict[str, list[float]],
         params: dict[str, Any],
     ) -> list[VectorDBRecord]:
-        output_fields = ["uuid", "file_name", "content_url", "metadata"]
+        output_fields = ["uuid", "file_path", "content_url", "metadata"]
         limit = params.get("limit", 100)
 
         if len(query) == 1:
@@ -264,7 +264,7 @@ class MilvusLiteDB(VectorDB):
             entity = hit["entity"]
             record = VectorDBRecord(
                 uuid=entity.get("uuid", ""),
-                file_name=entity.get("file_name", ""),
+                file_path=entity.get("file_path", ""),
                 content_url=entity.get("content_url", ""),
                 metadata=entity.get("metadata", {}),
                 embedding=[],  # do not return embedding
@@ -278,14 +278,14 @@ class MilvusLiteDB(VectorDB):
         res = self.client.get(
             collection_name=self.collection_name,
             ids=keys,
-            output_fields=["uuid", "file_name", "content_url", "metadata"],
+            output_fields=["uuid", "file_path", "content_url", "metadata"],
         )
 
         all_records = {}
         for ret in res:
             record = VectorDBRecord(
                 uuid=ret.get("uuid", ""),
-                file_name=ret.get("file_name", ""),
+                file_path=ret.get("file_path", ""),
                 content_url=ret.get("content_url", ""),
                 metadata=ret.get("metadata", {}),
                 embedding=[],  # do not return embedding
@@ -326,7 +326,7 @@ def create_vector_db_collection() -> None:
         max_length=128,
     )
     schema.add_field(
-        field_name="file_name",
+        field_name="file_path",
         datatype=DataType.VARCHAR,
         is_primary=False,
         auto_id=False,
@@ -406,9 +406,9 @@ class SQLiteDB(RationalDB):
     @time_it(prefix="rational db")
     def upsert_document(self, record: RationalDBRecord) -> int:
         cur = self.conn.cursor()
-        key_col = "file_name"
+        key_col = "file_path"
         data_dict: dict[str, Any] = record.model_dump()
-        cur.execute(f"SELECT id FROM {self.document_table_name} WHERE file_name = ?", (data_dict[key_col],))
+        cur.execute(f"SELECT id FROM {self.document_table_name} WHERE file_path = ?", (data_dict[key_col],))
         record_exists = cur.fetchone() is not None
 
         try:
@@ -447,18 +447,18 @@ class SQLiteDB(RationalDB):
         return 1
 
     @time_it(prefix="rational db")
-    def get_document(self, file_name: str) -> RationalDBRecord:
+    def get_document(self, file_path: str) -> RationalDBRecord:
         cur = self.conn.cursor()
-        query = f"SELECT * FROM {self.document_table_name} WHERE file_name = ?"
+        query = f"SELECT * FROM {self.document_table_name} WHERE file_path = ?"
 
-        ret = cur.execute(query, (file_name,))
+        ret = cur.execute(query, (file_path,))
         res = ret.fetchall()
         if len(res) < 1:
             return None  # type: ignore
         res = res[0]
         return RationalDBRecord.model_validate(
             {
-                "file_name": res[1],
+                "file_path": res[1],
                 "chunk_uuids": res[2],
                 "created_date": res[3],
                 "content_hash": res[4],
@@ -466,15 +466,15 @@ class SQLiteDB(RationalDB):
         )
 
     @time_it(prefix="rational db")
-    def delete_document(self, file_name: str) -> int:
+    def delete_document(self, file_path: str) -> int:
         import sqlite3
 
         cur = self.conn.cursor()
-        query = f"DELETE FROM {self.document_table_name} WHERE file_name = ?"
-        logging.info(f"delete document: {file_name}")
+        query = f"DELETE FROM {self.document_table_name} WHERE file_path = ?"
+        logging.info(f"delete document: {file_path}")
 
         try:
-            res = cur.execute(query, (file_name,))
+            res = cur.execute(query, (file_path,))
             self.conn.commit()
         except sqlite3.Error as e:
             if self.conn:
@@ -486,7 +486,7 @@ class SQLiteDB(RationalDB):
 
     @time_it(prefix="rational db")
     def get_all_documents(self) -> list[str]:
-        query = f"SELECT file_name FROM {self.document_table_name}"
+        query = f"SELECT file_path FROM {self.document_table_name}"
         cur = self.conn.cursor()
 
         ret = cur.execute(query, ())
@@ -510,13 +510,13 @@ def create_rational_db_table() -> None:
     sql_create_table = f"""
     CREATE TABLE IF NOT EXISTS {document_table_name} (
         id INTEGER PRIMARY KEY,
-        file_name TEXT NOT NULL,
+        file_path TEXT NOT NULL,
         chunk_uuids TEXT NOT NULL,
         created_date TEXT NOT NULL,
         content_hash TEXT NOT NULL
     )
     """
-    sql_create_index = f"CREATE INDEX idx_name ON {document_table_name} (file_name)"
+    sql_create_index = f"CREATE INDEX idx_file_path ON {document_table_name} (file_path)"
     # NOTE: assume local file path
     os.makedirs(os.path.dirname(conn_url), exist_ok=True)
 

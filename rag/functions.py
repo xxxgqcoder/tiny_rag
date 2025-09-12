@@ -47,7 +47,7 @@ def http_call(url, request: Any, out_cls) -> Any:
 
 
 def upsert_document(
-    file_name: str,
+    file_path: str,
     content_hash: str,
     md_content: str,
     chunks: list[Chunk],
@@ -55,14 +55,14 @@ def upsert_document(
 ) -> NewDocumentResponse:
     """
     Args:
-    - file_name: original file name.
+    - file_path: original file path.
     - content_hash: hash of document content.
     - md_content: markdown content of the document.
     - chunks: list of chunks of the document.
     - chunk_embedding: list of chunk embeddings.
     """
     request = NewDocumentRequest(
-        file_name=file_name,
+        file_path=file_path,
         content_hash=content_hash,
         md_content=md_content,
         chunks=chunks,
@@ -77,17 +77,17 @@ def upsert_document(
 
 
 def get_document(
-    file_name: str,
+    file_path: str,
 ) -> GetDocumentResponse:
     """
     Args:
-    - file_name: original file name.
+    - file_path: original file path.
 
     Returns:
     - GetDocumentResponse: document content and metadata.
     """
     request = GetDocumentRequest(
-        file_name=file_name,
+        file_path=file_path,
     )
     try:
         ret = http_call(url=_service_url + "/get_document", request=request, out_cls=GetDocumentResponse)
@@ -112,12 +112,12 @@ def get_all_document() -> GetAllDocumentResponse:
         return GetAllDocumentResponse.model_validate({})
 
 
-def delete_document(file_name: str) -> DeleteDocumentResponse:
+def delete_document(file_path: str) -> DeleteDocumentResponse:
     """
     Delete document from db.
     """
     request = DeleteDocumentRequest(
-        file_name=file_name,
+        file_path=file_path,
     )
 
     try:

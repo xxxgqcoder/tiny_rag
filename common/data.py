@@ -28,7 +28,7 @@ class Content(BaseModel):
     """
 
     content_type: ContentType = Field(ContentType.TEXT, description="content type")
-    file_name: str = Field("", description="original file name")
+    file_path: str = Field("", description="original file path")
     content: str = Field(
         "",
         description="the content, represented in string. If content type is not image / table, this field will be base64 encoded image content.",
@@ -49,7 +49,7 @@ class Chunk(Content):
 
     @model_validator(mode="after")
     def set_uuid(self):
-        self.uuid = hash64((self.file_name + self.content + self.extra_description).encode("utf-8", errors="ignore"))
+        self.uuid = hash64((self.file_path + self.content + self.extra_description).encode("utf-8", errors="ignore"))
         return self
 
 
@@ -58,7 +58,7 @@ class RationalDBRecord(BaseModel):
     Rational DB record.
     """
 
-    file_name: str = Field(..., description="document name")
+    file_path: str = Field(..., description="document original file path")
     # NOTE: recosinder this design.
     chunk_uuids: str = Field(..., description="id list of document's chunk, separated by '\x07'")
     created_date: str = Field(..., description="document created date")
@@ -76,7 +76,7 @@ class VectorDBRecord(BaseModel):
     """
 
     uuid: str = Field(..., description="uuid of the chunk")
-    file_name: str = Field(..., description="original file name")
+    file_path: str = Field(..., description="original file path")
     content_url: str = Field(..., description="url to the content")
     embedding: list[float] = Field(..., description="embedding vector")
     metadata: dict[str, Any] = Field(..., description="meta data of the chunk")
@@ -91,7 +91,7 @@ class ServiceResponse(BaseModel):
 
 
 class NewDocumentRequest(BaseModel):
-    file_name: str = Field(..., description="original file name")
+    file_path: str = Field(..., description="original file path")
     content_hash: str = Field(..., description="hash of document content")
     md_content: str = Field("", description="markdown content of the document")
     chunks: list[Chunk] = Field(..., description="list of chunks of the document")
@@ -99,7 +99,7 @@ class NewDocumentRequest(BaseModel):
 
 
 class GetDocumentRequest(BaseModel):
-    file_name: str = Field(..., description="original file name")
+    file_path: str = Field(..., description="original file path")
 
 
 class NewDocumentResponse(ServiceResponse):
@@ -113,11 +113,11 @@ class GetDocumentResponse(ServiceResponse):
 
 
 class GetAllDocumentResponse(ServiceResponse):
-    file_names: list[str] | None = Field(None, description="document name list")
+    file_paths: list[str] | None = Field(None, description="document name list")
 
 
 class DeleteDocumentRequest(BaseModel):
-    file_name: str = Field(..., description="original file name")
+    file_path: str = Field(..., description="original file name")
 
 
 class DeleteDocumentResponse(ServiceResponse):

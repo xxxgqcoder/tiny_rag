@@ -52,9 +52,8 @@ def process_new_file(file_path: str):
     embedding_model: EmbeddingModel = get_embedding_model()
 
     # get file content hash
-    file_name = os.path.basename(file_path)
-    file_type = file_name.rsplit(".", 1)[-1]
-    logging.info(f"{file_name}: type {file_type}, begin processing")
+    file_type = file_path.rsplit(".", 1)[-1]
+    logging.info(f"{file_path}: type {file_type}, begin processing")
     file_bytes = ""
     try:
         with open(file_path, "rb") as f:
@@ -68,34 +67,34 @@ def process_new_file(file_path: str):
         return
 
     file_content_hash = hash64(file_bytes)
-    logging.info(f"{file_name}: total {len(file_bytes)} bytes loaded, content hash: {file_content_hash}")
+    logging.info(f"{file_path}: total {len(file_bytes)} bytes loaded, content hash: {file_content_hash}")
 
     # get document record
-    document_record: GetDocumentResponse = get_document(file_name=file_name)
+    document_record: GetDocumentResponse = get_document(file_path=file_path)
     stored_content_hash = ""
     try:
         stored_content_hash = document_record.document.content_hash  # type: ignore
     except:
         pass
     if stored_content_hash == file_content_hash:
-        logging.info(f"{file_name}: content hash ({file_content_hash}) unchanged, ignore")
+        logging.info(f"{file_path}: content hash ({file_content_hash}) unchanged, ignore")
         return
-    logging.info(f"{file_name}: file content changed or new file")
+    logging.info(f"{file_path}: file content changed or new file")
 
     # delete document record if any
-    delete_document(file_name=file_name)
+    delete_document(file_path=file_path)
 
     # parse file
     parser: Parser = get_parser_by_file_type(file_type=file_type)
     content_list: list[Content] = parser.parse(file_path=file_path)
-    logging.info(f"{file_name}: total {len(content_list)} content")
+    logging.info(f"{file_path}: total {len(content_list)} content")
     if len(content_list) == 0:
         return
 
     # chunking
     chunker = get_chunking_by_file_type(file_type=file_type)
     chunks = chunker.chunk(contents=content_list)
-    logging.info(f"{file_name}: total {len(chunks)} chunks")
+    logging.info(f"{file_path}: total {len(chunks)} chunks")
 
     # NOTE: add title, authors and keywords to each chunk cause search to focus on meta info of each chunk.
     # # add document meta data to chunk
@@ -137,18 +136,18 @@ def process_new_file(file_path: str):
             chunk_content.append(_ensure_max_token(text, embedding_max_token_num))
         embeddings = embedding_model.encode(texts=chunk_content)
         chunk_embedding.extend(embeddings)
-    logging.info(f"{file_name}: chunk embedding done")
+    logging.info(f"{file_path}: chunk embedding done")
 
     # save to db
     upsert_document(
-        file_name=file_name,
+        file_path=file_path,
         content_hash=file_content_hash,
         md_content=_format_md_content(content_list=content_list),
         chunks=chunks,
         chunk_embedding=chunk_embedding,
     )
 
-    logging.info(f"{file_name}: finish processing")
+    logging.info(f"{file_path}: finish processing")
 
 
 def process_delete_file(file_path: str):
@@ -157,8 +156,7 @@ def process_delete_file(file_path: str):
         return
     logging.info(f"{file_path}: process delete file")
 
-    file_name = os.path.basename(file_path)
-    delete_document(file_name=file_name)
+    delete_document(file_path=file_path)
 
 
 def _ignore_file(file_path: str) -> bool:
@@ -252,17 +250,25 @@ def initial_file_process() -> None:
 
     # get all documents
     all_document = get_all_document()
-    remote_file_names = all_document.file_names if all_document.file_names else []
-    file_names = os.listdir(TinyRAGConfig.host_file_dir)
+    remote_file_paths = all_document.file_paths if all_document.file_paths else []
+    full_file_paths = [
+        os.path.join(root, file)
+        for root, _, files in os.walk(TinyRAGConfig.host_file_dir)
+        for file in files
+    ]
+
+
+    filered_file_paths = [file_path for file_path in full_file_paths if not _ignore_file(file_path)]
+    logging.info(f"Total {len(filered_file_paths)} to process")
 
     # delete documents that are not found in file_dir
-    to_delete = list(set(remote_file_names) - set(file_names))
+    to_delete = list(set(remote_file_paths) - set(filered_file_paths))
     logging.info(f"Below files are founded in db but not in file folder, delete: {to_delete}")
-    for file_name in to_delete:
-        job_executor.submit(on_process_delete_file, file_path=os.path.join(TinyRAGConfig.host_file_dir, file_name))
+    for file_path in to_delete:
+        job_executor.submit(on_process_delete_file, file_path=file_path)
 
-    for file_name in file_names:
-        job_executor.submit(on_process_new_file, file_path=os.path.join(TinyRAGConfig.host_file_dir, file_name))
+    for file_path in filered_file_paths:
+        job_executor.submit(on_process_new_file, file_path=os.path.join(file_path))
 
 
 def main():
