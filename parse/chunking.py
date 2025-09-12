@@ -1,6 +1,6 @@
-from dataclasses import field
 import logging
 from abc import ABC, abstractmethod
+from dataclasses import field
 
 from common.cache import singleton
 from common.config import TinyRAGConfig

@@ -1,4 +1,4 @@
-from .parser import Parser
+from .parser import Parser, TextParser
 from .pdf_parser import PDFParser
 
 Parsers: dict[str, type[Parser]] = {
@@ -12,3 +12,13 @@ def get_parser(name: str = "MinerU") -> Parser:
         raise Exception(msg)
     p = Parsers[name]
     return p()
+
+
+def get_parser_by_file_type(file_type: str) -> Parser:
+    if file_type in ["pdf"]:
+        return PDFParser()
+    if file_type in ["txt", "md"]:
+        return TextParser()
+
+    # default
+    return TextParser()

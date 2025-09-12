@@ -139,7 +139,7 @@ def process_new_file(file_path: str):
 
 
 def process_delete_file(file_path: str):
-    if ignore_file(file_path):
+    if _ignore_file(file_path):
         logging.info(f"{file_path}: ignore")
         return
     logging.info(f"{file_path}: process delete file")
@@ -148,7 +148,7 @@ def process_delete_file(file_path: str):
     delete_document(file_name=file_name)
 
 
-def ignore_file(file_path: str) -> bool:
+def _ignore_file(file_path: str) -> bool:
     """
     Rules on igore file.
 

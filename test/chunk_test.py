@@ -4,7 +4,7 @@ import time
 import unittest
 
 from common.data import Content, ContentType
-from parse.chunking import OverlapChunking, ByteOverlapChunking
+from parse.chunking import ByteOverlapChunking, OverlapChunking
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
