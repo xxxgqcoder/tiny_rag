@@ -88,7 +88,8 @@ def cache_it(key_generator: Callable[..., str], key_ttl_seconds=24 * 60 * 60) ->
     Redis cache decorator with customized key generator.
 
     Args:
-        key_generator: Function that takes the same args as decorated function and returns cache key
+        - key_generator: Function that takes the same args as decorated function and returns cache key
+        - key_ttl_seconds: Time to live for the cache key in seconds (default: 24 hours)
     """
 
     def decorator(func: Callable[..., T]) -> Callable[..., T]:

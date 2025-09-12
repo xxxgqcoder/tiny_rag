@@ -3,10 +3,13 @@ search_service_port: 8080
 search_service_url: http://localhost:8080
 ollama_host: http://127.0.0.1:11434
 ollama_model: qwen3:30b-a3b-thinking-2507-q4_K_M
-vision_medel: qwen2.5vl:32b
+# vision_medel: qwen2.5vl:32b
+vision_medel: qwen2.5vl:7b
 max_context_token_num: 30000
+# host_file_dir: /Users/xcoder/tiny_rag/files
 host_file_dir: /Users/xcoder/obsidian/Profession
 ignore_path_pattern:
+    - "daily notes"
     - .obsidian
     - .git
     - node_modules
@@ -53,4 +56,4 @@ object_store_config:
 cache_config:
     conn_url: redis://localhost:6379/0
     token: ""
-    key_ttl_seconds: 86400
+    key_ttl_seconds: 8640000
