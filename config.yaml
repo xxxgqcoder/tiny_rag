@@ -5,8 +5,17 @@ ollama_host: http://127.0.0.1:11434
 ollama_model: qwen3:30b-a3b-thinking-2507-q4_K_M
 vision_medel: qwen2.5vl:32b
 max_context_token_num: 30000
-host_file_dir: /Users/xcoder/tiny_rag/files
-
+host_file_dir: /Users/xcoder/obsidian/Profession
+ignore_path_pattern:
+    - .obsidian
+    - .git
+    - node_modules
+    - attachments
+    - .DS_Store
+    - .Trash
+    - .vscode
+    - .idea
+    
 parser_config:
     config_file_path: /Users/xcoder/projects/tiny_rag/assets/MinerU/magic-pdf.json
     asset_save_dir: /Users/xcoder/obsidian/Profession/attachments

@@ -168,6 +168,9 @@ def _ignore_file(file_path: str) -> bool:
     Returns:
     - bool, true if file_path should be ignored.
     """
+    for pattern in TinyRAGConfig.ignore_path_pattern:
+        if pattern in file_path:
+            return True
     file_name = os.path.basename(file_path)
     # ignore hidden file
     if file_name.startswith("."):
