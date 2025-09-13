@@ -46,9 +46,6 @@ model_client = OllamaChatCompletionClient(model=chat_model, host=chat_host)
 
 # ------------------------------------------------------------------------------
 # Util funcs
-def _agent_log(content: str) -> str:
-    return "\n" + "-" * 80 + "\n\n" + content + "\n\n" + "-" * 80 + "\n\n"
-
 
 def _escape_markdown(text: str) -> str:
     if text is None:
@@ -89,7 +86,7 @@ class ChatMessage(BaseModel):
     """
 
     body: LLMMessage
-    meta: dict[Any, Any] | None = None  # extra meta data.
+    meta: dict[str, dict[str, Any]] | None = None  # extra meta data.
 
 
 class QueryParseResult(BaseModel):
@@ -214,7 +211,7 @@ class QueryMasterAgent(RoutedAgent):
     ) -> None:
         super().__init__(description=description)
         self._model_client = model_client
-        self._chat_history: list[LLMMessage] = []
+        self._chat_history: list[ChatMessage] = []
         self._query_rewriter_topic_type = query_rewriter_topic_type
         self._chat_topic_type = chat_topic_type
 
@@ -444,7 +441,7 @@ class GeneratorAgent(RoutedAgent):
         self._description = description
         self._model_client = model_client
         self._chat_topic_type = chat_topic_type
-        self._chat_history: list[LLMMessage] = []
+        self._chat_history: list[ChatMessage] = []
 
     @message_handler
     async def handle_chat_message(self, message: ChatMessage, ctx: MessageContext) -> None:
@@ -578,9 +575,7 @@ def print_loading_mark() -> None:
 
 
 async def main():
-    # NOTE: re-init root logger
     from common.utils import init_root_logger
-
     init_root_logger("agent_run", need_stream=False)
 
     global is_generating
