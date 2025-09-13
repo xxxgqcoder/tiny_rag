@@ -1,10 +1,7 @@
-import json
-import logging
 import re
 from abc import ABC, abstractmethod
 from typing import Any, Generator, Union
 
-from numpy import single
 from ollama import Client as OllamaClient
 
 from common.cache import cache_it, logging_exception
@@ -192,7 +189,7 @@ class OllamaVisionModel(VisionModel):
 def get_vision_model() -> VisionModel:
     return OllamaVisionModel(
         ollama_host=TinyRAGConfig.ollama_host,
-        ollama_model=TinyRAGConfig.vision_medel,
+        ollama_model=TinyRAGConfig.vision_model,
     )
 
 

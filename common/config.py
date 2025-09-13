@@ -1,13 +1,12 @@
 import os
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 from pydantic_settings import (
     BaseSettings,
     PydanticBaseSettingsSource,
     SettingsConfigDict,
     YamlConfigSettingsSource,
 )
-from pydantic_settings_yaml import YamlBaseSettings
 
 from common.utils import get_project_base_directory, init_root_logger
 
@@ -65,7 +64,7 @@ class Config(BaseSettings):
 
     ollama_host: str = Field("", description="Host for the Ollama server.")
     ollama_model: str = Field("", description="Model name for the Ollama server.")
-    vision_medel: str = Field("", description="Vision model name for the Ollama server.")
+    vision_model: str = Field("", description="Vision model name for the Ollama server.")
     search_service_url: str = Field("", description="URL for the search service.")
     search_service_port: int = Field(8080, description="Port for the search service.")
     root_data_dir: str = Field("data", description="Root directory for all data storage.")
@@ -84,7 +83,7 @@ class Config(BaseSettings):
 
     model_config = SettingsConfigDict(
         yaml_file=os.path.join(get_project_base_directory(), "config.yaml"),
-        env_prefix="TINY_RAG_",
+        env_prefix="TINY_RAG@@",
         env_nested_delimiter="@@",
         nested_model_default_partial_update=True,
     )
