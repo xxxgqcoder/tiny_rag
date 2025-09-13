@@ -239,12 +239,13 @@ def initial_file_process() -> None:
     # get all documents
     all_document = get_all_document()
     remote_file_paths = all_document.file_paths if all_document.file_paths else []
+    logging.info(f"Total {len(remote_file_paths)} files in db")
     full_file_paths = [
         os.path.join(root, file) for root, _, files in os.walk(TinyRAGConfig.host_file_dir) for file in files
     ]
 
     filered_file_paths = [file_path for file_path in full_file_paths if not _ignore_file(file_path)]
-    logging.info(f"Total {len(filered_file_paths)} to process")
+    logging.info(f"Total {len(filered_file_paths)} files to process")
 
     # delete documents that are not found in file_dir
     to_delete = list(set(remote_file_paths) - set(filered_file_paths))
