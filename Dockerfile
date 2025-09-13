@@ -58,7 +58,7 @@ COPY assets assets
 COPY common common
 COPY rag rag
 COPY config.yaml .
-COPY start_jupyter.sh .
+COPY notebooks/start_jupyter.sh .
 
 COPY docker/entrypoint.sh .
 RUN chmod +x ./entrypoint*.sh

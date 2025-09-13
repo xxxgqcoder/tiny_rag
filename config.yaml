@@ -1,6 +1,6 @@
 root_data_dir: /var/data/tiny_rag
-search_service_port: 8080
-search_service_url: http://localhost:8080
+search_service_port: 4500
+search_service_url: http://localhost:4500
 ollama_host: http://127.0.0.1:11434
 ollama_model: qwen3:30b-a3b-thinking-2507-q4_K_M
 # vision_medel: qwen2.5vl:32b
@@ -49,11 +49,11 @@ vector_db_config:
     embedding_column_name: embedding
     
 object_store_config:
-    conn_url: minio:9000
+    conn_url: minio:6100
     user: minioadmin
     token: minioadmin
 
 cache_config:
-    conn_url: redis://localhost:6379/0
+    conn_url: redis://localhost:23456/0
     token: ""
     key_ttl_seconds: 8640000
