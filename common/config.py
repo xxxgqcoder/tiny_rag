@@ -74,7 +74,7 @@ class Config(BaseSettings):
 
     parser_config: ParserConfig = Field(..., description="Parser configuration.")
     rational_db_config: RationalDBConfig = Field(..., description="Rational database configuration.")
-    vector_db_config: VectorDBConfig =Field(..., description="Vector database configuration.")
+    vector_db_config: VectorDBConfig = Field(..., description="Vector database configuration.")
     embedding_config: EmbeddingConfig = Field(..., description="Embedding configuration.")
     chunking_config: ChunkingConfig = Field(..., description="Embedding configuration.")
     object_store_config: ObjectStoreConfig = Field(..., description="Object store configuration.")
@@ -97,7 +97,10 @@ class Config(BaseSettings):
         dotenv_settings: PydanticBaseSettingsSource,
         file_secret_settings: PydanticBaseSettingsSource,
     ) -> tuple[PydanticBaseSettingsSource, ...]:
-        return (env_settings, YamlConfigSettingsSource(settings_cls),)
+        return (
+            env_settings,
+            YamlConfigSettingsSource(settings_cls),
+        )
 
 
 TinyRAGConfig = Config()  # type: ignore
