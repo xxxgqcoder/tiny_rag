@@ -168,7 +168,7 @@ class OllamaVisionModel(VisionModel):
         return f"ollama_vision::prompt_hash::{hash64(content.encode('utf-8', errors='ignore'))}"
 
     @time_it(prefix="llm image chat")
-    @cache_it(key_generator=key_generator, key_ttl_seconds=25 * 60 * 60 * 100)
+    @cache_it(key_generator=key_generator, key_ttl_seconds=24 * 60 * 60 * 100)
     def image_chat(
         self,
         prompt: str,
