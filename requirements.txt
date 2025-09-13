@@ -49,3 +49,4 @@ redis
 minio
 autogen_core
 autogen-ext
+tiktoken
