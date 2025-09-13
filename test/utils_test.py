@@ -1,11 +1,10 @@
 import unittest
-import os
+
+from common.utils import estimate_token_num
 
 
 class TestUtils(unittest.TestCase):
-
     def test_estimate_token_num(self):
-        from utils import estimate_token_num
         text = "中文http://url/key=123 中text 1 123 word"
         want = ["中", "文", "http://url/key=123", "中", "text", "1", "123", "word"]
         _, tokens = estimate_token_num(text=text)
@@ -13,6 +12,5 @@ class TestUtils(unittest.TestCase):
         pass
 
 
-if __name__ == '__main__':
-
+if __name__ == "__main__":
     unittest.main()

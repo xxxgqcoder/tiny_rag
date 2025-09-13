@@ -55,19 +55,12 @@ RUN --mount=type=cache,id=tiny_rag_pip,target=/root/.cache/pip,sharing=locked \
 # ============================================================================ #
 # copy project files
 COPY assets assets
-COPY parse parse
+COPY common common
 COPY rag rag
-COPY config.py .
-COPY utils.py .
-COPY start_server.py .
-COPY chat.py .
-
-COPY notebooks .
-
+COPY config.yaml .
 COPY notebooks/start_jupyter.sh .
-RUN chmod +x start_jupyter.sh
 
-COPY entrypoint.sh .
+COPY docker/entrypoint.sh .
 RUN chmod +x ./entrypoint*.sh
 
 

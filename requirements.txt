@@ -43,3 +43,10 @@ ujson==5.10.0
 ultralytics==8.3.131
 watchdog==6.0.0
 xxhash==3.5.0
+fastapi[standard]
+pydantic-settings-yaml
+redis
+minio
+autogen_core
+autogen-ext
+tiktoken

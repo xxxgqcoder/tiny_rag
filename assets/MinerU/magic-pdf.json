@@ -1,0 +1,37 @@
+{
+    "bucket_info": {
+        "bucket-name-1": [
+            "ak",
+            "sk",
+            "endpoint"
+        ],
+        "bucket-name-2": [
+            "ak",
+            "sk",
+            "endpoint"
+        ]
+    },
+    "latex-delimiter-config": {
+        "display": {
+            "left": "$$",
+            "right": "$$"
+        },
+        "inline": {
+            "left": "$",
+            "right": "$"
+        }
+    },
+    "llm-aided-config": {
+        "title_aided": {
+            "api_key": "your_api_key",
+            "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+            "model": "qwen2.5-32b-instruct",
+            "enable": false
+        }
+    },
+    "models-dir": {
+        "pipeline": "/Users/xcoder/.cache/huggingface/hub/models--opendatalab--PDF-Extract-Kit-1.0/snapshots/52a5c0f44ec3e52356192988ea74065a854fb735"
+    },
+    "mineru_tools_conf_json": "/Users/xcoder/projects/tiny_rag/assets/MinerU/magic-pdf.json",
+    "mineru_model_source": "local"
+}

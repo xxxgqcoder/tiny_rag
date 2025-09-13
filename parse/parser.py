@@ -1,70 +1,8 @@
-import xxhash
-from strenum import StrEnum
 from abc import ABC, abstractmethod
-from strenum import StrEnum
 
-from utils import get_hash64
-
-
-class SupportedFileType(StrEnum):
-    PDF = "pdf"
-
-
-class ChunkType(StrEnum):
-    TEXT = "text"
-    AUDIO = "audio"
-    IMAGE = "image"
-    TABLE = "table"
-
-
-class Chunk:
-    """
-    Document chunk object. A chunk can be text paragraph, or a non-text asset,
-    i.e., picture or audio.
-    """
-
-    def __init__(
-        self,
-        content_type: ChunkType,
-        file_name: str,
-        content: bytes,
-        extra_description: bytes,
-        content_url: str = '',
-    ):
-        """
-        Args:
-        - content_type: chunk content type.
-        - file_name: original file name.
-        - content: the content, represented in bytes.
-        - extra_description: content extra description.
-        - content_url: url to the content, set when content is not suitable for
-            directly insert into db, for example image / audio data.
-        """
-        super().__init__()
-
-        self.content_type = content_type
-        self.content = content
-        self.extra_description = extra_description
-        self.content_url = content_url
-        self.file_name = file_name
-        self.uuid = get_hash64(file_name.encode('utf-8', errors='ignore') + content + extra_description)
-
-    def __str__(self, ):
-        if self.content_type == ChunkType.TEXT:
-            return self.content.decode('utf-8')
-        elif self.content_type == ChunkType.IMAGE:
-            return "content is image.\n\n" \
-                + "below is the image description:\n\n" \
-                + self.extra_description.decode('utf-8') + "\n\n" \
-                + f"content url: {self.content_url}"
-        elif self.content_type == ChunkType.TABLE:
-            return "content is table.\n\n" \
-                + "below is the table decsription:\n\n" \
-                + self.extra_description.decode('utf-8') + "\n\n" \
-                + "below is table content:\n\n" \
-                + self.content.decode('utf-8')
-        else:
-            return ""
+from common.cache import singleton
+from common.data import Content, ContentType
+from common.utils import load_base64_image
 
 
 class Parser(ABC):
@@ -76,16 +14,46 @@ class Parser(ABC):
     def parse(
         self,
         file_path: str,
-        asset_save_dir: str,
-    ) -> list[Chunk]:
+    ) -> list[Content]:
         """
         parse method.
 
         Args:
         - file_path: path to the file.
-        - asset_save_dir: directory for saving parsed assets, for example images.
 
         Returns:
         - A list of parsed documents chunks.
         """
         raise NotImplementedError("Not implemented")
+
+
+@singleton
+class TextParser(Parser):
+    def parse(self, file_path: str) -> list[Content]:
+        self.file_path = file_path
+        with open(file_path, "r", encoding="utf-8") as f:
+            text = f.read()
+
+        content = Content(
+            file_path=self.file_path,
+            content_type=ContentType.TEXT,
+            content=text,
+            extra_description="",
+            content_url="",
+        )
+        return [content]
+
+
+@singleton
+class ImageParser(Parser):
+    def parse(self, file_path: str) -> list[Content]:
+        self.file_path = file_path
+        image_content = load_base64_image(file_path)
+        content = Content(
+            file_path=self.file_path,
+            content_type=ContentType.IMAGE,
+            content=image_content,
+            extra_description="",
+            content_url=file_path,
+        )
+        return [content]
