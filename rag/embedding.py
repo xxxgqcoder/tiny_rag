@@ -1,7 +1,4 @@
-import logging
-import random
 from abc import ABC, abstractmethod
-from typing import Any
 
 from ollama import Client as OllamaClient
 from ollama import EmbedResponse

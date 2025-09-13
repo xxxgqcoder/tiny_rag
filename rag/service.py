@@ -1,6 +1,5 @@
 import json
 import logging
-from typing import Any
 
 import uvicorn
 from fastapi import FastAPI

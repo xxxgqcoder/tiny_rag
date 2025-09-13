@@ -1,8 +1,6 @@
-import asyncio
 import logging
 from typing import Any
 
-import aiohttp
 import requests
 
 from common.config import TinyRAGConfig
@@ -15,10 +13,8 @@ from common.data import (
     GetDocumentResponse,
     NewDocumentRequest,
     NewDocumentResponse,
-    RationalDBRecord,
     SearchRequest,
     SearchResponse,
-    VectorDBRecord,
 )
 from rag.embedding import get_embedding_model
 
@@ -37,10 +33,6 @@ def http_call(url, request: Any, out_cls) -> Any:
         else:
             logging.error(f"Http call fail with status {response.status_code}")
             raise ValueError(f"Http call fail with status {response.status_code}")
-
-    except aiohttp.ClientError as e:
-        logging.error(f"Network error during http call: {e}")
-        raise
     except Exception as e:
         logging.error(f"Unexpected error: {e}")
         raise
