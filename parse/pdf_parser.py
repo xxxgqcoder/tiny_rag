@@ -205,6 +205,15 @@ class PDFParser(Parser):
             if content["type"] == "table":
                 return "table_body" in content
             return True
+        
+        def _format_caption(caption: Any) -> str:
+            """
+            Format caption as text.
+            """
+            if isinstance(caption, list):
+                ret = "\n".join([str(e) for e in caption])
+                return ret
+            return str(caption)
 
         def _format_caption(caption: Any) -> str:
             """
@@ -271,7 +280,8 @@ class PDFParser(Parser):
                     extra_description = "no caption for this table"
 
                 table_body = content.get("table_body", "")
-                extra_description += "\n\n\n\nTable content:\n" + table_body
+                # NOTE: ignore table body
+                # extra_description += "\n\n\n\nTable content:\n" + table_body
 
                 abs_img_path = os.path.join(temp_asset_dir, str(Path(self.file_path).stem), "auto", content["img_path"])
                 if content["img_path"]:

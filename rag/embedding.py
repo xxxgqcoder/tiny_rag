@@ -39,7 +39,7 @@ class Qwen3Embedding(EmbeddingModel):
         return "embedding::text_hash::" + hash64(content.encode("utf-8", errors="ignore"))
 
     @time_it(prefix="Qwen3 ebmedding")
-    @cache_it(key_generator=key_generator)
+    @cache_it(key_generator=key_generator, key_ttl_seconds=60 * 60 * 24 * 30)
     def encode(self, texts: list[str], **kwargs) -> list[list[float]]:
         prompt_name = kwargs.get("prompt_name", None)
         if prompt_name:
