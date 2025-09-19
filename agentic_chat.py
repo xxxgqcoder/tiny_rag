@@ -679,10 +679,8 @@ class GeneratorAgent(RoutedAgent):
         is_generating = False
         console = Console()
         response_content = ""
+        print("", end="\r", flush=True)
         async for r in completion:
-            if not is_generating:
-                print("", end="\r", flush=True)
-
             if not isinstance(r, str):
                 break
             console.print(str(r), end="")
