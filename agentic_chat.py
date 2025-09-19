@@ -212,7 +212,6 @@ Below is user original query:
 Think step by step about what to do next, then output result in required format.
 """
 
-
 PROMPT_RERANK = """
 # Task and role
 You are a search result re-ranker. Your goal is to filter search IDs of result that is related to user query.
@@ -676,11 +675,13 @@ class GeneratorAgent(RoutedAgent):
         # print response
         # reset global generating flag
         global is_generating
-        is_generating = False
         console = Console()
         response_content = ""
-        print("", end="\r", flush=True)
         async for r in completion:
+            if is_generating:
+                is_generating = False
+                print("", end="\r", flush=True)
+
             if not isinstance(r, str):
                 break
             console.print(str(r), end="")
