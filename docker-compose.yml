@@ -31,12 +31,11 @@ services:
     ports:
       - "4500:4500"
     environment:
-      MINIO_ENDPOINT: minio
-      MINIO_PORT: 6100
-      MINIO_ACCESS_KEY: minioadmin
-      MINIO_SECRET_KEY: minioadmin
-      REDIS_HOST: redis
-      REDIS_PORT: 23456
+      - TINY_RAG@@search_service_port=4500
+      - TINY_RAG@@cache_config@@conn_url=redis://redis:23456/0
+      - TINY_RAG@@object_store_config@@conn_url=minio:6100
+      - TINY_RAG@@object_store_config@@user=minioadmin
+      - TINY_RAG@@object_store_config@@token=minioadmin
     volumes:
       - tiny_rag_data:/var/data/tiny_rag
     depends_on:

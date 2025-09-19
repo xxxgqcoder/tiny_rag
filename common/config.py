@@ -70,7 +70,8 @@ class Config(BaseSettings):
     root_data_dir: str = Field("data", description="Root directory for all data storage.")
     max_context_token_num: int = Field(64000, description="Maximum number of tokens in the context.")
     host_file_dir: str = Field("", description="Directory for host files.")
-    ignore_path_pattern: list[str] = Field(..., description="List of path patterns to ignore.")
+    ignore_path_patterns: list[str] = Field(..., description="List of path patterns to ignore.")
+    support_file_types: list[str] = Field(..., description="List of supported file types.")
 
     parser_config: ParserConfig = Field(..., description="Parser configuration.")
     rational_db_config: RationalDBConfig = Field(..., description="Rational database configuration.")

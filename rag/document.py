@@ -14,7 +14,7 @@ from parse.chunking import get_chunking_by_file_type
 from parse.parser import Parser
 from rag.embedding import EmbeddingModel, get_embedding_model
 from rag.functions import delete_document, get_all_document, get_document, upsert_document
-from rag.llm import ChatModel, get_chat_model, get_vision_model
+from rag.llm import get_vision_model
 
 
 def _format_md_content(content_list: list[Content]) -> str:
@@ -36,7 +36,6 @@ def process_new_file(file_path: str):
         logging.info(f"{file_path}: ignore")
         return
 
-    chat_model: ChatModel = get_chat_model()
     embedding_model: EmbeddingModel = get_embedding_model()
 
     # get file content hash
@@ -62,8 +61,8 @@ def process_new_file(file_path: str):
     stored_content_hash = ""
     try:
         stored_content_hash = document_record.document.content_hash  # type: ignore
-    except:
-        pass
+    except Exception as e:
+        logging.error(f"{file_path}: get stored content hash error: {e}")
     if stored_content_hash == file_content_hash:
         logging.info(f"{file_path}: content hash ({file_content_hash}) unchanged, ignore")
         return
@@ -84,21 +83,6 @@ def process_new_file(file_path: str):
     chunks = chunker.chunk(contents=content_list)
     logging.info(f"{file_path}: total {len(chunks)} chunks")
 
-    # NOTE: add title, authors and keywords to each chunk cause search to focus on meta info of each chunk.
-    # # add document meta data to chunk
-    # md_content = _format_md_content(content_list=content_list)
-    # content = _ensure_max_token(md_content, 2000)
-    # document_meta = chat_model.instant_chat(prompt=PROMPT_DOCUMENT_META.format(content=content))
-    # logging.info(f"{file_name}: document meta:\n{document_meta}")
-
-    # for chunk in chunks:
-    #     if chunk.content_type == ContentType.TEXT:
-    #         chunk.content = chunk.content + "\n\n\n\n" + f"<document_meta>\n{document_meta}\n</document_meta>"
-    #     else:
-    #         chunk.extra_description = (
-    #             chunk.extra_description + "\n\n\n\n" + f"<document_meta>\n{document_meta}\n</document_meta>"
-    #         )
-
     # process image chunks
     vision_model = get_vision_model()
     for chunk in chunks:
@@ -110,7 +94,9 @@ def process_new_file(file_path: str):
             prompt="summarize what you see in the picture",
             image_content=chunk.content,
         )
-        chunk.extra_description = chunk.extra_description + "\n\n\n\n" + img_description
+        chunk.extra_description = (
+            chunk.extra_description + "\n\n\n\n" + f"<llm_description>{img_description}</llm_description>"
+        )
 
     # embedding chunks
     embedding_max_token_num = 16 * 1024
@@ -154,22 +140,21 @@ def _ignore_file(file_path: str) -> bool:
     Returns:
     - bool, true if file_path should be ignored.
     """
-    for pattern in TinyRAGConfig.ignore_path_pattern:
+    # ignore by path pattern
+    for pattern in TinyRAGConfig.ignore_path_patterns:
         if pattern in file_path:
             return True
-    file_name = os.path.basename(file_path)
+
     # ignore hidden file
+    file_name = os.path.basename(file_path)
     if file_name.startswith("."):
         return True
 
     # ignore non-supported file postfix
     postifx = file_name.rsplit(".", 1)[-1]
-    if postifx in ["pdf", "docx", "ppt", "md", "txt"]:
-        return False
-    if postifx in ["png", "jpg", "jpeg", "bmp", "gif"]:
-        return False
-
-    return True
+    if postifx not in TinyRAGConfig.support_file_types:
+        return True
+    return False
 
 
 # --------------------------------------------------------------------------------------------------------
@@ -204,6 +189,16 @@ def on_process_delete_file(file_path: str) -> None:
 
 
 class FileHandler(FileSystemEventHandler):
+    def dispatch(self, event):
+        """
+        Ignore symbolic links
+        """
+        if os.path.islink(event.src_path) or os.path.islink(event.dest_path):
+            logging.info(f"{event.src_path} or {event.dest_path} is a symbolic link, ignore")
+            return
+
+        super().dispatch(event)
+
     def on_any_event(self, event: FileSystemEvent) -> None:
         job_executor = get_job_executor()
         src_path = event.src_path
@@ -220,11 +215,7 @@ class FileHandler(FileSystemEventHandler):
             if not os.path.isdir(src_path):
                 job_executor.submit(on_process_delete_file, file_path=src_path)
 
-        elif event.event_type == events.EVENT_TYPE_CREATED:
-            if not os.path.isdir(src_path):
-                job_executor.submit(on_process_new_file, file_path=src_path)
-
-        elif event.event_type == events.EVENT_TYPE_MODIFIED:
+        elif event.event_type == events.EVENT_TYPE_CREATED or event.event_type == events.EVENT_TYPE_MODIFIED:
             if not os.path.isdir(src_path):
                 job_executor.submit(on_process_new_file, file_path=src_path)
 
@@ -268,7 +259,7 @@ def main():
 
     observer.join()
 
-    logging.info(f"shutdown")
+    logging.info("shutdown")
 
 
 if __name__ == "__main__":

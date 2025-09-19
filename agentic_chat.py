@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import os
@@ -30,17 +31,18 @@ from rich.markdown import Markdown
 
 import common.utils as utils
 from common.config import TinyRAGConfig
-from common.data import Chunk
+from common.data import Chunk, ContentType
 from common.utils import estimate_token_num, init_root_logger
 from rag.functions import search
-from rag.llm import assemble_knowledge_base
+
+from rag.llm import assemble_knowledge_base, format_reference_info
 from rag.prompt import promot_citation, prompt_system
 
-chat_host = "http://127.0.0.1:11434"
-chat_model = "qwen3:30b-a3b-thinking-2507-q4_K_M"
-
+# global args
 max_token_num = 32 * 1024
 is_generating = False
+query_rewrite_num = 3
+search_limit = 5
 
 # ------------------------------------------------------------------------------
 # Util funcs
@@ -75,6 +77,7 @@ def _max_token_truncate(history: list[str], max_token_num: int) -> int:
     return index
 
 
+_log_divider = "\n" + "*" * 80 + "\n"
 # ------------------------------------------------------------------------------
 # Messages
 
@@ -105,67 +108,72 @@ class GenerationRequest(BaseModel):
 # ------------------------------------------------------------------------------
 # Prompts
 PROMPT_QUERY_REWRITE = """
+# Task & role
 You are a search assistant. Your goal is to generate sophisticated and diverse search queries.
 These queries are intended for an advanced automated research tool capable of analyzing complex results, expand topics based on user query and synthesizing information.
 
-Below is history user queries:
 
-{history_queries}
+# Instructions:
 
-Above is history user queries.
-
-
-Instructions:
 - Always prefer a single search query, only add another query if the original question requests multiple aspects or elements and one query is not enough.
 - Each query should focus on one specific aspect of the original question.
 - Don't produce more than {num_queries} queries.
 - Queries should be diverse, if the topic is broad, generate more than 1 query.
 - Don't generate multiple similar queries, one is enough.
 
-Format:
+# Output Format:
+
 - Format your response as a JSON object with ALL two of these exact keys:
 - "rational": Brief explanation of why these queries are relevant
 - "query": A list of search queries
 
 
-Below is one output example given original query:
+## Input and output example
 
 Original query: What revenue grew more last year apple stock or the number of people buying an iphone
 
+Output
 {{
     "rational": "To answer this comparative growth question accurately, we need specific data points on Apple's stock performance and iPhone sales metrics. These queries target the precise financial information needed: company revenue trends, product-specific unit sales figures, and stock price movement over the same fiscal period for direct comparison.",
     "query": ["Apple total revenue growth fiscal year 2024", "iPhone unit sales growth fiscal year 2024", "Apple stock price growth fiscal year 2024"],
 }}
 
-Above is one output example given original query.
+----
 
+# Input
+
+Below is history user queries:
+
+{history_queries}
+----
 
 Below is the original query:
 
 {original_query}
+----
 
-Above is the original query.
+# Output
+Think step by step and generate queries in required format.
 """
 
 PROMPT_QUERY_PARSE = """
+# Task and role
 You are a query understanding agent in a research conversation and working with other agents. 
 Your role is to parse user query and determine what to do next given conversation history.
 
-Below is history conversations:
 
-{history_conversation}
-
-Above is history conversations.
-
-Instructions:
+# Instructions:
 - User query may not necessary trigger query action when history information is sufficient. In this case you can just return 'context_sufficient'.
 - If current context is not sufficient to answer user question, you need to return `query`.
 
 
-Format:
+# Output format:
 - Format your response as a JSON object with ALL two of these exact keys:
     - "rational": "Brief explanation of why the action is necessary.",
     - "action": "next action item."
+
+    
+## Output example
 
 Below is fist output example given original query:
 
@@ -175,8 +183,7 @@ Original query: What is RoPE positional encoding.
     "rational": "No related content found for user .",
     "action": "query"
 }}
-
-Above is first output example given original query:
+----
 
 
 Below is second output example given original query:
@@ -184,14 +191,58 @@ Below is second output example given original query:
 Original query: What is the difference between RoPE positional encoding and absolute postional encoding.
 
 {{
-    "rational": "Context is sufficient to answer user query.",
+    "rational": "Context has covered user question.",
     "action": "context_sufficient"
 }}
 
-Above is second output example given original query:
+
+# Input
+Below is history conversations:
+
+{history_conversation}
+
 
 Below is user original query:
 {user_query}
+
+
+# Output
+Think step by step about what to do next, then output result in required format.
+"""
+
+
+PROMPT_RERANK = """
+# Task and role
+You are a search result re-ranker. Your goal is to determine is search result is related to user query.
+
+# Instructions:
+You only need to output "yes" if search result is relevant to query, otherwise output "no".
+
+
+# Example
+
+query:
+What is RoPE positional encoding?
+
+
+search result:
+attention is widely used concept in deep learning.
+
+outout:
+no
+
+# Input
+Below is the query:
+
+{query}
+----
+
+Below is the search result:
+
+{search_result}
+
+# Output
+Think step by step and output result in required format.
 """
 
 
@@ -216,7 +267,9 @@ class QueryMasterAgent(RoutedAgent):
 
     @message_handler
     async def handle_chat_message(self, message: ChatMessage, ctx: MessageContext) -> None:
-        logging.info(f"{'-' * 80 + '\n' + self.id.type} handle chat message:\n{json.dumps(message.model_dump(), indent=4, ensure_ascii=False, default=str)}")
+        logging.info(
+            f"{_log_divider + self.id.type} handle chat message:\n{json.dumps(message.model_dump(), indent=4, ensure_ascii=False, default=str)}{_log_divider}"
+        )
 
         if isinstance(message.body, SystemMessage):
             # insert or update system message
@@ -253,16 +306,20 @@ class QueryMasterAgent(RoutedAgent):
             history_conversation="\n".join(history_conversation),
             user_query=message.body.content,
         )
-        logging.info(f"{'-' * 80 + '\n' + self.id.type} intent identify prompt:\n{prompt}")
+        logging.info(f"{_log_divider + self.id.type} intent identify prompt:\n{prompt}")
 
         completion = await self._model_client.create(
             [SystemMessage(content=prompt)],
             cancellation_token=ctx.cancellation_token,
         )
-        logging.info(f"{'-' * 80 + '\n' + self.id.type}: completion response:\n{json.dumps(completion.model_dump(), indent=4, ensure_ascii=False, default=str)}")
+        logging.info(
+            f"{_log_divider + self.id.type}: completion response:\n{json.dumps(completion.model_dump(), indent=4, ensure_ascii=False, default=str)}{_log_divider}"
+        )
 
         reduced_completion_content = re.sub(r"<think>[.\S\s]*</think>", "", str(completion.content)).strip()
-        logging.info(f"{'-' * 80 + '\n' + self.id.type}: reduced query response:\n{reduced_completion_content}")
+        logging.info(
+            f"{_log_divider + self.id.type}: reduced query response:\n{reduced_completion_content}{_log_divider}"
+        )
 
         # next action
         parse_result = json.loads(reduced_completion_content)
@@ -274,7 +331,7 @@ class QueryMasterAgent(RoutedAgent):
 
         if query_parse_result.action == "context_sufficient":
             logging.info(
-                f"{'-' * 80 + '\n' + self.id.type}: model thinks context is sufficient, trigger answer generation"
+                f"{_log_divider + self.id.type}: model thinks context is sufficient, trigger answer generation{_log_divider}"
             )
             await self.publish_message(
                 message=GenerationRequest(),
@@ -313,12 +370,16 @@ class QueryRewriterAgent(RoutedAgent):
     async def handle_chat_message(self, message: ChatMessage, ctx: MessageContext) -> None:
         if isinstance(message.body, UserMessage):
             # rewriter only considers user messages
-            logging.info(f"{'-' * 80 + '\n' + self.id.type}: append user chat message:\n{json.dumps(message.model_dump(), indent=4, ensure_ascii=False, default=str)}")
+            logging.info(
+                f"{_log_divider + self.id.type}: append user chat message:\n{json.dumps(message.model_dump(), indent=4, ensure_ascii=False, default=str)}{_log_divider}"
+            )
             self._user_query_history.append(message)
 
     @message_handler
     async def handle_query_parse_result_message(self, message: QueryParseResult, ctx: MessageContext) -> None:
-        logging.info(f"{'-' * 80 + '\n' + self.id.type}: handle query rewrite message:\n{json.dumps(message.model_dump(), indent=4, ensure_ascii=False, default=str)}")
+        logging.info(
+            f"{_log_divider + self.id.type}: handle query rewrite message:\n{json.dumps(message.model_dump(), indent=4, ensure_ascii=False, default=str)}{_log_divider}"
+        )
 
         # format history queries
         history_queries = []
@@ -328,7 +389,7 @@ class QueryRewriterAgent(RoutedAgent):
             if not isinstance(msg.body, UserMessage):
                 continue
 
-            query = f"Query: {msg.body.content}\n" + f"{'-' * 8}\n"
+            query = f"Query: {msg.body.content}\n" + f"{'-' * 4}\n"
             history_queries.append(query)
         idx = _max_token_truncate(history_queries, max_token_num=int(max_token_num * 0.8))
         history_queries = history_queries[: idx + 1]
@@ -340,15 +401,19 @@ class QueryRewriterAgent(RoutedAgent):
             original_query=message.original_query,
             history_queries="\n".join(history_queries),
         )
-        logging.info(f"{'-' * 80 + '\n' + self.id.type}: query rewrite prompt:\n{prompt}")
+        logging.info(f"{_log_divider + self.id.type}: query rewrite prompt:\n{prompt}{_log_divider}")
 
         completion = await self._model_client.create(
             [SystemMessage(content=prompt)], cancellation_token=ctx.cancellation_token
         )
-        logging.info(f"{'-' * 80 + '\n' + self.id.type}: completion response:\n{json.dumps(completion.model_dump(), indent=4, ensure_ascii=False, default=str)}")
+        logging.info(
+            f"{_log_divider + self.id.type}: completion response:\n{json.dumps(completion.model_dump(), indent=4, ensure_ascii=False, default=str)}{_log_divider}"
+        )
 
         reduced_completion_content = re.sub(r"<think>[.\s\S]*</think>", "", str(completion.content))
-        logging.info(f"{'-' * 80 + '\n' + self.id.type}: reduced comletion content:\n{reduced_completion_content}")
+        logging.info(
+            f"{_log_divider + self.id.type}: reduced comletion content:\n{reduced_completion_content}{_log_divider}"
+        )
 
         query = json.loads(reduced_completion_content)
         search_request = SearchRequest(query=query.get("query", []))
@@ -370,37 +435,70 @@ class SearchAgent(RoutedAgent):
         description: str,
         model_client: ChatCompletionClient,
         chat_topic_type: str,
+        search_limit: int,
     ) -> None:
         super().__init__(description=description)
         self._description = description
         self._model_client = model_client
         self._chat_topic_type = chat_topic_type
+        self._search_limit = search_limit
+        self._semaphore = asyncio.Semaphore(8)
 
-    def search(self, query: str) -> list[Chunk]:
-        # get search result
-
+    async def search(self, query: str, limit: int = 3) -> list[Chunk]:
         response = search(
             query=query,
-            prompt_name="query",
-            limit=2,
+            prompt_name="query: ",
+            limit=limit,
         )
         if response and response.chunks:
             return response.chunks
         return []
 
+    async def rerank(self, query: str, chunks: list[Chunk]) -> list[Chunk]:
+        async def _rank_task(query: str, chunk: Chunk) -> str:
+            async with self._semaphore:
+                prompt = PROMPT_RERANK.format(
+                    query=query,
+                    search_result=chunk.content if chunk.content_type == ContentType.TEXT else chunk.extra_description,
+                )
+                completion = await self._model_client.create([SystemMessage(content=prompt)])
+                reduced_output = re.sub(r"<think>[.\s\S]*</think>", "", str(completion.content)).strip().lower()
+                logging.info(
+                    f"{'\n' + _log_divider + self.id.type} rerank:\nprompt:\n{prompt}\noutput:\n{completion.content}\nreduced output:{reduced_output}{_log_divider}"
+                )
+                return reduced_output
+
+        tasks = [_rank_task(query, chunk) for chunk in chunks]
+        results = await asyncio.gather(*tasks)
+        filtered_chunks = []
+        for i, res in enumerate(results):
+            if res == "yes":
+                filtered_chunks.append(chunks[i])
+        logging.info(
+            f"Rerank {len(chunks)} chunks, {len(filtered_chunks)} are related to query:\n{query}{_log_divider}"
+        )
+        return filtered_chunks
+
     @message_handler
     async def handle_search_message(self, message: SearchRequest, ctx: MessageContext) -> None:
-        logging.info(f"{'-' * 80 + '\n' + self.id.type}:\nhandle search request:\n{json.dumps(message.model_dump(), indent=4, ensure_ascii=False, default=str)}")
+        logging.info(
+            f"{_log_divider + self.id.type}:\nhandle search request:\n{json.dumps(message.model_dump(), indent=4, ensure_ascii=False, default=str)}{_log_divider}"
+        )
 
         all_chunks = []
         for query in message.query:
-            ret = self.search(query=query)
+            ret = await self.search(query=query, limit=self._search_limit)
             all_chunks.extend(ret)
+
+        # rank result
+        all_chunks = await self.rerank(query="; ".join(message.query), chunks=all_chunks)
 
         # assemble knowledge base
         knowledge_base, refid2meta = assemble_knowledge_base(all_chunks)
-        logging.info(f"{'-' * 80 + '\n' + self.id.type}:\nknowledge base:\n{knowledge_base}")
-        logging.info(f"{'-' * 80 + '\n' + self.id.type}:\nreference meta:\n{json.dumps(refid2meta, indent=4, ensure_ascii=False, default=str)}")
+        logging.info(f"{_log_divider + self.id.type}:\nknowledge base:\n{knowledge_base}{_log_divider}")
+        logging.info(
+            f"{_log_divider + self.id.type}:\nreference meta:\n{json.dumps(refid2meta, indent=4, ensure_ascii=False, default=str)}{_log_divider}"
+        )
 
         # publish system knowledge base update message
         await self.publish_message(
@@ -434,7 +532,9 @@ class GeneratorAgent(RoutedAgent):
 
     @message_handler
     async def handle_chat_message(self, message: ChatMessage, ctx: MessageContext) -> None:
-        logging.info(f"{'-' * 80 + '\n' + self.id.type} handle chat message:\n{json.dumps(message.model_dump(), indent=2, ensure_ascii=False, default=str)}")
+        logging.info(
+            f"{_log_divider + self.id.type} handle chat message:\n{json.dumps(message.model_dump(), indent=2, ensure_ascii=False, default=str)}{_log_divider}"
+        )
 
         # update system knowledge message
         if isinstance(message.body, SystemMessage):
@@ -451,7 +551,9 @@ class GeneratorAgent(RoutedAgent):
 
     @message_handler
     async def handle_generation_request(self, message: GenerationRequest, ctx: MessageContext) -> None:
-        logging.info(f"{'-' * 80 + '\n' + self.id.type} handle generation request:\n{json.dumps(message.model_dump(), indent=4, ensure_ascii=False, default=str)}")
+        logging.info(
+            f"{_log_divider + self.id.type} handle generation request:\n{json.dumps(message.model_dump(), indent=4, ensure_ascii=False, default=str)}{_log_divider}"
+        )
         # assemble knwoledge base and history
         knowledge_base_msg: ChatMessage | None = None
         knowledge_base = ""
@@ -466,8 +568,10 @@ class GeneratorAgent(RoutedAgent):
             refid2meta = knowledge_base_msg.meta
         knowledge_base_prompt = prompt_system.format(knowledge_base=knowledge_base) + f"\n{'-' * 8}\n" + promot_citation
 
-        logging.info(f"{'-' * 80 + '\n' + self.id.type}:\nknowledge base prompt:\n{knowledge_base_prompt}")
-        logging.info(f"{'-' * 80 + '\n' + self.id.type}:\nreference meta:\n{json.dumps(refid2meta, indent=4, ensure_ascii=False, default=str)}")
+        logging.info(f"{_log_divider + self.id.type}:\nknowledge base prompt:\n{knowledge_base_prompt}{_log_divider}")
+        logging.info(
+            f"{_log_divider + self.id.type}:\nreference meta:\n{json.dumps(refid2meta, indent=4, ensure_ascii=False, default=str)}{_log_divider}"
+        )
 
         # assemble history conversations
         conversations: list[UserMessage] = []
@@ -484,7 +588,7 @@ class GeneratorAgent(RoutedAgent):
         conversations.reverse()
 
         # get model response
-        completion = await self._model_client.create(
+        completion = self._model_client.create_stream(
             [SystemMessage(content=knowledge_base_prompt)] + conversations,
             cancellation_token=ctx.cancellation_token,
         )
@@ -495,18 +599,23 @@ class GeneratorAgent(RoutedAgent):
         is_generating = False
 
         print("", end="\r", flush=True)
-        Console().print(Markdown(_escape_markdown(str(completion.content))))
+        console = Console()
+        response_content = ""
+        async for r in completion:
+            if not isinstance(r, str):
+                break
+            console.print(str(r), end="")
+            response_content += str(r) 
 
-        # print reference
-        from rag.llm import format_reference_info
-
-        formatted_ref = format_reference_info(refid2meta, str(completion.content))
-        logging.info(f"{'-' * 80 + '\n' + self.id.type}:\nformatted reference data:\n{formatted_ref}")
-        Console().print(Markdown(_escape_markdown(formatted_ref)))
+        formatted_ref = format_reference_info(refid2meta, str(response_content))
+        logging.info(f"{_log_divider + self.id.type}:\nformatted reference data:\n{formatted_ref}{_log_divider}")
+        console.print(Markdown(_escape_markdown(formatted_ref)))
+        print("", flush=True)
+        
 
         # publish assistance message
         await self.publish_message(
-            message=ChatMessage(body=AssistantMessage(content=completion.content, source="Assistant")),
+            message=ChatMessage(body=AssistantMessage(content=response_content, source="Assistant")),
             topic_id=DefaultTopicId(type=self._chat_topic_type),
         )
 
@@ -570,9 +679,6 @@ async def main():
     job_executor = get_job_executor()
     job_executor.submit(print_loading_mark)
 
-    # model client
-    model_client = OllamaChatCompletionClient(model=chat_model, **TinyRAGConfig.gen_conf.model_dump())
-
     # register agents
     runtime = SingleThreadedAgentRuntime()
 
@@ -593,7 +699,9 @@ async def main():
         runtime,
         "query_master",
         lambda: QueryMasterAgent(
-            model_client=model_client,
+            model_client=OllamaChatCompletionClient(
+                model="qwen3:30b-a3b-instruct-2507-q4_K_M", **TinyRAGConfig.gen_conf.model_dump()
+            ),
             description=query_master_desc,
             query_rewriter_topic_type=query_rewriter_topic_type,
             chat_topic_type=chat_topic_type,
@@ -607,9 +715,11 @@ async def main():
         runtime,
         query_rewriter_topic_type,  # topic type as agent type
         lambda: QueryRewriterAgent(
-            model_client=model_client,
+            model_client=OllamaChatCompletionClient(
+                model="qwen3:8b-q4_K_M", **TinyRAGConfig.gen_conf.model_dump()
+            ),
             description=query_rewriter_desc,
-            num_queries=4,
+            num_queries=query_rewrite_num,
             search_topic_type=search_topic_type,
         ),
     )
@@ -624,9 +734,11 @@ async def main():
         runtime,
         search_topic_type,  # topic type as agent type
         lambda: SearchAgent(
-            model_client=model_client,
+            model_client=OllamaChatCompletionClient(model="qwen3:8b-q4_K_M", **TinyRAGConfig.gen_conf.model_dump()),
+            # model_client=OllamaChatCompletionClient(model="qwen3:4b-thinking-2507-q4_K_M", **TinyRAGConfig.gen_conf.model_dump()),
             description=search_desc,
             chat_topic_type=chat_topic_type,
+            search_limit=search_limit,
         ),
     )
     # listen to search_topic_type topic
@@ -637,7 +749,9 @@ async def main():
         runtime,
         "generator_agent",
         lambda: GeneratorAgent(
-            model_client=model_client,
+            model_client=OllamaChatCompletionClient(
+                model="qwen3:30b-a3b-thinking-2507-q4_K_M", **TinyRAGConfig.gen_conf.model_dump()
+            ),
             description=generator_desc,
             chat_topic_type=chat_topic_type,
         ),
@@ -659,7 +773,7 @@ async def main():
             user_input = parse_user_instruct(user_input=user_input)
             if not user_input:
                 continue
-            logging.info(f"begin to process user input: {user_input}")
+            logging.info(f"Begin to process user input: {user_input}")
 
             is_generating = True
             await runtime.publish_message(
@@ -679,7 +793,5 @@ async def main():
         except EOFError:
             os._exit(0)
 
-
-import asyncio
 
 asyncio.run(main())
