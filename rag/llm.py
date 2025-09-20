@@ -282,11 +282,11 @@ def format_reference_info(reference_meta: dict[str, dict[str, Any]], answer: str
         ref_info += f"<reference ID={ref_id}>,"
         ref_info += "file=" + meta.get("file_path", "")
         if meta["content_url"]:
-            ref_info += "url=" + meta["content_url"] + ","
+            ref_info += ",url=" + meta["content_url"] + ","
 
         chunk_begin_digest = " ".join(meta["chunk_begin_digest"])
         chunk_end_digest = " ".join(meta["chunk_end_digest"])
-        ref_info += "ref content=" + f"{chunk_begin_digest} ... {chunk_end_digest}"
+        ref_info += ",ref content=" + f"{chunk_begin_digest} ... {chunk_end_digest}"
         formatted_reference_info += ref_info + "\n\n"
 
     return formatted_reference_info
