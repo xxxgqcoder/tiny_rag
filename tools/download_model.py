@@ -75,6 +75,9 @@ def download_mineru_model(project_dir: str):
         ModelPath.pytorch_paddle,
         ModelPath.layout_reader,
         ModelPath.slanet_plus,
+        ModelPath.unet_structure,
+        ModelPath.paddle_table_cls,
+        ModelPath.paddle_orientation_classification,
     ]
     downloaded_model_dir = ""
     for model_path in model_paths:
@@ -82,29 +85,10 @@ def download_mineru_model(project_dir: str):
         downloaded_model_dir = download_mineru_model_weight(model_path, repo_mode="pipeline")
     print(f"donwloaded model path: {downloaded_model_dir}")
 
-    # copy model
-    target_dir = os.path.join(project_dir, "assets/MinerU/")
-    if os.path.exists(target_dir):
-        shutil.rmtree(target_dir)
-    os.makedirs(target_dir, exist_ok=True)
-    shutil.copytree(
-        src=downloaded_model_dir,
-        dst=target_dir,
-        dirs_exist_ok=True,
-        symlinks=False,
-    )
-    print(f"copy model from {downloaded_model_dir} to {target_dir}")
-
     # modify json config file
     config_file_name = "magic-pdf.json"
     config_file_path = os.path.join(project_dir, "assets/MinerU", config_file_name)
-    json_modification = {
-        "models-dir": {
-            "pipeline": "<project_root_dir>/assets/MinerU/",
-        },
-        "consecutive_block_num": 8,
-        "block_overlap_num": 3,
-    }
+    json_modification = {}
     data = {
         "bucket_info": {
             "bucket-name-1": ["ak", "sk", "endpoint"],
@@ -122,11 +106,11 @@ def download_mineru_model(project_dir: str):
                 "enable": False,
             },
         },
+        "mineru_tools_conf_json": config_file_path,
+        "mineru_model_source": "local",
         "models-dir": {
-            "pipeline": "",
+            "pipeline": downloaded_model_dir,
         },
-        "consecutive_block_num": 0,
-        "block_overlap_num": 0,
     }
 
     for key, value in json_modification.items():
@@ -228,8 +212,8 @@ if __name__ == "__main__":
     project_dir = os.path.realpath(file_dir + "/..")
     print(f"project directory: {project_dir}")
 
-    # download_mineru_model(project_dir)
-    # print("finish downloading MinerU model")
+    download_mineru_model(project_dir)
+    print("finish downloading MinerU model")
 
     # download_bge_m3_model(project_dir)
     # print("finish downloading BGE-M3 model")

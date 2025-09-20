@@ -39,7 +39,7 @@ class PDFParser(Parser):
         Logger.info(f"Parsr config: {json.dumps(conf, indent=4)}")
 
         # set environment variable for magic_pdf to load config json file
-        os.environ["MINERU_TOOLS_CONFIG_JSON"] = conf.get("mineru_tools_conf_json", "")
+        os.environ["MINERU_TOOLS_CONFIG_JSON"] = TinyRAGConfig.parser_config.config_file_path
         os.environ["MINERU_MODEL_SOURCE"] = conf.get("mineru_model_source", "local")
 
     def key_generator(self, file_path) -> str:
@@ -215,15 +215,6 @@ class PDFParser(Parser):
             if content["type"] == "table":
                 return "table_body" in content
             return True
-        
-        def _format_caption(caption: Any) -> str:
-            """
-            Format caption as text.
-            """
-            if isinstance(caption, list):
-                ret = "\n".join([str(e) for e in caption])
-                return ret
-            return str(caption)
 
         def _format_caption(caption: Any) -> str:
             """
