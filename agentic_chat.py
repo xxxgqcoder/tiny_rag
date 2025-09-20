@@ -194,7 +194,6 @@ class QueryMasterAgent(RoutedAgent):
         except Exception as e:
             Logger.error(f"{self.id.type}: fail to parse query parse result: {reduced_completion_content}\n{e}")
 
-
         if not query_action:
             query_action = QueryParseResult(
                 rational="", action="context_sufficient", original_query=str(message.body.content)
