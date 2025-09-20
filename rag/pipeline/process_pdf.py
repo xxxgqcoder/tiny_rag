@@ -9,7 +9,8 @@ from io import TextIOWrapper
 
 from common.config import TinyRAGConfig
 from common.data import Content, ContentType
-from common.utils import estimate_token_num, load_base64_image, time_it, Logger
+from common.utils import estimate_token_num, load_base64_image, time_it
+from common.logger import Logger
 from rag.llm import get_chat_model, get_vision_model
 
 line_breaker = "\n\n"

@@ -7,7 +7,8 @@ from watchdog.observers import Observer
 
 from common.config import TinyRAGConfig
 from common.data import Content, ContentType, GetDocumentResponse
-from common.utils import ensure_max_token, hash64, logging_exception, run_once, time_it, Logger
+from common.utils import ensure_max_token, hash64, logging_exception, run_once, time_it
+from common.logger import Logger
 from parse import get_parser_by_file_type
 from parse.chunking import get_chunking_by_file_type
 from parse.parser import Parser
