@@ -194,6 +194,7 @@ class QueryMasterAgent(RoutedAgent):
         except Exception as e:
             Logger.error(f"{self.id.type}: fail to parse query parse result: {reduced_completion_content}\n{e}")
 
+
         if not query_action:
             query_action = QueryParseResult(
                 rational="", action="context_sufficient", original_query=str(message.body.content)
@@ -219,7 +220,11 @@ class QueryMasterAgent(RoutedAgent):
                 topic_id=DefaultTopicId(type=self._query_rewriter_topic_type),
             )
         else:
-            raise Exception(f"{self.id.type}: invalid action: {query_action.action}")
+            logging.error(f"{self.id.type}: invalid action: {query_action.action}")
+            await self.publish_message(
+                message=GenerationRequest(),
+                topic_id=DefaultTopicId(type=self._chat_topic_type),
+            )
 
         Logger.info(
             f"{_log_divider + self.id.type}: query parse done, time elapsed: {time.time() - step_time:.2f} seconds"
