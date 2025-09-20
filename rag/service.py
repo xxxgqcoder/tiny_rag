@@ -1,5 +1,4 @@
 import json
-import logging
 
 import uvicorn
 from fastapi import FastAPI
@@ -19,7 +18,7 @@ from common.data import (
     SearchResponse,
     VectorDBRecord,
 )
-from common.utils import logging_exception
+from common.utils import logging_exception, Logger
 from rag.db import (
     ObjectStore,
     RationalDB,
@@ -198,12 +197,12 @@ async def delete_document(request: DeleteDocumentRequest) -> DeleteDocumentRespo
 
     # delete from rational db
     delete_cnt = rational_db.delete_document(file_path=file_path)
-    logging.info(f"Deleted {delete_cnt} records from rational db for document: {file_path}")
+    Logger.info(f"Deleted {delete_cnt} records from rational db for document: {file_path}")
 
     # delete from vector db
     uuids = record.chunk_uuids.split("\x07")
     delete_cnt = vector_db.delete(keys=uuids)
-    logging.info(f"Deleted {delete_cnt} records from vector db for chunk: {file_path}")
+    Logger.info(f"Deleted {delete_cnt} records from vector db for chunk: {file_path}")
 
     # delete from object store
     try:
@@ -252,8 +251,8 @@ async def search(request: SearchRequest) -> SearchResponse:
 
 if __name__ == "__main__":
     # set up service
-    logging.info(f"Server started on port {TinyRAGConfig.search_service_port}")
+    Logger.info(f"Server started on port {TinyRAGConfig.search_service_port}")
 
     uvicorn.run(app, host="0.0.0.0", port=TinyRAGConfig.search_service_port)
 
-    logging.info(f"Server shutting down")
+    Logger.info(f"Server shutting down")

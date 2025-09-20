@@ -1,4 +1,3 @@
-import logging
 from typing import Any
 
 import requests
@@ -17,6 +16,7 @@ from common.data import (
     SearchResponse,
 )
 from rag.embedding import get_embedding_model
+from common.utils import Logger
 
 _service_url = TinyRAGConfig.search_service_url
 
@@ -31,10 +31,10 @@ def http_call(url, request: Any, out_cls) -> Any:
             response_data = response.json()
             return out_cls.model_validate(response_data)
         else:
-            logging.error(f"Http call fail with status {response.status_code}")
+            Logger.error(f"Http call fail with status {response.status_code}")
             raise ValueError(f"Http call fail with status {response.status_code}")
     except Exception as e:
-        logging.error(f"Unexpected error: {e}")
+        Logger.error(f"Unexpected error: {e}")
         raise
 
 
@@ -64,7 +64,7 @@ def upsert_document(
         ret = http_call(url=_service_url + "/upsert_document", request=request, out_cls=NewDocumentResponse)
         return ret
     except Exception as e:
-        logging.error(e)
+        Logger.error(e)
         return NewDocumentResponse.model_validate({})
 
 
@@ -85,7 +85,7 @@ def get_document(
         ret = http_call(url=_service_url + "/get_document", request=request, out_cls=GetDocumentResponse)
         return ret
     except Exception as e:
-        logging.error(e)
+        Logger.error(e)
         return GetDocumentResponse.model_validate({})
 
 
@@ -100,7 +100,7 @@ def get_all_document() -> GetAllDocumentResponse:
         ret = http_call(url=_service_url + "/get_all_document", request={}, out_cls=GetAllDocumentResponse)
         return ret
     except Exception as e:
-        logging.error(e)
+        Logger.error(e)
         return GetAllDocumentResponse.model_validate({})
 
 
@@ -116,7 +116,7 @@ def delete_document(file_path: str) -> DeleteDocumentResponse:
         ret = http_call(url=_service_url + "/delete_document", request=request, out_cls=DeleteDocumentResponse)
         return ret
     except Exception as e:
-        logging.error(e)
+        Logger.error(e)
         return DeleteDocumentResponse.model_validate({})
 
 
@@ -151,5 +151,5 @@ def search(
         ret = http_call(url=_service_url + "/search", request=request, out_cls=SearchResponse)
         return ret
     except Exception as e:
-        logging.error(e)
+        Logger.error(e)
         return SearchResponse.model_validate({})
