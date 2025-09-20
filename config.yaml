@@ -3,11 +3,9 @@ search_service_port: 4500
 search_service_url: http://localhost:4500
 ollama_host: http://127.0.0.1:11434
 ollama_model: qwen3:30b-a3b-thinking-2507-q4_K_M
-# vision_medel: qwen2.5vl:32b
 vision_model: qwen2.5vl:7b
 max_context_token_num: 30000
-host_file_dir: /Users/xcoder/tiny_rag/files
-# host_file_dir: /Users/xcoder/obsidian/Profession
+host_file_dir: /Users/xcoder/obsidian/Profession
 ignore_path_patterns:
     - "daily notes"
     - node_modules
@@ -40,8 +38,8 @@ embedding_config:
 
 gen_conf:
     temperature: 0.7
-    top_p: 0.3
-    repeat_penalty: 1.1
+    top_p: 0.4
+    repeat_penalty: 1.2
     num_ctx: 30000
 
 chunking_config:
