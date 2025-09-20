@@ -29,9 +29,9 @@
             "enable": false
         }
     },
-    "models-dir": {
-        "pipeline": "/Users/xcoder/.cache/huggingface/hub/models--opendatalab--PDF-Extract-Kit-1.0/snapshots/52a5c0f44ec3e52356192988ea74065a854fb735"
-    },
     "mineru_tools_conf_json": "/Users/xcoder/projects/tiny_rag/assets/MinerU/magic-pdf.json",
-    "mineru_model_source": "local"
+    "mineru_model_source": "local",
+    "models-dir": {
+        "pipeline": "/Users/xcoder/.cache/huggingface/hub/models--opendatalab--PDF-Extract-Kit-1.0/snapshots/280f8a5a8912a91a417ba117c9ff8759cacbf6c0"
+    }
 }

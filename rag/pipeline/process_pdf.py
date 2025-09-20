@@ -3,6 +3,7 @@ import logging
 import os
 import pickle
 import re
+import shutil
 from concurrent.futures import ProcessPoolExecutor
 from io import TextIOWrapper
 
@@ -119,6 +120,7 @@ def parse_pdf_job(file_path: str, temp_content_dir: str) -> None:
     Logger.info(f"Parsed {len(content_list)} contents from {file_path}")
     # HACK: hard coded parsed file path.
     pickle_content_path = os.path.join(temp_content_dir, "content_list.pickle")
+    os.makedirs(temp_content_dir, exist_ok=True)
     with open(pickle_content_path, "wb") as f:
         pickle.dump(content_list, f)
         Logger.info(f"Saved content list to {pickle_content_path}")

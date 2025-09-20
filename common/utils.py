@@ -36,32 +36,38 @@ def get_logger(
     Returns:
     - Logger instance.
     """
-    if not log_module_name:
-        log_module_name = "default"
-    if log_module_name in _loggers:
-        return _loggers[log_module_name]
+    logger_key = f"{log_module_name}_{need_stream}"
+    if not logger_key:
+        logger_key = "default"
+    if logger_key in _loggers:
+        return _loggers[logger_key]
 
-    logger = Logger.getLogger(name=log_module_name)
+    logger = logging.getLogger(name=logger_key)
     logger.handlers.clear()
     log_path = os.path.abspath(os.path.join(get_project_base_directory(), "logs", f"{log_module_name}.log"))
 
     os.makedirs(os.path.dirname(log_path), exist_ok=True)
-    formatter = Logger.Formatter(log_format)
+    formatter = logging.Formatter(log_format)
 
     handler1 = RotatingFileHandler(log_path, maxBytes=10 * 1024 * 1024, backupCount=1)
     handler1.setFormatter(formatter)
     logger.addHandler(handler1)
 
     if need_stream:
-        handler2 = Logger.StreamHandler()
+        handler2 = logging.StreamHandler()
         handler2.setFormatter(formatter)
         logger.addHandler(handler2)
+    else:
+        logger.propagate = False
 
-    logger.setLevel(level=Logger.INFO)
-    Logger.captureWarnings(True)
+    logger.setLevel(level=logging.INFO)
+    logging.captureWarnings(True)
 
-    _loggers[log_module_name] = logger
+    _loggers[logger_key] = logger
     return logger
+
+
+Logger = get_logger()
 
 
 def safe_strip(d: Any) -> str:
@@ -281,6 +287,3 @@ def ensure_max_token(content: str, max_token_num: int) -> str:
         )
 
     return content
-
-
-Logger = get_logger()
