@@ -31,7 +31,6 @@ from pydantic import BaseModel, Field
 from rich.console import Console
 from rich.markdown import Markdown
 
-import common.utils as utils
 from common.config import TinyRAGConfig
 from common.data import Chunk, ContentType
 from common.utils import estimate_token_num, get_logger
@@ -45,7 +44,7 @@ is_generating = False
 QUERY_REWRITE_NUM = 3
 SEARCH_LIMIT = 5
 
-Logger = get_logger("agent_run")
+Logger = get_logger("agent_run", need_stream=False)
 # ------------------------------------------------------------------------------
 # Util funcs
 
@@ -464,7 +463,7 @@ class SearchAgent(RoutedAgent):
                 f"content:\n```text\n{chunk.content if chunk.content_type == ContentType.TEXT else chunk.extra_description}\n```\n"
                 "---"
             )
-        query = PROMPT_RERANK.format(query=query, search_results="\n".join(search_results))
+        query = PROMPT_RERANK.format(query=query, search_results="\n".join(search_results), json_schema=json.dumps(RerankResult.model_json_schema(), indent=2))
         logging.info(f"{_log_divider + self.id.type} rerank prompt:\n{query}{_log_divider}")
 
         # get rank result
@@ -702,8 +701,7 @@ def print_loading_mark() -> None:
 
 async def main():
     # HACK: force reinit logger
-    utils.initialized_root_logger = False
-    init_root_logger("agent_run", need_stream=False)
+    
 
     global is_generating
     is_generating = False
