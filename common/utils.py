@@ -36,12 +36,13 @@ def get_logger(
     Returns:
     - Logger instance.
     """
-    if not log_module_name:
-        log_module_name = "default"
-    if log_module_name in _loggers:
-        return _loggers[log_module_name]
+    logger_key = f"{log_module_name}_{need_stream}"
+    if not logger_key:
+        logger_key = "default"
+    if logger_key in _loggers:
+        return _loggers[logger_key]
 
-    logger = logging.getLogger(name=log_module_name)
+    logger = logging.getLogger(name=logger_key)
     logger.handlers.clear()
     log_path = os.path.abspath(os.path.join(get_project_base_directory(), "logs", f"{log_module_name}.log"))
 
@@ -60,7 +61,7 @@ def get_logger(
     logger.setLevel(level=logging.INFO)
     logging.captureWarnings(True)
 
-    _loggers[log_module_name] = logger
+    _loggers[logger_key] = logger
     return logger
 
 
