@@ -18,7 +18,8 @@ from common.data import (
     SearchResponse,
     VectorDBRecord,
 )
-from common.utils import logging_exception, Logger
+from common.utils import logging_exception
+from common.logger import Logger
 from rag.db import (
     ObjectStore,
     RationalDB,

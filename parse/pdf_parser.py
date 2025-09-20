@@ -17,8 +17,8 @@ from common.utils import (
     safe_strip,
     singleton,
     time_it,
-    Logger,
 )
+from common.logger import Logger
 from parse.parser import Parser
 
 
