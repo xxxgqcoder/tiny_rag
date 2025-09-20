@@ -57,12 +57,17 @@ def get_logger(
         handler2 = logging.StreamHandler()
         handler2.setFormatter(formatter)
         logger.addHandler(handler2)
+    else:
+        logger.propagate = False
 
     logger.setLevel(level=logging.INFO)
     logging.captureWarnings(True)
 
     _loggers[logger_key] = logger
     return logger
+
+
+Logger = get_logger()
 
 
 def safe_strip(d: Any) -> str:
@@ -282,6 +287,3 @@ def ensure_max_token(content: str, max_token_num: int) -> str:
         )
 
     return content
-
-
-Logger = get_logger()
