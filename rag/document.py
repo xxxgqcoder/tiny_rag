@@ -1,4 +1,3 @@
-import logging
 import os
 from concurrent.futures import ThreadPoolExecutor
 
@@ -8,7 +7,7 @@ from watchdog.observers import Observer
 
 from common.config import TinyRAGConfig
 from common.data import Content, ContentType, GetDocumentResponse
-from common.utils import ensure_max_token, hash64, logging_exception, run_once, time_it
+from common.utils import ensure_max_token, hash64, logging_exception, run_once, time_it, Logger
 from parse import get_parser_by_file_type
 from parse.chunking import get_chunking_by_file_type
 from parse.parser import Parser
@@ -33,14 +32,14 @@ def _format_md_content(content_list: list[Content]) -> str:
 
 def process_new_file(file_path: str):
     if _ignore_file(file_path):
-        logging.info(f"{file_path}: ignore")
+        Logger.info(f"{file_path}: ignore")
         return
 
     embedding_model: EmbeddingModel = get_embedding_model()
 
     # get file content hash
     file_type = file_path.rsplit(".", 1)[-1]
-    logging.info(f"{file_path}: type {file_type}, begin processing")
+    Logger.info(f"{file_path}: type {file_type}, begin processing")
     file_bytes = ""
     try:
         with open(file_path, "rb") as f:
@@ -50,11 +49,11 @@ def process_new_file(file_path: str):
         return
 
     if len(file_bytes) == 0:
-        logging.info(f"{file_path}: empty content, skip")
+        Logger.info(f"{file_path}: empty content, skip")
         return
 
     file_content_hash = hash64(file_bytes)
-    logging.info(f"{file_path}: total {len(file_bytes)} bytes loaded, content hash: {file_content_hash}")
+    Logger.info(f"{file_path}: total {len(file_bytes)} bytes loaded, content hash: {file_content_hash}")
 
     # get document record
     document_record: GetDocumentResponse = get_document(file_path=file_path)
@@ -62,11 +61,11 @@ def process_new_file(file_path: str):
     try:
         stored_content_hash = document_record.document.content_hash  # type: ignore
     except Exception as e:
-        logging.error(f"{file_path}: get stored content hash error: {e}")
+        Logger.error(f"{file_path}: get stored content hash error: {e}")
     if stored_content_hash == file_content_hash:
-        logging.info(f"{file_path}: content hash ({file_content_hash}) unchanged, ignore")
+        Logger.info(f"{file_path}: content hash ({file_content_hash}) unchanged, ignore")
         return
-    logging.info(f"{file_path}: file content changed or new file")
+    Logger.info(f"{file_path}: file content changed or new file")
 
     # delete document record if any
     delete_document(file_path=file_path)
@@ -74,14 +73,14 @@ def process_new_file(file_path: str):
     # parse file
     parser: Parser = get_parser_by_file_type(file_type=file_type)
     content_list: list[Content] = parser.parse(file_path=file_path)
-    logging.info(f"{file_path}: total {len(content_list)} content")
+    Logger.info(f"{file_path}: total {len(content_list)} content")
     if len(content_list) == 0:
         return
 
     # chunking
     chunker = get_chunking_by_file_type(file_type=file_type)
     chunks = chunker.chunk(contents=content_list)
-    logging.info(f"{file_path}: total {len(chunks)} chunks")
+    Logger.info(f"{file_path}: total {len(chunks)} chunks")
 
     # process image chunks
     vision_model = get_vision_model()
@@ -110,7 +109,7 @@ def process_new_file(file_path: str):
             chunk_content.append(ensure_max_token(text, embedding_max_token_num))
         embeddings = embedding_model.encode(texts=chunk_content)
         chunk_embedding.extend(embeddings)
-    logging.info(f"{file_path}: chunk embedding done")
+    Logger.info(f"{file_path}: chunk embedding done")
 
     # save to db
     upsert_document(
@@ -121,14 +120,14 @@ def process_new_file(file_path: str):
         chunk_embedding=chunk_embedding,
     )
 
-    logging.info(f"{file_path}: finish processing")
+    Logger.info(f"{file_path}: finish processing")
 
 
 def process_delete_file(file_path: str):
     if _ignore_file(file_path):
-        logging.info(f"{file_path}: ignore")
+        Logger.info(f"{file_path}: ignore")
         return
-    logging.info(f"{file_path}: process delete file")
+    Logger.info(f"{file_path}: process delete file")
 
     delete_document(file_path=file_path)
 
@@ -194,7 +193,7 @@ class FileHandler(FileSystemEventHandler):
         Ignore symbolic links
         """
         if os.path.islink(event.src_path) or os.path.islink(event.dest_path):
-            logging.info(f"{event.src_path} or {event.dest_path} is a symbolic link, ignore")
+            Logger.info(f"{event.src_path} or {event.dest_path} is a symbolic link, ignore")
             return
 
         super().dispatch(event)
@@ -230,17 +229,17 @@ def initial_file_process() -> None:
     # get all documents
     all_document = get_all_document()
     remote_file_paths = all_document.file_paths if all_document.file_paths else []
-    logging.info(f"Total {len(remote_file_paths)} files in db")
+    Logger.info(f"Total {len(remote_file_paths)} files in db")
     full_file_paths = [
         os.path.join(root, file) for root, _, files in os.walk(TinyRAGConfig.host_file_dir) for file in files
     ]
 
     filered_file_paths = [file_path for file_path in full_file_paths if not _ignore_file(file_path)]
-    logging.info(f"Total {len(filered_file_paths)} files to process")
+    Logger.info(f"Total {len(filered_file_paths)} files to process")
 
     # delete documents that are not found in file_dir
     to_delete = list(set(remote_file_paths) - set(filered_file_paths))
-    logging.info(f"Below files are founded in db but not in file folder, delete: {to_delete}")
+    Logger.info(f"Below files are founded in db but not in file folder, delete: {to_delete}")
     for file_path in to_delete:
         job_executor.submit(on_process_delete_file, file_path=file_path)
 
@@ -259,7 +258,7 @@ def main():
 
     observer.join()
 
-    logging.info("shutdown")
+    Logger.info("shutdown")
 
 
 if __name__ == "__main__":

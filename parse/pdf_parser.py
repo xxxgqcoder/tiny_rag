@@ -9,7 +9,16 @@ from typing import Any
 from common.cache import cache_it
 from common.config import TinyRAGConfig
 from common.data import Content, ContentType
-from common.utils import hash64, load_base64_image, logging_exception, safe_encode, safe_strip, singleton, time_it
+from common.utils import (
+    hash64,
+    load_base64_image,
+    logging_exception,
+    safe_encode,
+    safe_strip,
+    singleton,
+    time_it,
+    Logger,
+)
 from parse.parser import Parser
 
 
@@ -27,7 +36,7 @@ class PDFParser(Parser):
         with open(file=TinyRAGConfig.parser_config.config_file_path) as f:  # type: ignore
             conf = json.load(f)
 
-        logging.info(f"Parsr config: {json.dumps(conf, indent=4)}")
+        Logger.info(f"Parsr config: {json.dumps(conf, indent=4)}")
 
         # set environment variable for magic_pdf to load config json file
         os.environ["MINERU_TOOLS_CONFIG_JSON"] = conf.get("mineru_tools_conf_json", "")
@@ -56,14 +65,14 @@ class PDFParser(Parser):
         # get original chunk list
         temp_dir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
         temp_asset_dir = temp_dir.name
-        logging.info(f"temp asset directory: {temp_asset_dir}")
+        Logger.info(f"temp asset directory: {temp_asset_dir}")
 
         contents = self.parse_pdf_content(
             file_path=file_path,
             temp_asset_dir=temp_asset_dir,
             asset_save_dir=asset_save_dir,
         )
-        logging.info(f"Original content block num: {len(contents)}")
+        Logger.info(f"Original content block num: {len(contents)}")
 
         temp_dir.cleanup()
         return contents
@@ -120,7 +129,8 @@ class PDFParser(Parser):
         # prepare env
         try:
             shutil.rmtree(temp_asset_dir)
-        except:
+        except Exception as e:
+            Logger.error(f"Remove temp asset dir exception: {e}")
             pass
         os.makedirs(temp_asset_dir, exist_ok=True)
 
@@ -227,7 +237,7 @@ class PDFParser(Parser):
         contents = []
         for content in content_list:
             if not _is_valid_content(content):
-                logging.info(f"Invalid content: {json.dumps(content, indent=4)}")
+                Logger.info(f"Invalid content: {json.dumps(content, indent=4)}")
                 continue
 
             # text / formula

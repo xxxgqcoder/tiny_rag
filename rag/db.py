@@ -1,5 +1,4 @@
 import io
-import logging
 import os
 import re
 import sqlite3
@@ -11,7 +10,7 @@ from pymilvus import AnnSearchRequest, DataType, MilvusClient, WeightedRanker
 
 from common.config import TinyRAGConfig
 from common.data import RationalDBRecord, VectorDBRecord
-from common.utils import logging_exception, run_once, singleton, time_it
+from common.utils import logging_exception, run_once, singleton, time_it, Logger
 
 
 class VectorDB(ABC):
@@ -203,7 +202,7 @@ class MilvusLiteDB(VectorDB):
     def upsert(self, data: VectorDBRecord) -> int:
         record = data.model_dump()
         stats = self.client.upsert(self.collection_name, record)
-        logging.info(f"Upsert stats: {stats}")
+        Logger.info(f"Upsert stats: {stats}")
         return stats["upsert_count"]
 
     @time_it(prefix="vector db")
@@ -212,7 +211,7 @@ class MilvusLiteDB(VectorDB):
             collection_name=self.collection_name,
             ids=keys,
         )
-        logging.info(f"Delete stats: {stats}")
+        Logger.info(f"Delete stats: {stats}")
         return len(keys)
 
     @time_it(prefix="vector db")
@@ -302,20 +301,20 @@ def create_vector_db_collection() -> None:
     Create milvus collection.
     """
     conn_url = TinyRAGConfig.vector_db_config.db_name
-    logging.info(f"initialize milvus db: {conn_url}")
+    Logger.info(f"initialize milvus db: {conn_url}")
 
     # NOTE: assume local file path
     os.makedirs(os.path.dirname(conn_url), exist_ok=True)
     client = MilvusClient(conn_url)
     collection_name = StorageManager.vector_db_collection_name()
-    logging.info(f"milvus collection name: {collection_name}")
+    Logger.info(f"milvus collection name: {collection_name}")
     if client.has_collection(collection_name=collection_name):
-        logging.info(f"collection {collection_name} found in {conn_url}, skip collection creation")
+        Logger.info(f"collection {collection_name} found in {conn_url}, skip collection creation")
         return
 
     # data schema
     embedding_dim = TinyRAGConfig.embedding_config.embedding_dim
-    logging.info(f"Embedding dim: {embedding_dim}")
+    Logger.info(f"Embedding dim: {embedding_dim}")
     schema = client.create_schema(enable_dynamic_field=True)
 
     schema.add_field(
@@ -365,7 +364,7 @@ def create_vector_db_collection() -> None:
         enable_dynamic_field=True,
     )
 
-    logging.info(f"milvus collection created: {collection_name}")
+    Logger.info(f"milvus collection created: {collection_name}")
     client.close()
 
 
@@ -471,7 +470,7 @@ class SQLiteDB(RationalDB):
 
         cur = self.conn.cursor()
         query = f"DELETE FROM {self.document_table_name} WHERE file_path = ?"
-        logging.info(f"delete document: {file_path}")
+        Logger.info(f"delete document: {file_path}")
 
         try:
             res = cur.execute(query, (file_path,))
@@ -505,7 +504,7 @@ def create_rational_db_table() -> None:
     """
     conn_url = TinyRAGConfig.rational_db_config.db_name
     document_table_name = StorageManager.rational_db_document_table_name()
-    logging.info(f"Rational db: {conn_url}, document table name: {document_table_name}")
+    Logger.info(f"Rational db: {conn_url}, document table name: {document_table_name}")
 
     sql_create_table = f"""
     CREATE TABLE IF NOT EXISTS {document_table_name} (
@@ -526,7 +525,7 @@ def create_rational_db_table() -> None:
             ret = cur.execute("SELECT name FROM sqlite_master WHERE name = ?", (document_table_name,))
             res = ret.fetchall()
             if len(res) > 0:
-                logging.info(f"Table {document_table_name} found in {conn_url}, skip table creation")
+                Logger.info(f"Table {document_table_name} found in {conn_url}, skip table creation")
                 return
             cur.execute(sql_create_table)
             cur.execute(sql_create_index)
@@ -536,7 +535,7 @@ def create_rational_db_table() -> None:
                 conn.rollback()
             logging_exception(e)
 
-    logging.info(f"table created {document_table_name}")
+    Logger.info(f"table created {document_table_name}")
 
 
 def get_rational_db() -> RationalDB:
@@ -627,7 +626,7 @@ def create_object_store_bucket() -> None:
     conn_url = TinyRAGConfig.object_store_config.conn_url
     user = TinyRAGConfig.object_store_config.user
     token = TinyRAGConfig.object_store_config.token
-    logging.info(f"initialize minio object store: {conn_url}, user: {user}")
+    Logger.info(f"initialize minio object store: {conn_url}, user: {user}")
     client = Minio(
         endpoint=conn_url,
         access_key=user,
@@ -638,9 +637,9 @@ def create_object_store_bucket() -> None:
     found = client.bucket_exists(bucket_name)
     if not found:
         client.make_bucket(bucket_name)
-        logging.info(f"Created bucket {bucket_name}")
+        Logger.info(f"Created bucket {bucket_name}")
     else:
-        logging.info(f"Bucket {bucket_name} already exists")
+        Logger.info(f"Bucket {bucket_name} already exists")
 
 
 def get_object_store() -> ObjectStore:

@@ -8,7 +8,7 @@ from pydantic_settings import (
     YamlConfigSettingsSource,
 )
 
-from common.utils import get_project_base_directory, init_root_logger
+from common.utils import get_project_base_directory
 
 
 class RationalDBConfig(BaseSettings):
@@ -105,5 +105,3 @@ class Config(BaseSettings):
 
 
 TinyRAGConfig = Config()  # type: ignore
-
-init_root_logger("tiny_rag")

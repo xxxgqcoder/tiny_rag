@@ -8,7 +8,7 @@ from io import TextIOWrapper
 
 from common.config import TinyRAGConfig
 from common.data import Content, ContentType
-from common.utils import estimate_token_num, load_base64_image, time_it
+from common.utils import estimate_token_num, load_base64_image, time_it, Logger
 from rag.llm import get_chat_model, get_vision_model
 
 line_breaker = "\n\n"
@@ -108,20 +108,20 @@ def get_job_executor() -> ProcessPoolExecutor:
 def parse_pdf_job(file_path: str, temp_content_dir: str) -> None:
     from parse.pdf_parser import PDFParser
 
-    logging.info(f"Begin to process file: {file_path}")
+    Logger.info(f"Begin to process file: {file_path}")
     try:
         parser = PDFParser()
         content_list: list[Content] = parser.parse(file_path)
     except Exception as e:
-        logging.error(f"Parse failed:\n{e}")
+        Logger.error(f"Parse failed:\n{e}")
         return
 
-    logging.info(f"Parsed {len(content_list)} contents from {file_path}")
+    Logger.info(f"Parsed {len(content_list)} contents from {file_path}")
     # HACK: hard coded parsed file path.
     pickle_content_path = os.path.join(temp_content_dir, "content_list.pickle")
     with open(pickle_content_path, "wb") as f:
         pickle.dump(content_list, f)
-        logging.info(f"Saved content list to {pickle_content_path}")
+        Logger.info(f"Saved content list to {pickle_content_path}")
 
 
 @time_it(prefix="parse_pdf")
@@ -133,20 +133,24 @@ def parse_pdf(file_path: str, temp_content_dir: str) -> list[Content]:
         temp_content_dir=temp_content_dir,
     )
     try:
+        shutil.rmtree(temp_content_dir)
+    except Exception as e:
+        Logger.error(f"Remove temp content dir {temp_content_dir} failed:\n{e}")
+    try:
         job_executor.shutdown(wait=True)
     except Exception as e:
-        logging.info(e)
+        Logger.info(e)
         os._exit(0)
 
-    logging.info("PDF parse job done")
+    Logger.info("PDF parse job done")
 
     # parse returned content
     # HACK: hard coded parsed file path.
     pickle_content_path = os.path.join(temp_content_dir, "content_list.pickle")
-    logging.info(f"Loading content list from {pickle_content_path}")
+    Logger.info(f"Loading content list from {pickle_content_path}")
     with open(pickle_content_path, "rb") as f:
         content_list = pickle.load(f)
-    logging.info(f"Loaded {len(content_list)} content from {pickle_content_path}")
+    Logger.info(f"Loaded {len(content_list)} content from {pickle_content_path}")
 
     return content_list
 
@@ -196,7 +200,7 @@ def translate_text_content(text: str) -> str:
     max_byte_len = 16 * 1024
     full_result = ""
     for i in range(0, len(text), max_byte_len):
-        logging.info(f"Processing segment {i}")
+        Logger.info(f"Processing segment {i}")
         segment = text[i : i + max_byte_len]
 
         formatted_prompt = PROMPT_TRANSLATE.format(
@@ -218,7 +222,7 @@ def translate_content(md_writer: TextIOWrapper, content_list: list[Content]) -> 
     Args:
     - content_list: a list of content.
     """
-    logging.info(f"Total {len(content_list)} contents")
+    Logger.info(f"Total {len(content_list)} contents")
 
     md_writer.write("# " + "=" * 4 + "  Translated Content  " + "=" * 4 + line_breaker)
 
@@ -227,7 +231,7 @@ def translate_content(md_writer: TextIOWrapper, content_list: list[Content]) -> 
     while i < len(content_list):
         # image & table
         if content_list[i].content_type in [ContentType.TABLE, ContentType.IMAGE]:
-            logging.info(f"Translating content {i}, type: {content_list[i].content_type}")
+            Logger.info(f"Translating content {i}, type: {content_list[i].content_type}")
             # save images resources
             if content_list[i].content_url:
                 img_name = os.path.basename(content_list[i].content_url)
@@ -237,7 +241,7 @@ def translate_content(md_writer: TextIOWrapper, content_list: list[Content]) -> 
             # translate description
             translated = translate_text_content(content_list[i].extra_description)
             translated = post_text_process(translated)
-            logging.info(f"Translated content:\n{translated}")
+            Logger.info(f"Translated content:\n{translated}")
             md_writer.write(translated + line_breaker)
 
             i = i + 1
@@ -247,13 +251,13 @@ def translate_content(md_writer: TextIOWrapper, content_list: list[Content]) -> 
         j = i + 1
         while j < len(content_list) and j - i < max_content_num and content_list[j].content_type == ContentType.TEXT:
             j += 1
-        logging.info(f"Translating content {i} to {j - 1}, type: {content_list[i].content_type}")
+        Logger.info(f"Translating content {i} to {j - 1}, type: {content_list[i].content_type}")
         content = "\n".join([content.content for content in content_list[i:j]])
         content = ensure_utf(content)
-        logging.info(f"Content to translate:\n{content}")
+        Logger.info(f"Content to translate:\n{content}")
         translated = translate_text_content(content)
         translated = post_text_process(translated)
-        logging.info(f"Tranlated content:\n{translated}")
+        Logger.info(f"Tranlated content:\n{translated}")
         md_writer.write(translated + line_breaker)
 
         i = j
@@ -265,8 +269,8 @@ def translate_content(md_writer: TextIOWrapper, content_list: list[Content]) -> 
 # summary func
 @time_it(prefix="summary_content")
 def summary_content(md_writer: TextIOWrapper, content_list: list[Content]) -> None:
-    global summary_prompt, src_lang, target_lang
-    logging.info(f"Summary_content, src_lang={src_lang}, target_lang={target_lang}")
+    global src_lang, target_lang
+    Logger.info(f"Summary_content, src_lang={src_lang}, target_lang={target_lang}")
     chat_model = get_chat_model()
 
     full_content = ""
@@ -276,14 +280,14 @@ def summary_content(md_writer: TextIOWrapper, content_list: list[Content]) -> No
         elif content.content_type in [ContentType.IMAGE, ContentType.TABLE]:
             full_content += content.extra_description + line_breaker
         else:
-            logging.info(f"Unrecognized content: {content}")
+            Logger.info(f"Unrecognized content: {content}")
 
-    logging.info(f"Full content length: {len(full_content)}")
+    Logger.info(f"Full content length: {len(full_content)}")
     token_num, _ = estimate_token_num(full_content)
-    logging.info(f"Esitmated full content token num: {token_num}")
+    Logger.info(f"Esitmated full content token num: {token_num}")
     if token_num > TinyRAGConfig.max_context_token_num:
         ratio = float(TinyRAGConfig.max_context_token_num) / token_num
-        logging.info(f"Truncate full content by ratio: {ratio}, original length: {len(full_content)}")
+        Logger.info(f"Truncate full content by ratio: {ratio}, original length: {len(full_content)}")
         full_content = full_content[: int(len(full_content) * ratio)]
 
     full_content = ensure_utf(full_content)
@@ -293,11 +297,11 @@ def summary_content(md_writer: TextIOWrapper, content_list: list[Content]) -> No
         target_lang=target_lang,
         content=full_content,
     )
-    logging.info(f"Formatted prompt:\n{formatted_promt}")
+    Logger.info(f"Formatted prompt:\n{formatted_promt}")
 
     summary = chat_model.instant_chat(prompt=formatted_promt)
     summary = post_text_process(summary)
-    logging.info(f"Content summary:\n{summary}")
+    Logger.info(f"Content summary:\n{summary}")
 
     # save
     md_writer.write("# " + "=" * 4 + "  Paper Summary  " + "=" * 4 + line_breaker)
@@ -329,32 +333,32 @@ def process(
     - magic_config_path: path to magic pdf parser config.
     - final_md_file_save_dir: folder for saving final md file.
     """
-    logging.info(f"Processing started, required steps: {steps}")
+    Logger.info(f"Processing started, required steps: {steps}")
 
     os.makedirs(temp_content_dir, exist_ok=True)
     name_without_suff = os.path.basename(file_path).rsplit(".", 1)[0]
-    logging.info(f"File name without out suffix: {name_without_suff}")
+    Logger.info(f"File name without out suffix: {name_without_suff}")
 
     # parse pdf
     content_list = parse_pdf(file_path=file_path, temp_content_dir=temp_content_dir)
 
     # md writer
     md_file_path = os.path.join(final_md_file_save_dir, f"{name_without_suff}.md")
-    logging.info(f"md file path: {md_file_path}")
+    Logger.info(f"md file path: {md_file_path}")
     with open(md_file_path, "w") as md_writer:
         md_writer.write(f"{name_without_suff}" + line_breaker)
 
         # apply step functions
         for step in steps:
-            logging.info(f"Processing step: {step}")
+            Logger.info(f"Processing step: {step}")
             step = step.strip()
             if step not in step_func:
-                logging.info(f"Step {step} not configured, ignore")
+                Logger.info(f"Step {step} not configured, ignore")
                 continue
             func = step_func[step]
             func(md_writer=md_writer, content_list=content_list)
 
-    logging.info(f"Parsed markdown saved to {md_file_path}")
+    Logger.info(f"Parsed markdown saved to {md_file_path}")
 
 
 if __name__ == "__main__":
@@ -370,18 +374,18 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     temp_content_dir = os.path.realpath(args.temp_content_dir)
-    logging.info(f"Temp content dir: {temp_content_dir}")
+    Logger.info(f"Temp content dir: {temp_content_dir}")
 
     final_md_file_save_dir = os.path.realpath(args.final_md_file_save_dir)
-    logging.info(f"Final md save folder: {final_md_file_save_dir}")
+    Logger.info(f"Final md save folder: {final_md_file_save_dir}")
 
     src_lang = lang_mapping[args.src_lang]
-    logging.info(f"Source language: {src_lang}")
+    Logger.info(f"Source language: {src_lang}")
 
     target_lang = lang_mapping[args.target_lang]
-    logging.info(f"Target language: {target_lang}")
+    Logger.info(f"Target language: {target_lang}")
 
-    logging.info(f"Processing file: {os.path.basename(args.file_path)}")
+    Logger.info(f"Processing file: {os.path.basename(args.file_path)}")
 
     process(
         file_path=args.file_path,

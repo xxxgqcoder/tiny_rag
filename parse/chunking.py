@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from common.cache import singleton
 from common.config import TinyRAGConfig
 from common.data import Chunk, Content, ContentType
-from common.utils import safe_encode, safe_strip
+from common.utils import safe_encode, safe_strip, Logger
 
 
 class Chunking(ABC):
@@ -37,7 +37,7 @@ def _filter_chunk(chunks: list[Chunk]) -> list[Chunk]:
             content = chunk.extra_description
         content = safe_strip(content)
         if len(content) < 1:
-            logging.info(f"{chunk.file_path}: remove chunk due to too short content: {str(chunk)}")
+            Logger.info(f"{chunk.file_path}: remove chunk due to too short content: {str(chunk)}")
             continue
 
         filtered_chunks.append(chunk)

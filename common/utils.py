@@ -19,37 +19,49 @@ def get_project_base_directory() -> str:
     return project_base
 
 
-initialized_root_logger = False
+_loggers = {}
 
 
-def init_root_logger(
-    logfile_basename: str,
+def get_logger(
+    log_module_name: str = "",
     log_format: str = "%(asctime)-15s %(levelname)-4s %(filename)s:%(lineno)d: %(message)s",
     need_stream: bool = True,
-) -> None:
-    global initialized_root_logger
-    if initialized_root_logger:
-        return
-    initialized_root_logger = True
+):
+    """
+    Get logger for a specific module.
 
-    logger = logging.getLogger()
+    Args:
+    - log_module_name: Name of the module for which to get the logger. If empty.
+
+    Returns:
+    - Logger instance.
+    """
+    if not log_module_name:
+        log_module_name = "default"
+    if log_module_name in _loggers:
+        return _loggers[log_module_name]
+
+    logger = Logger.getLogger(name=log_module_name)
     logger.handlers.clear()
-    log_path = os.path.abspath(os.path.join(get_project_base_directory(), "logs", f"{logfile_basename}.log"))
+    log_path = os.path.abspath(os.path.join(get_project_base_directory(), "logs", f"{log_module_name}.log"))
 
     os.makedirs(os.path.dirname(log_path), exist_ok=True)
-    formatter = logging.Formatter(log_format)
+    formatter = Logger.Formatter(log_format)
 
     handler1 = RotatingFileHandler(log_path, maxBytes=10 * 1024 * 1024, backupCount=1)
     handler1.setFormatter(formatter)
     logger.addHandler(handler1)
 
     if need_stream:
-        handler2 = logging.StreamHandler()
+        handler2 = Logger.StreamHandler()
         handler2.setFormatter(formatter)
         logger.addHandler(handler2)
 
-    logger.setLevel(level=logging.INFO)
-    logging.captureWarnings(True)
+    logger.setLevel(level=Logger.INFO)
+    Logger.captureWarnings(True)
+
+    _loggers[log_module_name] = logger
+    return logger
 
 
 def safe_strip(d: Any) -> str:
@@ -63,14 +75,14 @@ def safe_strip(d: Any) -> str:
     return str(d).strip()
 
 
-_instances = {}
+_singleton_instances = {}
 
 
 def singleton(cls) -> Callable[..., Any]:
     def getinstance(*args, **kwargs) -> Any:
-        if cls not in _instances:
-            _instances[cls] = cls(*args, **kwargs)
-        return _instances[cls]
+        if cls not in _singleton_instances:
+            _singleton_instances[cls] = cls(*args, **kwargs)
+        return _singleton_instances[cls]
 
     return getinstance
 
@@ -159,9 +171,10 @@ def hash64(content: bytes) -> str:
 
 
 def logging_exception(e: Exception) -> None:
-    logging.info(f"Exception: {type(e).__name__} - {e}")
+    logger = get_logger()
+    logger.error(f"\nException: {type(e).__name__} - {e}\n")
     formatted_traceback = traceback.format_exc()
-    logging.info(formatted_traceback)
+    logger.error(formatted_traceback + "*" * 120)
 
 
 def estimate_token_num(text: str) -> tuple[int, list[str]]:
@@ -230,7 +243,7 @@ def time_it(prefix: str = "") -> Callable[[Callable[..., Any]], Callable[..., An
             elapse = (time.time_ns() - begin) // 1000000
 
             func_name = f"{prefix} {func.__name__}" if prefix else func.__name__
-            logging.info(
+            Logger.info(
                 f"{func_name} took {elapse // 60000}min {(elapse % 60000) // 1000}sec {elapse % 60000 % 1000}ms to finish"
             )
 
@@ -263,8 +276,11 @@ def ensure_max_token(content: str, max_token_num: int) -> str:
     if token_num > max_token_num:
         truncate_ratio = float(max_token_num / token_num)
         content = content[: int(len(content) * truncate_ratio)]
-        logging.info(
+        Logger.info(
             f"Truncate text due to token num exceed max token num {max_token_num}, estimate token num: {token_num}, new byte len: {len(content)}, truncate ratio: {truncate_ratio}"
         )
 
     return content
+
+
+Logger = get_logger()
