@@ -36,7 +36,7 @@ from common.data import Chunk, ContentType
 from common.utils import estimate_token_num, get_logger
 from rag.functions import search
 from rag.llm import assemble_knowledge_base, format_reference_info
-from rag.prompt import promot_citation, prompt_system
+from rag.prompt import PROMPT_SYSTEM, PROMPT_CITATION, PROMPT_QUERY_PARSE, PROMPT_QUERY_REWRITE, PROMPT_RERANK
 
 # global args
 MAX_TOKEN_NUM = 32 * 1024
@@ -113,118 +113,6 @@ class RerankResult(BaseModel):
 
 class GenerationRequest(BaseModel):
     pass
-
-
-# ------------------------------------------------------------------------------
-# Prompts
-PROMPT_QUERY_REWRITE = """
-# Task & role
-You are a search assistant. Your goal is to generate sophisticated and diverse search queries.
-These queries are intended for an advanced automated research tool capable of analyzing complex results, expand topics based on user query and synthesizing information.
-
-
-# Instructions:
-
-- Always prefer a single search query, only add another query if the original question requests multiple aspects or elements and one query is not enough.
-- Each query should focus on one specific aspect of the original question.
-- Don't produce more than {num_queries} queries.
-- Queries should be diverse, if the topic is broad, generate more than 1 query.
-- Don't generate multiple similar queries, one is enough.
-
-# Input
-
-Below is history user queries (maybe empty):
-
-{history_queries}
-----
-
-Below is the original query:
-
-{original_query}
-----
-
-
-# Output
-
-Final JSON output field explanation:
-- `rational`: Brief explanation of why these queries are relevant
-- `query`: A list of search queries
-
-
-You must ONLY output JSON elements in below schema:
-{json_schema}
----
-
-Think step by step and generate queries in required format.
-"""
-
-PROMPT_QUERY_PARSE = """
-# Task and role
-You are a query understanding agent in a research conversation and working with other agents. 
-Your role is to parse user query and determine what to do next given conversation history.
-
-
-# Instructions:
-- User query may not necessary trigger query action when history information is sufficient, you need output 'context_sufficient' in JSON `action` field.
-- If current context is not sufficient to answer user question, you need output 'query' in JSON `action` field.
-
-
-# Input
-Below is history conversations (maybe empty):
-
-{history_conversation}
----
-
-Below is the original query:
-{user_query}
----
-
-# Output
-You MUST format your response as a JSON object in below schema:
-{json_schema}
----
-
-Think step by step about what to do next, then output result in required format.
-"""
-
-PROMPT_RERANK = """
-# Task and role
-You are a search result re-ranker. Your goal is to filter IDs of search result that is related to user query.
-
-
-# Input format
-Input contains two parts:
-
-`original_query`: the original user query.
-
-`query_result_list`: a search result content, organized in below format:
----
-ID:0
-content: xxx
----
-ID:1
-content: xyz
----
-...
----
-
-
-# Inputs
-below is query:
-{query}
----
-
-Below is search results:
-{search_results}
-
-
-# Outputs
-You must format your output as a JSON object in below schema:
-{json_schema}
-----
-
-now think step by step and produce final JSON object.
-"""
 
 
 # ------------------------------------------------------------------------------
@@ -383,7 +271,7 @@ class QueryRewriterAgent(RoutedAgent):
             msg = self._user_query_history[i]
             if not isinstance(msg.body, UserMessage):
                 continue
-            history_queries.append(f"----\nQuery:\n{msg.body.content}\n----\n")
+            history_queries.append(f"----\nQuery:\n```text\n{msg.body.content}\n```\n----\n")
         idx = _max_token_truncate(history_queries, max_token_num=int(MAX_TOKEN_NUM * 0.2))
         history_queries = history_queries[: idx + 1]
         history_queries.reverse()
@@ -463,7 +351,11 @@ class SearchAgent(RoutedAgent):
                 f"content:\n```text\n{chunk.content if chunk.content_type == ContentType.TEXT else chunk.extra_description}\n```\n"
                 "---"
             )
-        query = PROMPT_RERANK.format(query=query, search_results="\n".join(search_results), json_schema=json.dumps(RerankResult.model_json_schema(), indent=2))
+        query = PROMPT_RERANK.format(
+            query=query,
+            search_results="\n".join(search_results),
+            json_schema=json.dumps(RerankResult.model_json_schema(), indent=2),
+        )
         logging.info(f"{_log_divider + self.id.type} rerank prompt:\n{query}{_log_divider}")
 
         # get rank result
@@ -591,7 +483,9 @@ class GeneratorAgent(RoutedAgent):
             knowledge_base = knowledge_base_msg.body.content
         if knowledge_base_msg and knowledge_base_msg.meta:
             refid2meta = knowledge_base_msg.meta
-        knowledge_base_prompt = prompt_system.format(knowledge_base=knowledge_base) + f"\n{'-' * 8}\n" + promot_citation
+        knowledge_base_prompt = PROMPT_SYSTEM.format(
+            knowledge_base=knowledge_base, citation_requirement=PROMPT_CITATION
+        )
 
         Logger.info(f"{_log_divider + self.id.type}:\nknowledge base prompt:\n{knowledge_base_prompt}{_log_divider}")
         Logger.info(
@@ -701,7 +595,6 @@ def print_loading_mark() -> None:
 
 async def main():
     # HACK: force reinit logger
-    
 
     global is_generating
     is_generating = False
