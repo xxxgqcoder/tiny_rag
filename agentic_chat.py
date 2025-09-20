@@ -7,8 +7,8 @@ import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
-import json_repair
 
+import json_repair
 from autogen_core import (
     DefaultTopicId,
     MessageContext,
@@ -21,12 +21,13 @@ from autogen_core import (
 from autogen_core.models import (
     AssistantMessage,
     ChatCompletionClient,
+    CreateResult,
     SystemMessage,
     UserMessage,
 )
 from autogen_ext.models.ollama import OllamaChatCompletionClient
 from prompt_toolkit import PromptSession
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from rich.console import Console
 from rich.markdown import Markdown
 
@@ -93,13 +94,22 @@ class ChatMessage(BaseModel):
 
 
 class QueryParseResult(BaseModel):
-    rational: str  # Breif explaination why the action is determined.
-    action: str  # Action
-    original_query: str  # User original query
+    rational: str = Field("", description="brief explanation of why the action is necessary.")
+    action: str = Field("", description="next action item, can be `query` or `context_sufficient`")
+    original_query: str = Field("", description="just copy original query")
+
+
+class QueryRewriteResult(BaseModel):
+    rational: str = Field("", description="brief explanation of why these queries are relevant")
+    query: list[str] = Field(default_factory=list, description="a list of search queries")
 
 
 class SearchRequest(BaseModel):
-    query: list[str]  # list of queries to execute
+    query: list[str] = Field(default_factory=list, description="parsed search queries")  # list of related result ids
+
+
+class RerankResult(BaseModel):
+    ids: list[str] = Field(default_factory=list, description="a list of related result ids")
 
 
 class GenerationRequest(BaseModel):
@@ -122,27 +132,6 @@ These queries are intended for an advanced automated research tool capable of an
 - Queries should be diverse, if the topic is broad, generate more than 1 query.
 - Don't generate multiple similar queries, one is enough.
 
-
-# Output Format:
-
-Format your response as a JSON object with ALL two of these exact keys:
-- `rational`: Brief explanation of why these queries are relevant
-- `query`: A list of search queries
-
-
-## Input and output example
-
-Original query: What revenue grew more last year apple stock or the number of people buying an iphone
-
-Output
-{{
-    "rational": "To answer this comparative growth question accurately, we need specific data points on Apple's stock performance and iPhone sales metrics. These queries target the precise financial information needed: company revenue trends, product-specific unit sales figures, and stock price movement over the same fiscal period for direct comparison.",
-    "query": ["Apple total revenue growth fiscal year 2024", "iPhone unit sales growth fiscal year 2024", "Apple stock price growth fiscal year 2024"],
-}}
-
-----
-
-
 # Input
 
 Below is history user queries (maybe empty):
@@ -155,7 +144,18 @@ Below is the original query:
 {original_query}
 ----
 
+
 # Output
+
+Final JSON output field explanation:
+- `rational`: Brief explanation of why these queries are relevant
+- `query`: A list of search queries
+
+
+You must ONLY output JSON elements in below schema:
+{json_schema}
+---
+
 Think step by step and generate queries in required format.
 """
 
@@ -166,36 +166,8 @@ Your role is to parse user query and determine what to do next given conversatio
 
 
 # Instructions:
-- User query may not necessary trigger query action when history information is sufficient. In this case you can just return 'context_sufficient'.
-- If current context is not sufficient to answer user question, you need to return `query`.
-
-
-# Output format:
-Format your response as a JSON object with ALL two of these exact keys:
-- `rational`: "Brief explanation of why the action is necessary.",
-- `action`: "next action item."
-
-    
-## Output example
-
-#### First example
-Original query: What is RoPE positional encoding.
-
-{{
-    "rational": "No related content found for user .",
-    "action": "query"
-}}
-----
-
-
-#### Second example
-
-Original query: What is the difference between RoPE positional encoding and absolute postional encoding.
-
-{{
-    "rational": "Context has covered user question.",
-    "action": "context_sufficient"
-}}
+- User query may not necessary trigger query action when history information is sufficient, you need output 'context_sufficient' in JSON `action` field.
+- If current context is not sufficient to answer user question, you need output 'query' in JSON `action` field.
 
 
 # Input
@@ -204,17 +176,21 @@ Below is history conversations (maybe empty):
 {history_conversation}
 ---
 
-Below is user original query:
+Below is the original query:
 {user_query}
 ---
 
 # Output
+You MUST format your response as a JSON object in below schema:
+{json_schema}
+---
+
 Think step by step about what to do next, then output result in required format.
 """
 
 PROMPT_RERANK = """
 # Task and role
-You are a search result re-ranker. Your goal is to filter search IDs of result that is related to user query.
+You are a search result re-ranker. Your goal is to filter IDs of search result that is related to user query.
 
 
 # Input format
@@ -234,32 +210,6 @@ content: xyz
 ---
 
 
-# Output format
-You need output of JSON object of related result IDs.
-
-
-# Example
-
-## inputs
-query:
-What is RoPE positional encoding?
-
-search results:
----
-ID:0
-attention is widely used concept in deep learning.
----
-ID:1
-deep learning is key concept in LLM
----
-
-
-## outputs
-{{
-    "ids": ["0"]
-}}
-
-
 # Inputs
 below is query:
 {query}
@@ -268,8 +218,11 @@ below is query:
 Below is search results:
 {search_results}
 
+
 # Outputs
-- **ONLY** output JSON elements.
+You must format your output as a JSON object in below schema:
+{json_schema}
+----
 
 now think step by step and produce final JSON object.
 """
@@ -335,6 +288,7 @@ class QueryMasterAgent(RoutedAgent):
         prompt = PROMPT_QUERY_PARSE.format(
             history_conversation="\n".join(history_conversation),
             user_query=message.body.content,
+            json_schema=json.dumps(QueryParseResult.model_json_schema(), indent=2),
         )
         Logger.info(f"{_log_divider + self.id.type} intent identify prompt:\n{prompt}")
         completion = await self._model_client.create(
@@ -344,7 +298,6 @@ class QueryMasterAgent(RoutedAgent):
         Logger.info(
             f"{_log_divider + self.id.type}: completion response:\n{json.dumps(completion.model_dump(), indent=4, ensure_ascii=False, default=str)}{_log_divider}"
         )
-
         reduced_completion_content = re.sub(r"<think>[.\S\s]*</think>", "", str(completion.content)).strip()
 
         query_action: QueryParseResult | None = None
@@ -373,12 +326,11 @@ class QueryMasterAgent(RoutedAgent):
                 topic_id=DefaultTopicId(type=self._chat_topic_type),
             )
             return
-        elif query_parse_result.action == "query":
+        elif query_action.action == "query":
             await self.publish_message(
-                message=query_parse_result,
+                message=query_action,
                 topic_id=DefaultTopicId(type=self._query_rewriter_topic_type),
             )
-
         else:
             raise Exception(f"{self.id.type}: invalid action: {query_action.action}")
 
@@ -432,9 +384,7 @@ class QueryRewriterAgent(RoutedAgent):
             msg = self._user_query_history[i]
             if not isinstance(msg.body, UserMessage):
                 continue
-
-            query = f"Query: {msg.body.content}\n" + f"{'-' * 4}\n"
-            history_queries.append(query)
+            history_queries.append(f"----\nQuery:\n{msg.body.content}\n----\n")
         idx = _max_token_truncate(history_queries, max_token_num=int(MAX_TOKEN_NUM * 0.2))
         history_queries = history_queries[: idx + 1]
         history_queries.reverse()
@@ -444,6 +394,7 @@ class QueryRewriterAgent(RoutedAgent):
             num_queries=self._num_queries,
             original_query=message.original_query,
             history_queries="\n".join(history_queries),
+            json_schema=json.dumps(QueryRewriteResult.model_json_schema(), indent=2),
         )
         Logger.info(f"{_log_divider + self.id.type}: query rewrite prompt:\n{prompt}{_log_divider}")
 
@@ -467,7 +418,7 @@ class QueryRewriterAgent(RoutedAgent):
 
         # publish query rewrite result
         await self.publish_message(
-            message=search_request,
+            message=SearchRequest(query=query_rewrite.query),
             topic_id=DefaultTopicId(type=self._search_topic_type),
         )
 
@@ -513,12 +464,8 @@ class SearchAgent(RoutedAgent):
                 f"content:\n```text\n{chunk.content if chunk.content_type == ContentType.TEXT else chunk.extra_description}\n```\n"
                 "---"
             )
-        query = PROMPT_RERANK.format(
-            query=query,
-            search_results="\n".join(search_results),
-            json_schema=json.dumps(RerankResult.model_json_schema(), indent=2),
-        )
-        Logger.info(f"{_log_divider + self.id.type} rerank prompt:\n{query}{_log_divider}")
+        query = PROMPT_RERANK.format(query=query, search_results="\n".join(search_results))
+        logging.info(f"{_log_divider + self.id.type} rerank prompt:\n{query}{_log_divider}")
 
         # get rank result
         completion: CreateResult | None = None
