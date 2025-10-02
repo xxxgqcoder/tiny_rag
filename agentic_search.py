@@ -36,8 +36,8 @@ from common.data import Chunk, ContentType
 from common.logger import get_logger
 from common.utils import estimate_token_num
 from rag.functions import search
-from rag.llm import assemble_knowledge_base, format_reference_info
-from rag.prompt import PROMPT_CITATION, PROMPT_QUERY_PARSE, PROMPT_QUERY_REWRITE, PROMPT_RERANK, PROMPT_SYSTEM
+from rag.llm import assemble_knowledge_base
+from rag.prompt import PROMPT_QUERY_REWRITE, PROMPT_RERANK
 
 # global args
 MAX_TOKEN_NUM = 32 * 1024
@@ -45,7 +45,7 @@ is_generating = False
 QUERY_REWRITE_NUM = 3
 SEARCH_LIMIT = 5
 
-Logger = get_logger("agent_run", need_stream=False)
+Logger = get_logger("agent_search", need_stream=False)
 # ------------------------------------------------------------------------------
 # Util funcs
 
@@ -79,7 +79,7 @@ def _max_token_truncate(history: list[str], max_token_num: int) -> int:
     return index
 
 
-_log_divider = "\n" + "*" * 80 + "\n"
+_log_divider = "\n" + "*" * 120 + "\n"
 # ------------------------------------------------------------------------------
 # Messages
 
@@ -94,8 +94,6 @@ class ChatMessage(BaseModel):
 
 
 class QueryParseResult(BaseModel):
-    rational: str = Field("", description="brief explanation of why the action is necessary.")
-    action: str = Field("", description="next action item, can be `query` or `context_sufficient`")
     original_query: str = Field("", description="just copy original query")
 
 
@@ -118,124 +116,8 @@ class GenerationRequest(BaseModel):
 
 # ------------------------------------------------------------------------------
 # Agents
-# Query master
-class QueryMasterAgent(RoutedAgent):
-    """Agent that parses user input query and recognize user intent"""
-
-    def __init__(
-        self,
-        description: str,
-        model_client: ChatCompletionClient,
-        query_rewriter_topic_type: str,
-        chat_topic_type: str,
-    ) -> None:
-        super().__init__(description=description)
-        self._model_client = model_client
-        self._chat_history: list[ChatMessage] = []
-        self._query_rewriter_topic_type = query_rewriter_topic_type
-        self._chat_topic_type = chat_topic_type
-
-    @message_handler
-    async def handle_chat_message(self, message: ChatMessage, ctx: MessageContext) -> None:
-        Logger.info(
-            f"{_log_divider + self.id.type} handle chat message:\n{json.dumps(message.model_dump(), indent=4, ensure_ascii=False, default=str)}{_log_divider}"
-        )
-
-        if isinstance(message.body, SystemMessage):
-            # insert or update system message
-            if len(self._chat_history) > 0 and isinstance(self._chat_history[0].body, SystemMessage):
-                self._chat_history[0] = message
-            else:
-                self._chat_history.insert(0, message)
-            return
-
-        if isinstance(message.body, AssistantMessage):
-            # append message but donot trigger query parsing.
-            self._chat_history.append(message)
-            return
-
-        # append user message to chat history
-        step_time = time.time()
-        self._chat_history.append(message)
-
-        # assemble conversation history
-        history_conversation = []
-        for i in range(len(self._chat_history) - 2, -1, -1):
-            # ignore last message because it's user input query
-            msg = self._chat_history[i].body
-            if isinstance(msg, SystemMessage):
-                # ignore system message cause it's knowledge in use.
-                continue
-            conversation = f"Role: {msg.source}\n\nContent:\n{msg.content}" + f"\n{'-' * 4}\n\n"
-            history_conversation.append(conversation)
-        idx = _max_token_truncate(history_conversation, max_token_num=int(MAX_TOKEN_NUM * 0.5))
-        history_conversation = history_conversation[: idx + 1]
-        history_conversation.reverse()
-
-        # get model result
-        prompt = PROMPT_QUERY_PARSE.format(
-            history_conversation="\n".join(history_conversation),
-            user_query=message.body.content,
-            json_schema=json.dumps(QueryParseResult.model_json_schema(), indent=2),
-        )
-        Logger.info(f"{_log_divider + self.id.type} intent identify prompt:\n{prompt}")
-        completion = await self._model_client.create(
-            [SystemMessage(content=prompt)],
-            cancellation_token=ctx.cancellation_token,
-        )
-        Logger.info(
-            f"{_log_divider + self.id.type}: completion response:\n{json.dumps(completion.model_dump(), indent=4, ensure_ascii=False, default=str)}{_log_divider}"
-        )
-        reduced_completion_content = re.sub(r"<think>[.\S\s]*</think>", "", str(completion.content)).strip()
-
-        query_action: QueryParseResult | None = None
-        try:
-            result_dict = json_repair.loads(reduced_completion_content)
-            query_action = QueryParseResult.model_validate(result_dict)
-        except Exception as e:
-            Logger.error(f"{self.id.type}: fail to parse query parse result: {reduced_completion_content}\n{e}")
-
-        if not query_action:
-            query_action = QueryParseResult(
-                rational="", action="context_sufficient", original_query=str(message.body.content)
-            )
-        Logger.info(
-            f"{_log_divider + self.id.type}: query parse result:\n"
-            f"{json.dumps(query_action.model_dump(), indent=4, ensure_ascii=False, default=str)}{_log_divider}"
-        )
-
-        # next action
-        if query_action.action == "context_sufficient":
-            Logger.info(
-                f"{_log_divider + self.id.type}: model thinks context is sufficient, trigger answer generation{_log_divider}"
-            )
-            await self.publish_message(
-                message=GenerationRequest(),
-                topic_id=DefaultTopicId(type=self._chat_topic_type),
-            )
-            return
-        elif query_action.action == "query":
-            await self.publish_message(
-                message=query_action,
-                topic_id=DefaultTopicId(type=self._query_rewriter_topic_type),
-            )
-        else:
-            logging.error(f"{self.id.type}: invalid action: {query_action.action}")
-            await self.publish_message(
-                message=GenerationRequest(),
-                topic_id=DefaultTopicId(type=self._chat_topic_type),
-            )
-
-        Logger.info(
-            f"{_log_divider + self.id.type}: query parse done, time elapsed: {time.time() - step_time:.2f} seconds"
-        )
-
-        logging.info(
-            f"{_log_divider + self.id.type}: query parse done, time elapsed: {time.time() - step_time:.2f} seconds"
-        )
 
 
-# ------------------------------------------------------------------------------
 # Query rewriter agent
 class QueryRewriterAgent(RoutedAgent):
     """Agent for rewriting user input query"""
@@ -254,25 +136,22 @@ class QueryRewriterAgent(RoutedAgent):
         self._search_topic_type = search_topic_type
 
     @message_handler
-    async def handle_chat_message(self, message: ChatMessage, ctx: MessageContext) -> None:
-        if isinstance(message.body, UserMessage):
-            # rewriter only considers user messages
-            Logger.info(
-                f"{_log_divider + self.id.type}: append user chat message:\n{json.dumps(message.model_dump(), indent=4, ensure_ascii=False, default=str)}{_log_divider}"
-            )
-            self._user_query_history.append(message)
-
-    @message_handler
     async def handle_query_parse_result_message(self, message: QueryParseResult, ctx: MessageContext) -> None:
         Logger.info(
             f"{_log_divider + self.id.type}: handle query rewrite message:\n{json.dumps(message.model_dump(), indent=4, ensure_ascii=False, default=str)}{_log_divider}"
+        )
+        # append user query message
+        self._user_query_history.append(
+            ChatMessage(
+                body=UserMessage(content=message.original_query, source="User"),
+                meta=None,
+            )
         )
 
         # format history queries
         history_queries = []
         step_time = time.time()
         for i in range(len(self._user_query_history) - 2, -1, -1):
-            # ignore latest message because it's the query to be rewritted
             msg = self._user_query_history[i]
             if not isinstance(msg.body, UserMessage):
                 continue
@@ -291,21 +170,19 @@ class QueryRewriterAgent(RoutedAgent):
         Logger.info(f"{_log_divider + self.id.type}: query rewrite prompt:\n{prompt}{_log_divider}")
 
         query_rewrite: QueryRewriteResult | None = None
-        completion: CreateResult | None = None
+        resp: CreateResult | None = None
         try:
-            completion = await self._model_client.create(
+            resp = await self._model_client.create(
                 [SystemMessage(content=prompt)], cancellation_token=ctx.cancellation_token
             )
-            reduced_completion_content = re.sub(r"<think>[.\s\S]*</think>", "", str(completion.content))
+            reduced_resp_content = re.sub(r"<think>[.\s\S]*</think>", "", str(resp.content))
             Logger.info(
-                f"{_log_divider + self.id.type}: reduced comletion content:\n{reduced_completion_content}{_log_divider}"
+                f"{_log_divider + self.id.type}: reduced comletion content:\n{reduced_resp_content}{_log_divider}"
             )
-            raw_dict = json_repair.loads(reduced_completion_content)
+            raw_dict = json_repair.loads(reduced_resp_content)
             query_rewrite = QueryRewriteResult.model_validate(raw_dict)
         except Exception as e:
-            Logger.error(
-                f"{_log_divider + self.id.type}: fail to parse query rewrite result: {completion}\nError:\n{e}"
-            )
+            Logger.error(f"{_log_divider + self.id.type}: fail to parse query rewrite result: {resp}\nError:\n{e}")
             query_rewrite = QueryRewriteResult(rational="", query=[message.original_query])
 
         # publish query rewrite result
@@ -353,7 +230,9 @@ class SearchAgent(RoutedAgent):
             search_results.append(
                 f"---\n"
                 f"ID:{i}\n"
-                f"content:\n```text\n{chunk.content if chunk.content_type == ContentType.TEXT else chunk.extra_description}\n```\n"
+                "content:\n```text\n"
+                f"{chunk.content if chunk.content_type == ContentType.TEXT else chunk.extra_description}"
+                "\n```\n"
                 "---"
             )
         query = PROMPT_RERANK.format(
@@ -364,23 +243,23 @@ class SearchAgent(RoutedAgent):
         logging.info(f"{_log_divider + self.id.type} rerank prompt:\n{query}{_log_divider}")
 
         # get rank result
-        completion: CreateResult | None = None
+        resp: CreateResult | None = None
         rank_result: RerankResult | None = None
         try:
-            completion = await self._model_client.create([SystemMessage(content=query)])
+            resp = await self._model_client.create([SystemMessage(content=query)])
             Logger.info(
                 f"{_log_divider + self.id.type} rerank completion response:\n"
-                f"{json.dumps(completion.model_dump(), indent=4, ensure_ascii=False, default=str)}{_log_divider}"
+                f"{json.dumps(resp.model_dump(), indent=4, ensure_ascii=False, default=str)}{_log_divider}"
             )
             # parse result
-            reduced_completion_content = re.sub(r"<think>[.\s\S]*</think>", "", str(completion.content))
+            reduced_resp_content = re.sub(r"<think>[.\s\S]*</think>", "", str(resp.content))
             Logger.info(
-                f"{_log_divider + self.id.type} reduced comletion content:\n{reduced_completion_content}{_log_divider}"
+                f"{_log_divider + self.id.type} reduced comletion content:\n{reduced_resp_content}{_log_divider}"
             )
-            raw_dict = json_repair.loads(reduced_completion_content)
+            raw_dict = json_repair.loads(reduced_resp_content)
             rank_result = RerankResult.model_validate(raw_dict)
         except Exception as e:
-            Logger.error(f"{_log_divider + self.id.type}: fail to rerank search result: {completion}\nError:\n{e}")
+            Logger.error(f"{_log_divider + self.id.type}: fail to rerank search result: {resp}\nError:\n{e}")
             return []
 
         # filter chunks
@@ -404,6 +283,7 @@ class SearchAgent(RoutedAgent):
             f"{_log_divider + self.id.type}:\nhandle search request:\n{json.dumps(message.model_dump(), indent=4, ensure_ascii=False, default=str)}{_log_divider}"
         )
 
+        # search
         step_time = time.time()
         all_chunks = []
         for query in message.query:
@@ -413,7 +293,6 @@ class SearchAgent(RoutedAgent):
         # rank result
         all_chunks = await self.rerank(query="; ".join(message.query), chunks=all_chunks)
 
-        # assemble knowledge base
         knowledge_base, refid2meta = assemble_knowledge_base(all_chunks)
         Logger.info(f"{_log_divider + self.id.type}:\nknowledge base:\n{knowledge_base}{_log_divider}")
         Logger.info(
@@ -426,7 +305,7 @@ class SearchAgent(RoutedAgent):
             topic_id=DefaultTopicId(type=self._chat_topic_type),
         )
 
-        # trigger LLM answer generation
+        # trigger answer display
         await self.publish_message(
             message=GenerationRequest(),
             topic_id=DefaultTopicId(type=self._chat_topic_type),
@@ -435,7 +314,7 @@ class SearchAgent(RoutedAgent):
 
 
 # ------------------------------------------------------------------------------
-# Response generation
+# Response generation agent
 class GeneratorAgent(RoutedAgent):
     """Agent that generates answer using system knowledge and history messages."""
 
@@ -479,7 +358,6 @@ class GeneratorAgent(RoutedAgent):
         # assemble knwoledge base and history
         knowledge_base_msg: ChatMessage | None = None
         knowledge_base = ""
-        refid2meta: dict[str, dict[str, Any]] = {}
         for msg in self._chat_history:
             if isinstance(msg.body, SystemMessage):
                 knowledge_base_msg = msg
@@ -488,60 +366,14 @@ class GeneratorAgent(RoutedAgent):
             knowledge_base = knowledge_base_msg.body.content
         if knowledge_base_msg and knowledge_base_msg.meta:
             refid2meta = knowledge_base_msg.meta
-        knowledge_base_prompt = PROMPT_SYSTEM.format(
-            knowledge_base=knowledge_base, citation_requirement=PROMPT_CITATION
-        )
-
-        Logger.info(f"{_log_divider + self.id.type}:\nknowledge base prompt:\n{knowledge_base_prompt}{_log_divider}")
-        Logger.info(
-            f"{_log_divider + self.id.type}:\nreference meta:\n{json.dumps(refid2meta, indent=4, ensure_ascii=False, default=str)}{_log_divider}"
-        )
-
-        # assemble history conversations
-        conversations: list[UserMessage] = []
-        conversation_content = []
-        for i in range(len(self._chat_history) - 1, -1, -1):
-            msg: ChatMessage = self._chat_history[i]
-            if not isinstance(msg.body, UserMessage):
-                continue
-            conversations.append(msg.body)
-            conversation_content.append(msg.body.content)
-
-        idx = _max_token_truncate(conversation_content, int(MAX_TOKEN_NUM * 0.5))
-        conversations = conversations[: idx + 1]
-        conversations.reverse()
-
-        # get model response
-        completion = self._model_client.create_stream(
-            [SystemMessage(content=knowledge_base_prompt)] + conversations,
-            cancellation_token=ctx.cancellation_token,
-        )
 
         # print response
         # reset global generating flag
         global is_generating
+        is_generating = False
         console = Console()
-        response_content = ""
-        async for r in completion:
-            if is_generating:
-                is_generating = False
-                print("", end="\r", flush=True)
-
-            if not isinstance(r, str):
-                break
-            console.print(str(r), end="")
-            response_content += str(r)
-
-        formatted_ref = format_reference_info(refid2meta, str(response_content))
-        Logger.info(f"{_log_divider + self.id.type}:\nformatted reference data:\n{formatted_ref}{_log_divider}")
-        console.print("\n\n\n")
-        console.print(Markdown(_escape_markdown(formatted_ref)))
-
-        # publish assistance message
-        await self.publish_message(
-            message=ChatMessage(body=AssistantMessage(content=response_content, source="Assistant")),
-            topic_id=DefaultTopicId(type=self._chat_topic_type),
-        )
+        console.print(Markdown("**Answer:**"))
+        console.print(Markdown(_escape_markdown(str(knowledge_base))))
 
         Logger.info(
             f"{_log_divider + self.id.type}: generation done, time elapsed: {time.time() - step_time:.2f} seconds"
@@ -599,8 +431,7 @@ def print_loading_mark() -> None:
 
 
 async def main():
-    # HACK: force reinit logger
-
+    # print loading mark
     global is_generating
     is_generating = False
     job_executor = get_job_executor()
@@ -611,13 +442,11 @@ async def main():
 
     # topics and agent description
     chat_topic_type = "group_chat"
-    query_master_desc = "Query master for prediction next action on user input"
-    query_master_model = "qwen3:30b-a3b-instruct-2507-q4_K_M"
 
     query_rewriter_topic_type = "query_rewriter"
     query_rewriter_desc = "Rewrite user query"
     # query_rewriter_model = "qwen3:4b-thinking-2507-q4_K_M"
-    query_rewriter_model = "qwen3:30b-a3b-instruct-2507-q4_K_M"
+    query_rewriter_model = "qwen3:30b-a3b-thinking-2507-q4_K_M"
 
     search_topic_type = "query_search"
     search_desc = "Search knowledge base and return result"
@@ -627,21 +456,7 @@ async def main():
     generator_desc = "Answer generator"
     generator_model = "qwen3:30b-a3b-thinking-2507-q4_K_M"
 
-    # query master
-    query_master_type = await QueryMasterAgent.register(
-        runtime,
-        "query_master",
-        lambda: QueryMasterAgent(
-            model_client=OllamaChatCompletionClient(model=query_master_model, **TinyRAGConfig.gen_conf.model_dump()),
-            description=query_master_desc,
-            query_rewriter_topic_type=query_rewriter_topic_type,
-            chat_topic_type=chat_topic_type,
-        ),
-    )
-    # listen to `chat_topic_type`
-    await runtime.add_subscription(TypeSubscription(topic_type=chat_topic_type, agent_type=query_master_type.type))
-
-    # query rewriter
+    # query rewriter agent
     query_rewriter_type = await QueryRewriterAgent.register(
         runtime,
         query_rewriter_topic_type,  # topic type as agent type
@@ -652,7 +467,6 @@ async def main():
             search_topic_type=search_topic_type,
         ),
     )
-    # listen to `chat_topic_type` and `query_rewriter_topic_type`
     await runtime.add_subscription(TypeSubscription(topic_type=chat_topic_type, agent_type=query_rewriter_type.type))
     await runtime.add_subscription(
         TypeSubscription(topic_type=query_rewriter_topic_type, agent_type=query_rewriter_type.type)
@@ -669,7 +483,6 @@ async def main():
             search_limit=SEARCH_LIMIT,
         ),
     )
-    # listen to search_topic_type topic
     await runtime.add_subscription(TypeSubscription(topic_type=search_topic_type, agent_type=search_type.type))
 
     # generator agent
@@ -682,7 +495,6 @@ async def main():
             chat_topic_type=chat_topic_type,
         ),
     )
-    # listen to `chat_topic_type`.
     await runtime.add_subscription(TypeSubscription(topic_type=chat_topic_type, agent_type=generator_type.type))
 
     # start the conversation
@@ -703,10 +515,7 @@ async def main():
 
             is_generating = True
             await runtime.publish_message(
-                ChatMessage(
-                    body=UserMessage(content=user_input, source="User"),
-                    meta=None,
-                ),
+                QueryParseResult(original_query=user_input),
                 TopicId(type=chat_topic_type, source=session_id),
             )
             while is_generating:

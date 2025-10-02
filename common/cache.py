@@ -1,7 +1,8 @@
 import functools
 import pickle
 from abc import ABC, abstractmethod
-from typing import Any, Callable, TypeVar
+from collections.abc import Callable
+from typing import TypeVar
 
 import redis
 

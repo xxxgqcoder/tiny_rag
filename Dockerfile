@@ -18,18 +18,22 @@ RUN --mount=type=cache,id=tiny_rag_apt,target=/var/cache/apt,sharing=locked \
     echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache && \
     chmod 1777 /tmp && \
     apt update && \
-    apt --no-install-recommends install -y ca-certificates && \
+    apt --no-install-recommends install -y ca-certificates software-properties-common gnupg && \
+    add-apt-repository ppa:deadsnakes/ppa -y && \
     apt update && \
+    apt install -y python3.12 python3.12-venv python3.12-dev python3-pip && \
     apt install -y default-jdk && \
     apt install -y build-essential && \
-    apt install -y python3-pip pipx nginx unzip curl wget git vim less
+    apt install -y pipx nginx unzip curl wget git vim less
 
 # setup vim
 RUN echo "set number" >> /etc/vim/vimrc
 
-# python cmd
-RUN ln -s /usr/bin/python3 /usr/bin/python
-
+# python cmd - link python3.12 as default
+RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.12 1 && \
+    update-alternatives --install /usr/bin/python python /usr/bin/python3.12 1 && \
+    python3.12 -m ensurepip --upgrade && \
+    python3.12 -m pip install --upgrade pip setuptools wheel
 
 # ============================================================================ #
 # builder stage
@@ -50,15 +54,16 @@ RUN --mount=type=cache,id=tiny_rag_pip,target=/root/.cache/pip,sharing=locked \
         pip3 config set global.index-url https://mirrors.aliyun.com/pypi/simple; \
         pip3 config set global.trusted-host mirrors.aliyun.com; \
     fi; \
+    pip3 install 'setuptools<70.0.0' && \
+    pip3 install --ignore-installed blinker && \
     pip3 install -r requirements.txt
 
 # ============================================================================ #
 # copy project files
-COPY assets assets
 COPY common common
 COPY rag rag
+COPY parse parse
 COPY config.yaml .
-COPY notebooks/start_jupyter.sh .
 
 COPY docker/entrypoint.sh .
 RUN chmod +x ./entrypoint*.sh

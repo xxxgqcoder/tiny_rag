@@ -1,6 +1,5 @@
 import os
 import sys
-import time
 import unittest
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -10,7 +9,7 @@ print(sys.path[-1])
 
 import numpy as np
 
-from common.config import CacheConfig, ObjectStoreConfig, RationalDBConfig, TinyRAGConfig, VectorDBConfig
+from common.config import ObjectStoreConfig, RationalDBConfig, TinyRAGConfig, VectorDBConfig
 from common.data import RationalDBRecord, VectorDBRecord
 from rag.db import (
     create_object_store_bucket,

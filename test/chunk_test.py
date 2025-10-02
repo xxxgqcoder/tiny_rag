@@ -1,18 +1,16 @@
 import os
 import sys
-import time
 import unittest
 
 from common.data import Content, ContentType
-from parse.chunking import ByteOverlapChunking, OverlapChunking
+from parse.chunking import ByteOverlapChunking
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 print(sys.path[-1])
 
 
-from common.cache import get_cache_db
-from common.config import CacheConfig, TinyRAGConfig
+from common.config import TinyRAGConfig
 
 
 class TestChunk(unittest.TestCase):

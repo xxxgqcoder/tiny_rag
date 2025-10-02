@@ -1,6 +1,7 @@
 import re
 from abc import ABC, abstractmethod
-from typing import Any, Generator, Union
+from collections.abc import Generator
+from typing import Any
 
 from ollama import Client as OllamaClient
 
@@ -20,7 +21,7 @@ class ChatModel(ABC):
         self,
         history: list[dict[str, Any]],
         gen_conf: dict[str, Any] = {},
-    ) -> Generator[Union[str, int], Any, Any]:
+    ) -> Generator[str | int, Any, Any]:
         raise NotImplementedError("Not implemented")
 
     @abstractmethod
@@ -96,7 +97,7 @@ class OllamaChat(ChatModel):
         self,
         history: list[dict[str, Any]],
         gen_conf: dict[str, Any] = {},
-    ) -> Generator[Union[str, int], Any, Any]:
+    ) -> Generator[str | int, Any, Any]:
         options = _ollama_options(gen_conf)
         try:
             response = self.client.chat(

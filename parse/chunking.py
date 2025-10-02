@@ -1,11 +1,10 @@
-import logging
 from abc import ABC, abstractmethod
 
 from common.cache import singleton
 from common.config import TinyRAGConfig
 from common.data import Chunk, Content, ContentType
-from common.utils import safe_encode, safe_strip
 from common.logger import Logger
+from common.utils import safe_encode, safe_strip
 
 
 class Chunking(ABC):

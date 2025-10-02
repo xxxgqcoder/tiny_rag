@@ -10,8 +10,8 @@ from pymilvus import AnnSearchRequest, DataType, MilvusClient, WeightedRanker
 
 from common.config import TinyRAGConfig
 from common.data import RationalDBRecord, VectorDBRecord
-from common.utils import logging_exception, run_once, singleton, time_it
 from common.logger import Logger
+from common.utils import logging_exception, run_once, singleton, time_it
 
 
 class VectorDB(ABC):

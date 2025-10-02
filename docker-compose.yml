@@ -38,6 +38,7 @@ services:
       - TINY_RAG@@object_store_config@@token=minioadmin
     volumes:
       - tiny_rag_data:/var/data/tiny_rag
+      - ./tiny_rag_files:/var/data/files
     depends_on:
       - minio
       - redis

@@ -15,8 +15,8 @@ from common.data import (
     SearchRequest,
     SearchResponse,
 )
-from rag.embedding import get_embedding_model
 from common.logger import Logger
+from rag.embedding import get_embedding_model
 
 _service_url = TinyRAGConfig.search_service_url
 
