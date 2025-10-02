@@ -31,7 +31,7 @@ class Parser(ABC):
 class TextParser(Parser):
     def parse(self, file_path: str) -> list[Content]:
         self.file_path = file_path
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             text = f.read()
 
         content = Content(
@@ -57,3 +57,13 @@ class ImageParser(Parser):
             content_url=file_path,
         )
         return [content]
+
+
+def get_parser_by_file_type(file_type: str) -> Parser:
+    if file_type in ["txt", "md"]:
+        return TextParser()
+    if file_type in ["png", "jpg", "jpeg", "bmp", "gif"]:
+        return ImageParser()
+
+    # default
+    return TextParser()

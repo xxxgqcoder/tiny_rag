@@ -24,12 +24,6 @@ class EmbeddingConfig(BaseSettings):
     embedding_model_name: str = Field("", description="Name of the embedding model.")
     embedding_dim: int = Field(1024, description="Dimension of the embedding vectors.")
     embedding_support_sparse_vector: bool = Field(True, description="Whether to use sparse vectors for embeddings.")
-    embedding_model_dir: str = Field("", description="Directory of the embedding model.")
-
-
-class ParserConfig(BaseSettings):
-    config_file_path: str = Field("", description="Path to the configuration file.")
-    asset_save_dir: str = Field("parsed_assets", description="Directory for saving parsed assets.")
 
 
 class ChunkingConfig(BaseSettings):
@@ -73,7 +67,6 @@ class Config(BaseSettings):
     ignore_path_patterns: list[str] = Field(..., description="List of path patterns to ignore.")
     support_file_types: list[str] = Field(..., description="List of supported file types.")
 
-    parser_config: ParserConfig = Field(..., description="Parser configuration.")
     rational_db_config: RationalDBConfig = Field(..., description="Rational database configuration.")
     vector_db_config: VectorDBConfig = Field(..., description="Vector database configuration.")
     embedding_config: EmbeddingConfig = Field(..., description="Embedding configuration.")

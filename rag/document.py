@@ -7,11 +7,10 @@ from watchdog.observers import Observer
 
 from common.config import TinyRAGConfig
 from common.data import Content, ContentType, GetDocumentResponse
-from common.utils import ensure_max_token, hash64, logging_exception, run_once, time_it
 from common.logger import Logger
-from parse import get_parser_by_file_type
+from common.utils import ensure_max_token, hash64, logging_exception, run_once, time_it
 from parse.chunking import get_chunking_by_file_type
-from parse.parser import Parser
+from parse.parser import Parser, get_parser_by_file_type
 from rag.embedding import EmbeddingModel, get_embedding_model
 from rag.functions import delete_document, get_all_document, get_document, upsert_document
 from rag.llm import get_vision_model

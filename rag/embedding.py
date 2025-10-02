@@ -25,8 +25,7 @@ class EmbeddingModel(ABC):
 
 @singleton
 class Qwen3Embedding(EmbeddingModel):
-    def __init__(self, model_dir: str, model_name: str):
-        self.model_dir = model_dir
+    def __init__(self, model_name: str):
         self.model_name = model_name
         self.client = OllamaClient(
             host=TinyRAGConfig.ollama_host,
@@ -41,7 +40,7 @@ class Qwen3Embedding(EmbeddingModel):
     @time_it(prefix="Qwen3 ebmedding")
     @cache_it(key_generator=key_generator, key_ttl_seconds=60 * 60 * 24 * 30)
     def encode(self, texts: list[str], **kwargs) -> list[list[float]]:
-        prompt_name = kwargs.get("prompt_name", None)
+        prompt_name = kwargs.get("prompt_name")
         if prompt_name:
             for i, text in enumerate(texts):
                 texts[i] = f"{prompt_name} {text}"
@@ -51,6 +50,5 @@ class Qwen3Embedding(EmbeddingModel):
 
 def get_embedding_model() -> EmbeddingModel:
     return Qwen3Embedding(
-        model_dir=TinyRAGConfig.embedding_config.embedding_model_dir,
         model_name=TinyRAGConfig.embedding_config.embedding_model_name,
     )

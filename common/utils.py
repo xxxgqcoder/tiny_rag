@@ -2,17 +2,16 @@ import asyncio
 import base64
 import functools
 import inspect
-import logging
 import os
 import time
 import traceback
 from collections.abc import Callable
-from datetime import datetime, timezone
-from typing import Any, Callable, TypeVar
-
-from common.logger import Logger
+from datetime import UTC, datetime
+from typing import Any, TypeVar
 
 import xxhash
+
+from common.logger import Logger
 
 
 def get_project_base_directory() -> str:
@@ -118,7 +117,7 @@ def run_once(func: Callable[..., T]) -> Callable[..., T]:
 
 
 def now_in_utc() -> str:
-    now_utc = datetime.now(timezone.utc)
+    now_utc = datetime.now(UTC)
     return now_utc.strftime("%Y-%m-%d %H:%M:%S.%f")
 
 

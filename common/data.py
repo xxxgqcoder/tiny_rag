@@ -1,6 +1,5 @@
 from typing import Any
 
-from albucore import F
 from pydantic import BaseModel, Field, model_validator
 from strenum import StrEnum
 

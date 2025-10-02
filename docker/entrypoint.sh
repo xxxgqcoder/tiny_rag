@@ -9,14 +9,17 @@ script=$(realpath "$0")
 project_root_dir=$(dirname "$script")
 echo "project root dir: $project_root_dir"
 
-
-# start juypter for debug
-sh start_jupyter.sh
-echo 'jupyter server started'
-
+# Add project root to PYTHONPATH
+export PYTHONPATH="${project_root_dir}:${PYTHONPATH}"
+echo "PYTHONPATH: $PYTHONPATH"
 
 # start python server
-python -m rag.service
+nohup python -m rag.service 2>&1 &
+echo "python server started"
+
+# start file monitor
+nohup python -m rag.document 2>&1 &
+echo "file monitor started"
 
 
 # hang for ever
