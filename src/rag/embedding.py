@@ -48,7 +48,34 @@ class Qwen3Embedding(EmbeddingModel):
         return [list(embedding) for embedding in response.embeddings]
 
 
+# ollam bg3m3 embedding model client
+@singleton
+class BGEEmbedding(EmbeddingModel):
+    def __init__(self, model_name: str):
+        self.model_name = model_name
+        self.client = OllamaClient(
+            host=TinyRAGConfig.ollama_host,
+            timeout=10 * 60,
+        )
+
+    def key_generator(self, texts: list[str], **kwargs) -> str:
+        prompt_name = kwargs.get("prompt_name", "")
+        content = ",".join(texts) + self.model_name + prompt_name
+        return "embedding::text_hash::" + hash64(content.encode("utf-8", errors="ignore"))
+
+    @time_it(prefix="BGE ebmedding")
+    @cache_it(key_generator=key_generator, key_ttl_seconds=60 * 60 * 24 * 30)
+    def encode(self, texts: list[str], **kwargs) -> list[list[float]]:
+        response: EmbedResponse = self.client.embed(model=self.model_name, input=texts)
+        print(f"BGEEmbedding.encode: got {len(response.embeddings)} embeddings")
+
+        return [list(embedding) for embedding in response.embeddings]
+
+
 def get_embedding_model() -> EmbeddingModel:
-    return Qwen3Embedding(
-        model_name=TinyRAGConfig.embedding_config.embedding_model_name,
-    )
+    if "Qwen3-Embedding-4B".lower() in TinyRAGConfig.embedding_config.embedding_model_name:
+        return Qwen3Embedding(model_name=TinyRAGConfig.embedding_config.embedding_model_name)
+    if "bge-m3:567m" in TinyRAGConfig.embedding_config.embedding_model_name:
+        return BGEEmbedding(model_name=TinyRAGConfig.embedding_config.embedding_model_name)
+
+    raise ValueError(f"Unsupported embedding model: {TinyRAGConfig.embedding_config.embedding_model_name}")

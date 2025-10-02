@@ -64,19 +64,25 @@ class Config(BaseSettings):
     root_data_dir: str = Field("data", description="Root directory for all data storage.")
     max_context_token_num: int = Field(64000, description="Maximum number of tokens in the context.")
     host_file_dir: str = Field("", description="Directory for host files.")
-    ignore_path_patterns: list[str] = Field(..., description="List of path patterns to ignore.")
-    support_file_types: list[str] = Field(..., description="List of supported file types.")
+    ignore_path_patterns: list[str] = Field(default_factory=list, description="List of path patterns to ignore.")
+    support_file_types: list[str] = Field(default_factory=list, description="List of supported file types.")
 
-    rational_db_config: RationalDBConfig = Field(..., description="Rational database configuration.")
-    vector_db_config: VectorDBConfig = Field(..., description="Vector database configuration.")
-    embedding_config: EmbeddingConfig = Field(..., description="Embedding configuration.")
-    chunking_config: ChunkingConfig = Field(..., description="Embedding configuration.")
-    object_store_config: ObjectStoreConfig = Field(..., description="Object store configuration.")
-    cache_config: CacheConfig = Field(..., description="Cache configuration.")
-    gen_conf: GenerationConf = Field(..., description="Generation configuration.")
+    rational_db_config: RationalDBConfig = Field(
+        default_factory=RationalDBConfig, description="Rational database configuration."
+    )
+    vector_db_config: VectorDBConfig = Field(
+        default_factory=VectorDBConfig, description="Vector database configuration."
+    )
+    embedding_config: EmbeddingConfig = Field(default_factory=EmbeddingConfig, description="Embedding configuration.")
+    chunking_config: ChunkingConfig = Field(default_factory=ChunkingConfig, description="Embedding configuration.")
+    object_store_config: ObjectStoreConfig = Field(
+        default_factory=ObjectStoreConfig, description="Object store configuration."
+    )
+    cache_config: CacheConfig = Field(default_factory=CacheConfig, description="Cache configuration.")
+    gen_conf: GenerationConf = Field(default_factory=GenerationConf, description="Generation configuration.")
 
     model_config = SettingsConfigDict(
-        yaml_file=os.path.join(get_project_base_directory(), "config.yaml"),
+        yaml_file=os.environ.get("TINY_RAG_CONFIG_PATH", os.path.join(get_project_base_directory(), "config.yaml")),
         env_prefix="TINY_RAG@@",
         env_nested_delimiter="@@",
         nested_model_default_partial_update=True,

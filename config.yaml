@@ -27,8 +27,8 @@ support_file_types:
     - gif
 
 embedding_config:
-    embedding_model_name: dengcao/Qwen3-Embedding-4B:Q5_K_M
-    embedding_dim: 2560
+    embedding_model_name: bge-m3:567m
+    embedding_dim: 1024
     embedding_support_sparse_vector: false
 
 gen_conf:

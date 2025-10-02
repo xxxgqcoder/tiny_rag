@@ -15,7 +15,7 @@ from common.logger import Logger
 
 
 def get_project_base_directory() -> str:
-    project_base = os.path.abspath(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+    project_base = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", ".."))
     return project_base
 
 

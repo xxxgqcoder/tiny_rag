@@ -41,7 +41,7 @@ class TestMilvusDB(unittest.TestCase):
         # insert record
         record1 = VectorDBRecord(
             uuid="uuid1",
-            file_name="fake_file_name",
+            file_path="fake_file_name",
             content_url="fake_content_url",
             embedding=embeding_vector,
             metadata={"key": "value"},
@@ -84,7 +84,7 @@ class TestSQLiteDB(unittest.TestCase):
         file_name = os.path.basename(file_path)
         chunk_uuids = ["4e03170d52fd201a", "57e68f3d1e1ebcfb"]
         record = RationalDBRecord(
-            file_name=file_name,
+            file_path=file_name,
             chunk_uuids="\x07".join(chunk_uuids),
             created_date="1",
             content_hash="1",
@@ -101,15 +101,15 @@ class TestSQLiteDB(unittest.TestCase):
         self.assertEqual(insert_cnt, 1)
 
         # get
-        ret = db.get_document(file_name=file_name)
-        self.assertEqual(ret.file_name, file_name)
+        ret = db.get_document(file_path=file_name)
+        self.assertEqual(ret.file_path, file_name)
 
         # get total
         ret = db.get_all_documents()
         self.assertEqual(len(ret), 1)
 
         # delete
-        delete_cnt = db.delete_document(file_name=file_name)
+        delete_cnt = db.delete_document(file_path=file_name)
         self.assertEqual(delete_cnt, 1)
 
         # get total
