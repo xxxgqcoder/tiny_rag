@@ -28,7 +28,7 @@ def setup_cache():
     
     # Cleanup: flush test keys
     try:
-        cache.client.flushdb()
+        cache.client.flushdb() # type: ignore
     except:
         pass
 
