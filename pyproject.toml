@@ -20,6 +20,7 @@ dependencies = [
     "pytest",
     "mypy",
     "json_repair",
+    "prompt_toolkit",
 ]
 
 [tool.black]

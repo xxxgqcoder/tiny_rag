@@ -17,7 +17,7 @@ class TestChunk(unittest.TestCase):
     def test_base(self):
         content = Content(
             content_type=ContentType.TEXT,
-            file_name="test_file_name",
+            file_path="test_file_name",
             content="1234567",
             extra_description="",
             content_url="",
