@@ -4,6 +4,9 @@ set -e
 
 echo "process started"
 
+source .venv/bin/activate
+python --version
+
 # project root dir
 script=$(realpath "$0")
 project_root_dir=$(dirname "$script")

@@ -1,74 +1,62 @@
 # Tiny RAG
-Tiny RAG is a simplified LLM base RAG, which acts as personal knowledge assistance and focus only on core logic of an RAG system.
 
-Key features 
-1. Local directory based knowledge file management. All knowledge base files are stored in local file folder. Tiny RAG monitors local file directory and once file created / deleted, Tiny RAG will automatically digest and delete corresponding content.
-2. Advanced PDF parser library used. Tiny RAG adopts [`MinerU`](https://github.com/opendatalab/MinerU) for pdf parsing.
-3. Use [`Milvus`](https://milvus.io/) as vector db for fast and hybird (dense vector and key-word matching combined) content retrival.
-4. Leverage local [`ollama`](https://ollama.com/) LLM for conversation.
-5. Deploy via [`docker`](https://www.docker.com/).
+A lightweight Retrieval-Augmented Generation (RAG) system built with Python, featuring document processing, vector search, and caching capabilities.
 
+## Features
 
+- **Document Processing**: Automatic monitoring and processing of documents
+- **Vector Search**: Efficient semantic search using embeddings
+- **Caching**: Redis-based caching for improved performance
+- **Object Storage**: MinIO integration for document storage
+- **RESTful API**: FastAPI-based search service
+- **Dockerized**: Easy deployment with Docker Compose
 
-# How to Deploy
+## Architecture
 
-## Install Docker and Ollama
-To deploy this project, you need to install below two softwares.
-- [`docker`](https://www.docker.com/)
-- [`ollama`](https://ollama.com/)
+- **Search Service**: FastAPI server providing search endpoints (port 4500)
+- **Document Monitor**: Background service for processing documents
+- **Redis**: Caching layer (port 23456)
+- **MinIO**: Object storage for documents (ports 6100, 6101)
 
-For non-technical background users, please refer [FAQ section](#key-concenpts-for-non-technical-background-users) for better understanding what those softwares are.
-After installing ollama, you need to first pull a llm.
+## Prerequisites
 
-Steps to pull LLM:
-- Open terminal (mac user: type `terminal` in launch pad).
-- Run `ollama pull qwen3:30b-a3b` in terminal. This step will pull `qwen3:30b-a3b` from ollama and will take a while to finish. Depending on network bandwith but it took me 20min to pull. The model itself is around 20G, so be patient when downloading the model :).
+- Docker & Docker Compose
+- Python 3.12+ (for local development)
 
+## Quick Start
 
-## Prepare Docker Image
-There two ways to prepare the docker image.
-- Pull prebuild docker image
-- Build docker image from source code.
+### Using Docker Compose
 
-### Pull Prebuild Docker Image.
-A prebuild image `xxxggxyz/tiny_rag:latest` is built and pushed to docker hub. If you want a quick try out, you can skip image building and change configuration stage and go to [start backend container](#start-backend-container) stage.
+```bash
+# Build the image
+docker compose build
 
-### Build Docker Image from Source Code.
-Follow below steps to build docker image from source code.
-- Clone repo to local.
-- Download model weight: cd to local repo and run `python tools/download_model.py`. The python script will use hugging-face cli to download pdf parser and embedding model weights from hugging-face. You may need to run `huggingface-cli huggingface-cli login --token $YOUR_HUGGINGFACE_TOKEN` to get access privilege.
-- Build docker image. Run `docker build --build-arg NEED_MIRROR=1 -f Dockerfile -t tiny_rag:dev .` to build docker image. A docker image with name `tiny_rag:dev` will be built. You can use command `docker image ls` to check.
+# Start all services
+docker compose up -d
 
+# View logs
+docker compose logs -f tiny_rag
 
-## Change Configuration
-- Configuration file: Tiny rag container requires `env` and `docker-compose-macos.yml` file. Download them to local.
-- Configuration item explanation:
-    - `IMAGE`: docker image version to use. If you build docker image from source, change this to `tiny_rag:dev`.
-    - `HOST_RAG_FILE_DIR`: host directory for saving knowledge file. Tiny RAG will monitor this directory for any content change. If new file found / file deleted, Tiny RAG will automatically trigger job to parse / remove content. Subdirectory is ignored in monitoring, which means if you put file under `HOST_RAG_FILE_DIR/some_dir` the file will be ignored.
-    - `HOST_RAG_LOG_DIR`: host directory for saving Tiny RAG logs.
-    - `CHAT_MODEL_URL`: local ollama host url. The url parts defaut to `http://host.docker.internal` because Tiny RAG is accessing ollama from docker container.
-    - `CHAT_MODEL_NAME`: model name used for chat set it to the llm model name you pulled using ollama. in this case, `qwen3:30b-a3b`. 
+# Stop services
+docker compose down
 
+# Local Development
+# Install uv (if not already installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
-## Start Backend Container
-Run ` docker compose -f docker-compose-macos.yml --env-file env up -d` to start Tiny RAG container.
+# Create virtual environment and install dependencies
+uv venv .venv --python 3.12
+source .venv/bin/activate
+uv sync
 
-## Add Knowledge Base File
-Put your files to `HOST_RAG_FILE_DIR`, Tiny RAG will begin parsing the files.
+# Set environment variables
+export TINY_RAG@@search_service_port=4500
+export TINY_RAG@@cache_config@@conn_url=redis://localhost:23456/0
+export TINY_RAG@@object_store_config@@conn_url=localhost:6100
 
-![til](./assets/start_container.gif)
+# Run the search service
+python -m rag.service
 
-## Start Chat
-Run `docker exec -it tiny_rag_server python chat.py` to start chat with knowledge base.
-![til](./assets/chat.gif)
-
-# FAQ
-## Key Concenpts for Non-technical Background Users
-- docker
-- host
-- container
-- image
-- absolute / relative file path
-- ollama
-
-
+# Run the document monitor (in another terminal)
+python -m rag.document
+```
