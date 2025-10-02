@@ -253,7 +253,7 @@ async def search(request: SearchRequest) -> SearchResponse:
 if __name__ == "__main__":
     # set up service
     Logger.info(f"Server started on port {TinyRAGConfig.search_service_port}")
-    
+
     uvicorn.run(app, host="0.0.0.0", port=TinyRAGConfig.search_service_port)
 
     Logger.info("Server shutting down")

@@ -16,7 +16,10 @@ dependencies = [
     "pydantic-settings",
     "xxhash",
     "strenum",
-    "requests"
+    "requests",
+    "pytest",
+    "mypy",
+    "json_repair",
 ]
 
 [tool.black]
