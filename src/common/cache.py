@@ -63,9 +63,19 @@ class RedisCache(CacheDB):
 
     @time_it(prefix="redis")
     def put(self, key: str, obj: bytes, key_ttl_seconds: int) -> int:
+        if key_ttl_seconds and key_ttl_seconds > 0:
+            ttl = key_ttl_seconds
+        elif key_ttl_seconds is None:
+            ttl = self.key_ttl_seconds
+        else:  # 0 or negative means no expiration
+            ret = self.client.set(name=key, value=obj)
+            if not ret:
+                return 0
+            return len(obj)
+
         ret = self.client.setex(
             name=key,
-            time=self.key_ttl_seconds if not key_ttl_seconds else key_ttl_seconds,
+            time=ttl,
             value=obj,
         )
         if not ret:
